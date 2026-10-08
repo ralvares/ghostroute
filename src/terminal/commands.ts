@@ -6,7 +6,11 @@ import {
   testConnection,
 } from "../simulation/operations.js";
 import { validOcCommand, validPodCommand } from "./syntax.js";
-import { clusterCommand, paymentLogs } from "./cluster-shell.js";
+import {
+  clusterCommand,
+  commandNamespace,
+  paymentLogs,
+} from "./cluster-shell.js";
 import { openPager } from "./pager.js";
 import { tokenize } from "./lexer.js";
 import { S } from "../simulation/state.js";
@@ -107,13 +111,14 @@ async function executeCommand(cmd: string) {
               : tokens.findIndex((t) => t.kind === "pipe"),
           )
           .map((t) => t.value);
-        if (words[0] === "oc" && words.includes("payments")) {
-          if (words[1] === "logs" && words.includes("deployment/payment-api"))
+        if (words[0] === "oc" && commandNamespace(words) === "payments") {
+          if (words[1] === "logs" && handled.stdout.includes("telemetry:"))
             addClue("logs");
           if (
             ["get", "describe"].includes(words[1]) &&
-            words.some((word) => word.includes("payment-api")) &&
-            (words.includes("-o") || words[1] === "describe")
+            handled.stdout.includes("TELEMETRY_ENDPOINT") &&
+            (words.some((word) => word.includes("payment-api")) ||
+              handled.stdout.includes("payment-api"))
           )
             addClue("env");
           if (
@@ -138,6 +143,13 @@ async function executeCommand(cmd: string) {
     printError((error as Error).message);
     return;
   }
+  if (
+    raw.startsWith("oc ") &&
+    validOcCommand(raw) &&
+    !/(?:^|\s)-n(?:\s|=)/.test(raw) &&
+    /^oc\s+(?:rsh|set\s+env|rollout\s+status)\b/.test(raw)
+  )
+    raw += ` -n ${S.cluster.namespace}`;
   if (raw.startsWith("oc ") && !validOcCommand(raw)) {
     printError(
       "error: unsupported oc syntax in this offline episode. Type help for implemented operations. Your real cluster is never accessed.",
@@ -365,7 +377,9 @@ async function executeCommand(cmd: string) {
       updateHUD();
       radio(
         "MIRA",
-        "Good. The replacement Pods no longer export telemetry to that endpoint. But remember: removing a setting is not the same as restricting egress. What would prevent another unauthorized connection?",
+        S.policy === "allow"
+          ? "The replacement Pods no longer export telemetry to that endpoint, and your egress boundary remains in place. Verify the new Pods can reach DNS and ledger while the external address stays blocked."
+          : "Good. The replacement Pods no longer export telemetry to that endpoint. But remember: removing a setting is not the same as restricting egress. What would prevent another unauthorized connection?",
       );
       return;
     }
@@ -472,7 +486,10 @@ export function podCmd(raw: string) {
         );
       } else {
         yes(
-          'HTTP/1.1 200 OK\ncontent-type: application/json\n{ "status": "healthy", "ledger": "connected" }',
+          "HTTP/1.1 200 OK\ncontent-type: application/json" +
+            (/^curl\s+-I\s/.test(txt)
+              ? ""
+              : '\n{ "status": "healthy", "ledger": "connected" }'),
         );
         maybeWin();
       }

@@ -8,7 +8,7 @@ import { openTerminal, closeTerminal } from "../terminal/shell.js";
 import { S } from "../simulation/state.js";
 import { updateHUD } from "../ui/hud.js";
 import { restart } from "../missions/progression.js";
-import { blocked, worldPos } from "../game/movement.js";
+import { approachObject, blocked, worldPos } from "../game/movement.js";
 import { floorPoint } from "../world/walkable.js";
 import { worldObjects } from "../world/locations.js";
 import {
@@ -67,17 +67,7 @@ export function registerControls() {
       }
     }
     if (hit) {
-      G.pending = hit;
-      const a = Math.atan2(S.y - hit.y, S.x - hit.x);
-      G.target = floorPoint(
-        { x: hit.x + Math.cos(a) * 34, y: hit.y + Math.sin(a) * 34 },
-        S.world.scene,
-      );
-      if (Math.hypot(S.x - hit.x, S.y - hit.y) < 70) {
-        G.target = null;
-        G.pending = null;
-        interact(hit);
-      }
+      approachObject(hit);
     } else {
       G.target = floorPoint(p, S.world.scene);
       G.pending = null;
@@ -86,7 +76,7 @@ export function registerControls() {
   document.addEventListener("keydown", (e) => {
     if (
       e.target instanceof HTMLElement &&
-      e.target.closest("input, textarea, [contenteditable]")
+      e.target.closest("input, textarea, [contenteditable], .worldTargets")
     )
       return;
     if (G.detailOpen) {
@@ -97,6 +87,15 @@ export function registerControls() {
       return;
     }
     if (G.endOpen) return;
+    if (
+      G.radioOpen &&
+      !G.terminalOpen &&
+      ["Enter", "Escape", "e", "E"].includes(e.key)
+    ) {
+      e.preventDefault();
+      closeRadio();
+      return;
+    }
     if (e.key === "Escape") {
       if (G.caseOpen) {
         G.caseOpen = false;
@@ -186,11 +185,19 @@ export function registerControls() {
       e.preventDefault();
       const v = $("termInput").value;
       if (!tabCycle || tabCycle.last !== v) {
-        tabCycle = { last: v, values: completionMatches(v, $("termInput").selectionStart ?? v.length), index: -1 };
+        tabCycle = {
+          last: v,
+          values: completionMatches(
+            v,
+            $("termInput").selectionStart ?? v.length,
+          ),
+          index: -1,
+        };
       }
       const ms = tabCycle.values;
       if (ms.length) {
-        tabCycle.index = (tabCycle.index + (e.shiftKey ? ms.length - 1 : 1)) % ms.length;
+        tabCycle.index =
+          (tabCycle.index + (e.shiftKey ? ms.length - 1 : 1)) % ms.length;
         $("termInput").value = ms[tabCycle.index];
         tabCycle.last = $("termInput").value;
         suggest();

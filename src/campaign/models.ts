@@ -1,3 +1,6 @@
+import { normalizeSecret, secretValue } from "../simulation/secrets.js";
+import { podNetworkDomain } from "../simulation/pod-addresses.js";
+import { coreResources } from "../simulation/cluster-api.js";
 import { chapters } from "./catalog.js";
 import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
@@ -10,7 +13,7 @@ export function resource(
   name: string,
   namespace = S.cluster.namespace,
 ) {
-  return [...S.cluster.resources, ...S.cluster.sccs].find(
+  return [...S.cluster.resources, ...coreResources(), ...S.cluster.sccs].find(
     (r) =>
       r.kind === kind &&
       r.metadata.name === name &&
@@ -70,6 +73,25 @@ const ready = (pod: Resource | undefined) =>
   ) ??
     false);
 
+/** Registry policy is enforced while pulling images, after API admission. */
+export function registryPullFailure(image: string) {
+  const sources = resource("Image", "cluster")?.spec?.registrySources;
+  if (!sources) return "";
+  const first = image.split("/")[0];
+  const qualified =
+    image.includes("/") && /[.:]|^localhost$/.test(first)
+      ? image
+      : "docker.io/" + (image.includes("/") ? "" : "library/") + image;
+  const matches = (entry: string) =>
+    qualified.startsWith(entry + "/") || qualified.split(":")[0] === entry;
+  const denied =
+    sources.blockedRegistries?.some(matches) ||
+    (sources.allowedRegistries && !sources.allowedRegistries.some(matches));
+  return denied
+    ? `Source image rejected: image docker://${qualified} is rejected by runtime registry policy`
+    : "";
+}
+
 /** Bounded admission models; failures are evaluated, never manufactured from command names. */
 export function validateCampaignPod(pod: Resource) {
   const namespace = pod.metadata.namespace!;
@@ -93,16 +115,7 @@ export function validateCampaignPod(pod: Resource) {
         constraint.metadata.name +
         '" requires owner labels',
     );
-  const registries = resource("Image", "cluster")?.spec?.registrySources
-    ?.allowedRegistries as string[] | undefined;
   for (const c of spec.containers) {
-    if (
-      registries &&
-      !registries.some((host) => c.image.startsWith(host + "/"))
-    )
-      throw new Error(
-        "Error from server (Forbidden): image registry is not in spec.registrySources.allowedRegistries",
-      );
     const defaults = limit?.spec?.limits?.[0];
     if (defaults) {
       c.resources = {
@@ -125,7 +138,7 @@ export function validateCampaignPod(pod: Resource) {
   const quotas = S.cluster.resources.filter(
     (r) => r.kind === "ResourceQuota" && r.metadata.namespace === namespace,
   );
-  const others = S.cluster.resources.filter(
+  const others = [...S.cluster.resources, ...coreResources()].filter(
     (r) =>
       r.kind === "Pod" &&
       r.metadata.namespace === namespace &&
@@ -147,7 +160,11 @@ export function validateCampaignPod(pod: Resource) {
           .flatMap((p) => p.spec?.containers ?? [])
           .reduce(
             (sum, c) =>
-              sum + quantity(c.resources?.[bucket]?.[dimension], dimension),
+              sum +
+              quantity(
+                c.resources?.[bucket as "requests" | "limits"]?.[dimension],
+                dimension,
+              ),
             0,
           );
         if (total > quantity(hard[key], dimension))
@@ -228,7 +245,7 @@ function tenantDirection(
   external = false,
 ) {
   const type = direction === "ingress" ? "Ingress" : "Egress";
-  const policies = S.cluster.resources.filter(
+  const policies = [...S.cluster.resources, ...coreResources()].filter(
     (r) =>
       r.kind === "NetworkPolicy" &&
       r.metadata.namespace === namespace &&
@@ -271,11 +288,8 @@ export function flow(
   const source = resource("Pod", sourceName, namespace),
     dest = resource("Pod", destName, destNamespace);
   if (!ready(source) || (!external && !ready(dest))) return false;
-  if (!external && destNamespace !== namespace) {
-    const a = resource("UserDefinedNetwork", "primary", namespace),
-      b = resource("UserDefinedNetwork", "primary", destNamespace);
-    if (a || b) return false;
-  }
+  if (!external && podNetworkDomain(source) !== podNetworkDomain(dest))
+    return false;
   let adminAllowed = false;
   const admins = S.cluster.resources
     .filter(
@@ -336,6 +350,79 @@ export function flow(
   return true;
 }
 export function reconcileFixtureControllers() {
+  for (const egress of S.cluster.resources.filter(
+    (r) => r.kind === "EgressIP",
+  )) {
+    egress.status = {
+      items: (egress.spec?.egressIPs ?? []).flatMap((ip: string) => {
+        const node = S.cluster.resources.find(
+          (r) =>
+            r.kind === "Node" &&
+            Object.hasOwn(
+              r.metadata.labels ?? {},
+              "k8s.ovn.org/egress-assignable",
+            ) &&
+            (
+              r.metadata.annotations?.[
+                "ghostroute.training/reserved-egress-addresses"
+              ] ?? ""
+            )
+              .split(",")
+              .includes(ip),
+        );
+        return node ? [{ node: node.metadata.name, egressIP: ip }] : [];
+      }),
+    };
+  }
+  for (const quota of S.cluster.resources.filter(
+    (r) => r.kind === "ResourceQuota",
+  )) {
+    const hard = quota.spec?.hard ?? {};
+    const pods = [...S.cluster.resources, ...coreResources()].filter(
+      (r) =>
+        r.kind === "Pod" &&
+        r.metadata.namespace === quota.metadata.namespace &&
+        !["Succeeded", "Failed"].includes(String(r.status?.phase)),
+    );
+    const used: Record<string, string> = {};
+    for (const key of Object.keys(hard)) {
+      if (key === "pods") {
+        used[key] = String(pods.length);
+        continue;
+      }
+      const match = key.match(/^(requests|limits)\.(cpu|memory)$/);
+      if (!match) continue;
+      const [, bucket, dimension] = match;
+      const total = pods
+        .flatMap((p) => p.spec?.containers ?? [])
+        .reduce(
+          (sum, c) =>
+            sum +
+            quantity(
+              c.resources?.[bucket as "requests" | "limits"]?.[dimension],
+              dimension,
+            ),
+          0,
+        );
+      if (dimension === "cpu")
+        used[key] = Number.isInteger(total)
+          ? String(total)
+          : `${Math.round(total * 1000)}m`;
+      else {
+        const unit =
+          total &&
+          [
+            ["Gi", 1024 ** 3],
+            ["Mi", 1024 ** 2],
+            ["Ki", 1024],
+          ].find(([, size]) => total % Number(size) === 0);
+        used[key] = unit
+          ? `${total / Number(unit[1])}${unit[0]}`
+          : String(total);
+      }
+    }
+    quota.status = { hard: structuredClone(hard), used };
+  }
   for (const external of S.cluster.resources.filter(
     (r) => r.kind === "ExternalSecret",
   )) {
@@ -371,6 +458,7 @@ export function reconcileFixtureControllers() {
         S.cluster.resources.push(secret);
       }
       secret.stringData = { password: provider!.data!.value };
+      normalizeSecret(secret);
       secret.metadata.annotations = { "roadshow.provider-version": "2" };
     }
   }
@@ -536,7 +624,7 @@ export function evaluateProbe(
     case "secret-current":
       passed =
         ready(app) &&
-        get("Secret", "database")?.stringData?.password === "training-v2" &&
+        secretValue(get("Secret", "database"), "password") === "training-v2" &&
         app?.metadata.annotations?.["roadshow.secret-version"] ===
           "training-v2";
       detail =
@@ -544,7 +632,7 @@ export function evaluateProbe(
       break;
     case "secret-retired":
       passed =
-        get("Secret", "database")?.stringData?.password === "training-v2" &&
+        secretValue(get("Secret", "database"), "password") === "training-v2" &&
         !app?.spec?.containers?.some((c) => c.env?.some((e) => !!e.value));
       detail =
         "Old credential is absent and the consumer has no literal password.";
@@ -574,22 +662,9 @@ export function evaluateProbe(
         "Pinned artifact matches the recorded training catalog, not a live signature service.";
       break;
     case "registry-denied":
-      try {
-        validateCampaignPod({
-          apiVersion: "v1",
-          kind: "Pod",
-          metadata: { name: "untrusted", namespace },
-          spec: {
-            containers: [
-              { name: "bad", image: "untrusted.example.test/app:latest" },
-            ],
-          },
-        });
-      } catch (error) {
-        passed = (error as Error).message.includes("allowedRegistries");
-      }
+      passed = !!registryPullFailure("untrusted.example.test/app:latest");
       detail =
-        "Unapproved registry negative request evaluated against live Image configuration.";
+        "Unapproved image pull blocked by the runtime registry policy; API admission is not asserted.";
       break;
     case "timeline":
       passed =
@@ -646,9 +721,15 @@ export function evaluateProbe(
       const e = resource("EgressIP", "rs-egress");
       passed =
         e?.spec?.egressIPs?.[0] === "192.0.2.25" &&
-        match(nsLabels(namespace), e?.spec?.namespaceSelector);
+        match(nsLabels(namespace), e?.spec?.namespaceSelector) &&
+        (
+          e.status?.items as { node: string; egressIP: string }[] | undefined
+        )?.some(
+          (item: any) =>
+            item.node === "worker-02" && item.egressIP === "192.0.2.25",
+        );
       detail =
-        "Selected namespace maps to the recorded reserved egress address.";
+        "Controller assigned the recorded reservation to an egress-capable node for this tenant; external packets are not observed.";
       break;
     }
     case "egress-control": {
@@ -661,11 +742,16 @@ export function evaluateProbe(
     case "udn-local":
       passed =
         !!get("UserDefinedNetwork", "primary") &&
+        podNetworkDomain(get("Pod", "client")) === namespace + "/primary" &&
+        podNetworkDomain(get("Pod", "server")) === namespace + "/primary" &&
         flow(namespace, "client", "server");
       detail = "Recorded local domain permits intended service.";
       break;
     case "udn-cross":
       passed =
+        podNetworkDomain(get("Pod", "client")) === namespace + "/primary" &&
+        podNetworkDomain(resource("Pod", "peer", namespace + "-peer")) ===
+          namespace + "-peer/primary" &&
         !!get("UserDefinedNetwork", "primary") &&
         !flow(namespace, "client", "peer", namespace + "-peer");
       detail = "Separate primary domains prevent the cross-tenant path.";
@@ -722,6 +808,20 @@ export function evaluateProbe(
     case "csi-project":
       passed =
         ready(app) &&
+        app?.spec?.volumes?.some(
+          (volume: any) =>
+            volume.name === "external" &&
+            volume.csi?.driver === "secrets-store.csi.k8s.io" &&
+            volume.csi?.volumeAttributes?.secretProviderClass === "database",
+        ) &&
+        app?.spec?.containers?.some((container: any) =>
+          container.volumeMounts?.some(
+            (mount: any) =>
+              mount.name === "external" &&
+              mount.mountPath === "/mnt/secrets-store" &&
+              mount.readOnly === true,
+          ),
+        ) &&
         get(
           "SecretProviderClass",
           "database",
@@ -746,7 +846,7 @@ export function evaluateProbe(
         get("Secret", "database")?.metadata.annotations?.[
           "roadshow.provider-version"
         ] === "2" &&
-        get("Secret", "database")?.stringData?.password === "training-v2";
+        secretValue(get("Secret", "database"), "password") === "training-v2";
       detail = "Local fixture reconciliation synchronized provider version 2.";
       break;
     case "eso-scoped":
@@ -885,7 +985,8 @@ export function evaluateProbe(
       passed =
         initial &&
         !missing.length &&
-        S.campaign.completed.length === S.campaign.active &&
+        S.campaign.completed.length ===
+          S.campaign.active + (S.campaign.finished ? 1 : 0) &&
         S.campaign.completed.every((n, i) => n === i);
       detail =
         (initial

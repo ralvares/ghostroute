@@ -33,7 +33,19 @@ self.onmessage = async (
     } else {
       if (!templateReady) {
         const runtimeUrl = `${import.meta.env.BASE_URL}tools/wasm_exec.js`;
-        await import(/* @vite-ignore */ runtimeUrl);
+        // Public assets are static bytes. Vite rejects importing their URL in
+        // development; load the bundled Go runtime as a local module instead.
+        const runtime = await fetch(runtimeUrl);
+        if (!runtime.ok)
+          throw new Error(`Go runtime unavailable: HTTP ${runtime.status}`);
+        const moduleUrl = URL.createObjectURL(
+          new Blob([await runtime.text()], { type: "text/javascript" }),
+        );
+        try {
+          await import(/* @vite-ignore */ moduleUrl);
+        } finally {
+          URL.revokeObjectURL(moduleUrl);
+        }
         const go = new globalThis.Go();
         const response = await fetch(
           `${import.meta.env.BASE_URL}tools/template.wasm`,

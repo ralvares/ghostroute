@@ -148,8 +148,15 @@ export function advanceCampaign() {
       applyResource(scopeResource(item, ch.namespace), ch.namespace);
     if (ch.id === "16") {
       const peer = ch.namespace + "-peer";
-      applyResource(object("Namespace", peer), peer);
-      applyResource(scopeResource(workload("peer"), peer), peer);
+      applyResource(
+        object("Namespace", peer, {
+          metadata: {
+            name: peer,
+            labels: { "k8s.ovn.org/primary-user-defined-network": "" },
+          },
+        }),
+        peer,
+      );
       applyResource(
         {
           apiVersion: "k8s.ovn.org/v1",
@@ -162,6 +169,7 @@ export function advanceCampaign() {
         },
         peer,
       );
+      applyResource(scopeResource(workload("peer"), peer), peer);
     }
   } finally {
     S.cluster.user = "operator";

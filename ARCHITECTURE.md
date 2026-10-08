@@ -1,5 +1,50 @@
 # ROADSHOW architecture and migration history
 
+## Intent-driven junior playthrough — 2026-10-08
+
+`JUNIOR_PLAYTEST.md` records the separate manual 27-chapter journey, observed
+failures, repairs, accepted captures, and current fidelity limits. Historical
+verification sections below describe their own milestones; their old test
+counts and offline receipts are not current-run acceptance.
+
+`world/interaction-targets.ts` owns DOM controls positioned over painted labels;
+`game/movement.ts` owns the shared approach/proximity action. Rendering updates
+positions and hides targets under overlays. Keyboard activation walks through
+the same path as canvas clicks. Canvas artwork and actor positions remain the
+source of the world view.
+
+`simulation/kube-api.ts` owns impersonation authorization and bounded Pod exec.
+Impersonation scopes the synchronous request, restores the caller in finally,
+and retains both audit identities. `security/rbac.ts` evaluates named-resource
+grants; impersonated identities do not inherit the training operator grant.
+`simulation/pod-exec.ts` implements only recorded diagnostics against actual
+resource readiness, listening ports, network attachment and policy state.
+It does not launch a process, stream a native exec connection, resolve general
+service DNS, validate TLS, or contact an external destination.
+
+`simulation/pod-addresses.ts` owns address allocation and checkpoint collision
+repair. Existing Pods retain their network attachment when a UDN is created;
+new Pods acquire the primary domain and its recorded IPv4 /24 subnet. Duplicate
+addresses are compared within a domain. `simulation/secrets.ts` consumes
+stringData into base64 data and upgrades old checkpoints; environment consumers
+retain their startup snapshot. Chapter CSI proof checks the matching mount.
+
+`campaign/models.ts` reconciles recorded EgressIP allocation only from an eligible
+node's reserved-address inventory and reports ResourceQuota used/hard values.
+Registry restrictions are evaluated at image pull, separately from admission.
+`campaign/catalog.ts` supplies reproducible failed and repaired workloads,
+native-shaped redacted historical audit records, attachment/recreation files,
+and explicit provider/runtime fixture boundaries. The final history evaluator
+works both before and after final closure. It rechecks retained controls rather
+than counting closed chapters alone.
+
+`terminal/lexer.ts` marks unquoted wildcard arguments; `filesystem.ts` expands
+them over virtual files only. Quoted jq/template expressions remain literal.
+Multi-name deletion reports every processed name. Original incident commands
+and evidence checks honor the selected project. The local Go runtime asset is
+loaded through a worker-local module Blob so Vite development and production
+can use the same shipped runtime.
+
 ## Original inventory and dependencies
 
 The preserved 60 KB HTML uses DOM/CSS overlays and a native Canvas 2D world.

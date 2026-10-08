@@ -50,7 +50,7 @@ export interface Resource {
   spec?: Partial<PodSpec> & {
     [key: string]: any;
     replicas?: number;
-    template?: { metadata?: Resource["metadata"]; spec: PodSpec };
+    template?: { metadata?: Partial<Resource["metadata"]>; spec: PodSpec };
   };
   status?: Record<string, unknown>;
   data?: Record<string, string>;
@@ -80,8 +80,14 @@ export interface ApiAuditEvent {
   auditID: string;
   verb: string;
   user: { username: string };
+  impersonatedUser?: { username: string };
   requestURI: string;
-  objectRef: { resource: string; namespace?: string; name?: string };
+  objectRef: {
+    resource: string;
+    namespace?: string;
+    name?: string;
+    subresource?: string;
+  };
   responseStatus: { code: number; reason?: string; message?: string };
   annotations: Record<string, string>;
   requestReceivedTimestamp: string;

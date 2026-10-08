@@ -8,6 +8,7 @@ import { reactionObjects, updateReaction } from "../world/reactions.js";
 import walkAtlas from "../../public/art/operator-walk.json";
 import { update } from "../game/movement.js";
 import { placeWorldLabels } from "../world/label-layout.js";
+import { syncInteractionTargets } from "../world/interaction-targets.js";
 import type { WorldObject } from "../world/locations.js";
 
 export function drawRounded(
@@ -284,6 +285,7 @@ export function drawLabels(t: number) {
         ),
         height: 44 * scale,
         compactHeight: 26 * scale,
+        compactWidth: Math.max(72 * scale, titleWidth + 24 * scale),
       };
     })
     .sort(
@@ -362,6 +364,7 @@ export function drawLabels(t: number) {
     }
   }
   C.dataset.visibleLabels = String(labels.length);
+  syncInteractionTargets(labels);
   if (G.near && !G.detailOpen && !G.radioOpen && !G.caseOpen) {
     ctx.strokeStyle = "#a5d7ec";
     ctx.lineWidth = 1.4;

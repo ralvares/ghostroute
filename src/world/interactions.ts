@@ -90,8 +90,8 @@ export function interact(o: WorldObject | null = nearest()) {
     }
     const content: Record<string, string> = {
       keycard: `<h2>Maintenance keycard found.</h2><p>Rhea left a physical access badge in the locker. It opens the records archive in the cluster corridor. Your inventory now contains the badge.</p><p>This key only opens a story room. It does not grant API permissions or SCC access.</p><img class="inventoryKey" src="${import.meta.env.BASE_URL}art/keycard.webp" alt="Maintenance access keycard">`,
-      audit: `<h2>Who changed payment-api?</h2><p>The retained training audit event records a Deployment patch by <code>system:serviceaccount:payments:build-bot</code> at 02:13:40 UTC. Its request body includes the telemetry endpoint. A service account name identifies the API caller; it does not establish who controlled its credential.</p><pre class="journal">jq 'select(.verb == "patch" and .objectRef.name == "payment-api") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log</pre><p>Run the query in your terminal. Compare the retained request with the current Deployment configuration. Then read <code>case/release-job.json</code>: its response auditID links the delivery job to this patch. Read <code>case/permission-review.yaml</code> to find the weak permission boundary. Use <code>case explain release-import</code> after correlating all three.</p>`,
-      release: `<h2>The exporter was enabled.</h2><p>The incident's retained patch added <code>TELEMETRY_ENDPOINT=https://203.0.113.77/upload</code>. The application logs show payment metadata sent to this destination. Inspect both sources before changing the live simulation.</p><pre class="journal">oc logs deployment/payment-api -n payments
+      audit: `<h2>Who changed payment-api?</h2><p>The retained training audit event records a Deployment patch by <code>system:serviceaccount:payments:build-bot</code> at 02:13:40 UTC. Its request body includes the telemetry endpoint. A service account name identifies the API caller; it does not establish who controlled its credential.</p><pre class="journal">jq 'select(.verb == "patch" and .objectRef.name == "payment-api") | {auditID, user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log</pre><p>Run the query in your terminal. Compare the retained request with the current Deployment configuration. Then read <code>case/release-job.json</code>: its response auditID links the delivery job to this patch. Read <code>case/permission-review.yaml</code> to find the weak permission boundary. Use <code>case explain release-import</code> after correlating all three.</p>`,
+      release: `<h2>The exporter was enabled.</h2><p>The incident's retained patch added <code>TELEMETRY_ENDPOINT=https://203.0.113.77/upload</code>. The application logs record a telemetry POST to this destination. They do not identify the request payload or establish malicious intent. Inspect both sources before changing the live simulation.</p><pre class="journal">oc logs deployment/payment-api -n payments
 oc get deployment payment-api -n payments -o yaml</pre><p>Configuration can explain an unexpected flow. Investigate whether the change was approved; a deviation alone is not proof of an intruder.</p>`,
       image: `<h2>Build for an arbitrary UID.</h2><p>The owned application requests UID 0. Restricted SCC admission rejects that request. Repair the application and file permissions so it runs with the non-root UID selected by its SCC.</p><pre class="journal">cat workloads/Dockerfile.secure
 cat workloads/owned-root.yaml
@@ -104,16 +104,24 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
         (o.kind === "npc"
           ? `<img class="interviewPortrait" src="${import.meta.env.BASE_URL}art/${o.art}.webp" alt="${esc(o.label)}">`
           : "") +
-        content[o.action] +
-        `<button class="btnquiet" id="recordLead">Add this lead to notebook</button>`,
+        (o.id === "kai" && !S.campaign.active && o.action === "release"
+          ? `<h2>The release imported a support file.</h2><p>I handled delivery run <code>release-184</code>. Its support-config step imported an environment file after promotion review. I can explain the delivery path; Vale can help establish which API request actually changed production.</p><p>Read <code>case/release-job.json</code> at the bastion. Match its response auditID to the retained audit event, then compare the patched setting with the Deployment and application logs. Check <code>case/permission-review.yaml</code> for the permission that allowed the change.</p><p>Don't name an attacker from a service account. Determine whether the delivery record explains the patch.</p>`
+          : content[o.action]) +
+        `<button class="btnquiet" id="recordLead">Add this lead to notebook</button>` +
+        (o.id === "kai" && !S.campaign.active && o.action === "release"
+          ? `<button class="btnquiet" id="buildAdvice">Ask about application UID failures</button>`
+          : ""),
     );
+    document
+      .getElementById("buildAdvice")
+      ?.addEventListener("click", () => interact({ ...o, action: "image" }));
     document.getElementById("recordLead")!.addEventListener("click", () => {
       const leads: Record<string, string> = {
         keycard: "Maintenance keycard: records archive in prod-east lobby.",
         audit:
           "Vale: build-bot patched payment-api at 02:13:40 UTC. Filter audit/kube-apiserver.log with jq; check requestObject. API identity alone is not attribution.",
         release:
-          "Kai: TELEMETRY_ENDPOINT points to 203.0.113.77/upload. Compare oc logs deployment/payment-api -n payments and oc get deployment payment-api -n payments -o yaml.",
+          "Kai: release-184 imported a support environment file after review. Read case/release-job.json, match its auditID with the API event, and inspect case/permission-review.yaml. Compare the patched TELEMETRY_ENDPOINT with live configuration and logs.",
         image:
           "Kai: repair owned image for arbitrary UID. Compare workloads/owned-root.yaml and workloads/owned-secure.yaml; read workloads/Dockerfile.secure. Evaluate a narrow exception only for the immutable vendor.",
         boundary:
@@ -159,7 +167,7 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
       S.traceFound = true;
     }
     openDetail(
-      `<div class="eyebrow">WORKLOAD · PAYMENTS NAMESPACE</div><h2>payment-api <span style="color:#75d9c9;font-size:15px">2 / 2 ready</span></h2><p>This Pod is running on <strong>${o.id === "pod1" ? "worker-01" : "worker-02"}</strong>. This is one Pod running inside this worker. The Deployment controller maintains two replicas across worker-01 and worker-02. A Deployment is not a workload running on a worker.</p><div class="row"><span class="pill">app=payment-api</span><span class="pill">Deployment/payment-api</span><span class="pill">ServiceAccount: payment-app</span></div><div class="divider"></div><p>${G.traceOn ? '<strong style="color:#ffa8a4">Trace Vision:</strong> outgoing signal to an unrecognized endpoint detected.' : "Open Trace Vision near a Pod to reveal its network flows."}</p><p style="font-size:13px">To investigate what the application is doing, open the operator terminal and inspect <code>oc logs deployment/payment-api -n payments</code>.</p>`,
+      `<div class="eyebrow">WORKLOAD · PAYMENTS NAMESPACE</div><h2>${esc(S.pods[o.id === "pod1" ? 0 : 1].name)} <span style="color:#75d9c9;font-size:15px">1 / 1 Ready</span></h2><p>This Pod is running on <strong>${o.id === "pod1" ? "worker-01" : "worker-02"}</strong>. This is one Pod running inside this worker. The Deployment controller maintains two replicas across worker-01 and worker-02. A Deployment is not a workload running on a worker.</p><div class="row"><span class="pill">app=payment-api</span><span class="pill">Deployment/payment-api</span><span class="pill">ServiceAccount: payment-app</span></div><div class="divider"></div><p>${G.traceOn ? '<strong style="color:#ffa8a4">Trace Vision:</strong> outgoing signal to an unrecognized endpoint detected.' : "Open Trace Vision near a Pod to reveal its network flows."}</p><p style="font-size:13px">To investigate what the application is doing, open the operator terminal and inspect <code>oc logs deployment/payment-api -n payments</code>.</p>`,
     );
     return;
   }
@@ -211,7 +219,7 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
         ? "Default-deny was too broad by itself. Open the policy files in your simulated home directory: compare deny-all.yaml with payments-egress.yaml."
         : S.policy === "allow"
           ? "A fix is only useful if it preserves service. Open a Pod shell and curl both the ledger and the untrusted address."
-          : "Each door leads into a worker node. Pods run in those rooms. The payments namespace is a logical tenant across both workers; the Deployment controller maintains the application replicas. Kai is in operations with UID build notes. Vale keeps the archive audit trail; find its maintenance keycard in the RHACS locker. Return to the bastion at RHACS Central to inspect configuration, SCC admission and egress rules.",
+          : "The payments namespace spans both worker rooms. Kai is in Operations: ask what changed in the release. His handover is also on the worker-01 desk. Vale keeps the archive audit trail; your maintenance keycard opens its door. At the bastion, correlate the release records with the API patch before deciding what happened.",
     );
     return;
   }

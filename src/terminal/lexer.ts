@@ -1,14 +1,25 @@
-export type ShellToken = { kind: "word" | "pipe" | "redirect"; value: string };
+export type ShellToken = {
+  kind: "word" | "pipe" | "redirect";
+  value: string;
+  glob?: true;
+};
 /** Quotes and escapes are parsed, never evaluated as host-shell code. */
 export function tokenize(input: string): ShellToken[] {
   const result: ShellToken[] = [];
   let buffer = "",
     quote = "",
-    started = false;
+    started = false,
+    glob = false;
   const flush = () => {
-    if (started) result.push({ kind: "word", value: buffer });
+    if (started)
+      result.push({
+        kind: "word",
+        value: buffer,
+        ...(glob ? { glob: true as const } : {}),
+      });
     buffer = "";
     started = false;
+    glob = false;
   };
   for (let i = 0; i < input.length; i++) {
     const char = input[i];
@@ -40,6 +51,7 @@ export function tokenize(input: string): ShellToken[] {
         "shell: control operators and command substitution are not implemented",
       );
     else {
+      if (char === "*" || char === "?") glob = true;
       buffer += char;
       started = true;
     }

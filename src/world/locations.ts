@@ -226,9 +226,14 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
               650,
               330,
               "KAI",
-              "Release engineer · ask about UID failures",
+              state.campaign.active
+                ? "Release engineer · ask about this case"
+                : "Release engineer · ask what changed",
               "npc",
-              { action: "image", art: "kai" },
+              {
+                action: state.campaign.active ? "image" : "release",
+                art: "kai",
+              },
             ),
           ]),
     ];

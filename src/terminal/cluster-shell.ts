@@ -1,6 +1,6 @@
 import {
-  readApiResources as getResources,
-  readApiTable,
+  readApiResources,
+  readApiTable as apiTable,
   applyApiResource as applyResource,
   deleteApiResource as deleteResource,
   kubeRequest,
@@ -17,9 +17,15 @@ import {
   restartDeployment,
   auditRequest,
 } from "../simulation/cluster-api.js";
-import { authorized, forbidden, roleAllows } from "../security/rbac.js";
+import {
+  authorized,
+  forbidden,
+  roleAllows,
+  assertCanImpersonate,
+} from "../security/rbac.js";
 import {
   readVirtualFile,
+  expandFileGlob,
   workspacePath,
   changeDirectory,
   listDirectory,
@@ -38,6 +44,12 @@ import { jsonPathValues } from "../simulation/resource-table.js";
 
 interface Result extends ToolResult {
   legacyCommand?: string;
+}
+export function commandNamespace(words: string[]) {
+  const { flags } = options([...words.slice(1)]);
+  return (
+    flags["-n"]?.at(-1) ?? flags["--namespace"]?.at(-1) ?? S.cluster.namespace
+  );
 }
 const result = (stdout: string, error = false): Result => ({
   stdout: stdout && !stdout.endsWith("\n") ? stdout + "\n" : stdout,
@@ -70,6 +82,7 @@ function options(words: string[]) {
       "--no-headers",
       "--show-labels",
       "--namespaced",
+      "--help",
     ].includes(key);
     const value =
       equals < 0 ? (boolean ? "true" : words[++i]) : token.slice(equals + 1);
@@ -91,13 +104,41 @@ function auditText() {
 const readFile = readVirtualFile;
 
 async function oc(words: string[], raw: string): Promise<Result | null> {
-  if (words.length === 1 || words[1] === "--help")
+  if (words.length === 1 || words.includes("--help"))
     return result(
-      `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, delete, patch, scale, run\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
+      `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, delete, patch, scale, run\nPod diagnostics: oc exec POD [-n NAMESPACE] [-c CONTAINER] -- curl -I http://POD-IP:PORT/health; nc -zv POD-IP PORT; id\nExec uses recorded workload endpoints; arbitrary processes, interactive streams, service DNS and TLS verification are not implemented.\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
     );
   refreshResourceTypes();
+  if (words[1] === "exec") {
+    const separator = words.indexOf("--");
+    if (separator < 3 || separator === words.length - 1)
+      throw new Error(
+        "error: use oc exec POD [-n NAMESPACE] [-c CONTAINER] -- COMMAND",
+      );
+    const { args, flags, flag } = options(words.slice(2, separator));
+    rejectFlags(flags, ["-n", "--namespace", "-c", "--container", "--as"]);
+    if (args.length !== 1) throw new Error("error: exec requires one Pod");
+    const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
+    const name = args[0].replace(/^pods?\//, "");
+    return apiBody(
+      kubeRequest({
+        method: "POST",
+        path: `/api/v1/namespaces/${encodeURIComponent(namespace)}/pods/${encodeURIComponent(name)}/exec`,
+        body: {
+          command: words.slice(separator + 1),
+          container: flag("-c") ?? flag("--container"),
+        },
+        impersonateUser: flag("--as"),
+      }),
+    ) as Result;
+  }
   const { args, flags, flag } = options(words.slice(1));
   const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
+  const impersonate = flag("--as");
+  const getResources = (...params: Parameters<typeof readApiResources>) =>
+    readApiResources(params[0], params[1], params[2], params[3], impersonate);
+  const readApiTable = (...params: Parameters<typeof apiTable>) =>
+    apiTable(params[0], params[1], params[2], params[3], impersonate);
   const manifest = flag("-f") ?? flag("--filename");
   const canonical = manifest ? workspacePath(manifest) : undefined;
   if (
@@ -106,22 +147,34 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     Object.hasOwn(policyFiles, canonical)
   ) {
     if (
-      Object.keys(flags).some((key) => !["-f", "--filename"].includes(key)) ||
+      Object.keys(flags).some(
+        (key) => !["-f", "--filename", "-n", "--namespace"].includes(key),
+      ) ||
       args.length !== 1
     )
       throw new Error(
         "simulation: incident policies use oc apply -f <file> without additional options",
       );
+    if ((flag("-n") || flag("--namespace")) && namespace !== "payments")
+      throw new Error(
+        `error: the namespace from the provided object "payments" does not match the namespace "${namespace}"`,
+      );
     return { stdout: "", legacyCommand: `oc apply -f ${canonical}` };
   }
   const verb = args[0];
   if (verb === "get" && flag("--raw")) {
-    rejectFlags(flags, ["--raw"]);
+    rejectFlags(flags, ["--raw", "--as"]);
     if (args.length !== 1)
       throw new Error("error: oc get --raw PATH accepts no resource arguments");
     return {
       stdout: JSON.stringify(
-        apiBody(kubeRequest({ method: "GET", path: flag("--raw")! })),
+        apiBody(
+          kubeRequest({
+            method: "GET",
+            path: flag("--raw")!,
+            impersonateUser: impersonate,
+          }),
+        ),
       ),
       error: false,
     };
@@ -245,10 +298,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     if (!type || !args[2])
       throw new Error("error: specify a verb and a known resource");
     const identity = flag("--as");
-    if (identity && S.cluster.user !== "platform-admin")
-      throw new Error(
-        `Error from server (Forbidden): users "${identity}" is forbidden: User "${S.cluster.user}" cannot impersonate resource "users" in API group "" at the cluster scope`,
-      );
+    if (identity) assertCanImpersonate(identity);
     if (args[2] === "use" && type === "securitycontextconstraints") {
       const match = identity?.match(/^system:serviceaccount:([^:]+):([^:]+)$/);
       const usable =
@@ -320,6 +370,33 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       );
     return result(auditText());
   }
+  if (
+    verb === "logs" &&
+    /^(?:(?:deployment|deploy)\/payment-api|(?:pods?\/)?payment-api-)/.test(
+      args[1] ?? "",
+    )
+  ) {
+    rejectFlags(flags, ["-n", "--namespace", "--tail", "-c", "--container"]);
+    if (args.length !== 2) throw new Error("error: logs requires one resource");
+    if (/^(deployment|deploy)\//.test(args[1]))
+      getResources("deployments", namespace, args[1].split("/")[1]);
+    else getResources("pods", namespace, args[1].replace(/^pods?\//, ""));
+    const container = flag("-c") ?? flag("--container");
+    if (container && container !== "payment-api")
+      throw new Error(
+        `Error from server (BadRequest): container ${container} is not valid for this pod`,
+      );
+    const tail = flag("--tail");
+    if (tail !== undefined && !/^(?:-1|\d+)$/.test(tail))
+      throw new Error("error: --tail must be -1 or a non-negative integer");
+    return result(
+      tail === undefined || tail === "-1"
+        ? paymentLogs()
+        : Number(tail)
+          ? paymentLogs().split("\n").slice(-Number(tail)).join("\n")
+          : "",
+    );
+  }
   // Retain the episode's exact command responses and side effects when its
   // original operator/context is used. New output formats use the resource API.
   const original =
@@ -344,6 +421,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
 
   if (verb === "get" || verb === "describe") {
     rejectFlags(flags, [
+      "--as",
       "-n",
       "--namespace",
       "-A",
@@ -630,7 +708,26 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         "simulation: original payment-api mutations are implemented through oc set env and its two policy manifests",
       );
     }
-    if (verb === "delete") return result(deleteResource(type, name, namespace));
+    if (verb === "delete") {
+      const names = embeddedName
+        ? [embeddedName, ...args.slice(2)]
+        : args.slice(2);
+      if (names.some((item) => item.includes("/")))
+        throw new Error(
+          "simulation: delete accepts one resource type followed by names",
+        );
+      const responses: string[] = [];
+      let failed = false;
+      for (const item of names) {
+        try {
+          responses.push(deleteResource(type, item, namespace));
+        } catch (error) {
+          failed = true;
+          responses.push((error as Error).message);
+        }
+      }
+      return result(responses.join("\n"), failed);
+    }
     if (verb === "rollout" && args[1] === "restart" && type === "deployments")
       return result(restartDeployment(name, namespace));
     const object = getResources(
@@ -751,7 +848,10 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
   const stages: string[][] = [[]];
   for (const token of tokens) {
     if (token.kind === "pipe") stages.push([]);
-    else stages.at(-1)!.push(token.value);
+    else
+      stages
+        .at(-1)!
+        .push(...(token.glob ? expandFileGlob(token.value) : [token.value]));
   }
   if (stages.some((stage) => !stage.length))
     throw new Error("shell: missing pipeline command");

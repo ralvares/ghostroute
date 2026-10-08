@@ -58,6 +58,8 @@ function applyFiles(ch) {
         ? "platform-admin"
         : "operator";
     if (ch.id === "05" && name === "vendor.yaml") continue;
+    if (ch.id === "16" && ["client.yaml", "server.yaml"].includes(name))
+      deleteResource("pods", name.slice(0, -5), ch.namespace);
     if (ch.id === "25" && name === "app.yaml") {
       S.cluster.user = "platform-admin";
       grantScc("rs-profile", "profiled", ch.namespace);
@@ -111,8 +113,21 @@ test("27 chapters can be completed in order through the real resource/admission 
     concludeCampaign(ch.conclusion);
   }
   assert.equal(S.campaign.finished, true);
-  assert.ok(S.cluster.resources.filter(r=>r.kind==="Pod").every(r=>r.status.containerStatuses.every(c=>c.ready)),"No failed Pod is left running after the journey");
-  assert.ok(S.campaign.diagnostics["rs-04"],"Runtime diagnosis survives removal of the broken Pod");
+  assert.match(
+    runCampaignProbe("history"),
+    /^PASS/,
+    "History remains valid after the final closure",
+  );
+  assert.ok(
+    S.cluster.resources
+      .filter((r) => r.kind === "Pod")
+      .every((r) => r.status.containerStatuses.every((c) => c.ready)),
+    "No failed Pod is left running after the journey",
+  );
+  assert.ok(
+    S.campaign.diagnostics["rs-04"],
+    "Runtime diagnosis survives removal of the broken Pod",
+  );
   assert.equal(S.campaign.completed.length, 27);
   const restore = decodeProgress(encodeProgress(S));
   assert.equal(restore.campaign.active, 26);

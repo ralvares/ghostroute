@@ -165,7 +165,12 @@ test("server selectors implement sets, absence and field filtering; invalid sele
   assert.equal(
     kubeRequest({ method: "GET", path: "/api/v1/pods?labelSelector=!app" }).body
       .items.length,
-    1,
+    0,
+  );
+  assert.equal(
+    kubeRequest({ method: "GET", path: "/api/v1/pods?labelSelector=!incident" })
+      .body.items.length,
+    3,
   );
   assert.equal(
     kubeRequest({
@@ -545,9 +550,11 @@ test("older saves receive current defaults without losing authored vendor except
     ].includes(s.metadata.name),
   );
   const after = decodeProgress(JSON.stringify(before));
-  assert.ok(after.cluster.resources.some(
-    (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
-  ));
+  assert.ok(
+    after.cluster.resources.some(
+      (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
+    ),
+  );
   assert.equal(after.story.notes, "Evidence I kept");
   assert.equal(after.cluster.sccs.length, 14);
   assert.equal(
@@ -631,14 +638,17 @@ test("installed CRD deletion survives current saves and reset restores its disco
     kind: "ComplianceScan",
     metadata: { name: "temporary", namespace: "payments" },
   });
-  const path = "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/compliancescans.compliance.openshift.io";
+  const path =
+    "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/compliancescans.compliance.openshift.io";
   assert.equal(kubeRequest({ method: "DELETE", path }).code, 200);
   assert.equal(resolveResource("compliancescans"), undefined);
   assert.ok(!S.cluster.resources.some((r) => r.kind === "ComplianceScan"));
   replaceState(decodeProgress(encodeProgress(S)));
-  assert.ok(!S.cluster.resources.some(
-    (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
-  ));
+  assert.ok(
+    !S.cluster.resources.some(
+      (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
+    ),
+  );
   assert.equal(resolveResource("compliancescans"), undefined);
   resetState();
   assert.equal(resolveResource("compliancescans"), "compliancescans");

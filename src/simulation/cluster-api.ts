@@ -1,4 +1,6 @@
+import { normalizeSecret, secretValue } from "./secrets.js";
 import { S } from "./state.js";
+import { allocatePodAddress, creationNetwork } from "./pod-addresses.js";
 import { defaultSccs } from "./default-sccs.js";
 import { installedCrds } from "./installed-crds.js";
 import {
@@ -16,6 +18,7 @@ import { parse } from "yaml";
 import { policyFiles } from "./resources.js";
 import {
   validateCampaignPod,
+  registryPullFailure,
   schedulingFailure,
   reconcileFixtureControllers,
   resource as findResource,
@@ -103,7 +106,12 @@ export function auditRequest(
   publish(domain);
 }
 
-function coreResources(): Resource[] {
+export function coreResources(): Resource[] {
+  const paymentPodCreated =
+    [...S.audit].reverse().find(
+      (event) =>
+        event.type === "pods.replaced" && event.data.revision === S.podRev,
+    )?.at ?? "2026-10-08T00:14:00Z";
   return [
     ...[...S.policies].map(
       (name) =>
@@ -128,6 +136,7 @@ function coreResources(): Resource[] {
         replicas: 2,
         selector: { matchLabels: { app: "payment-api" } },
         template: {
+          metadata: { labels: { app: "payment-api" } },
           spec: {
             serviceAccountName: "payment-app",
             hostUsers: false,
@@ -157,7 +166,7 @@ function coreResources(): Resource[] {
       metadata: {
         name: pod.name,
         namespace: "payments",
-        creationTimestamp: "2026-10-08T00:14:00Z",
+        creationTimestamp: paymentPodCreated,
         labels: { app: "payment-api" },
         annotations: { "openshift.io/scc": "restricted-v3" },
       },
@@ -169,11 +178,16 @@ function coreResources(): Resource[] {
           {
             name: "payment-api",
             image: "registry.example.test/payments:v1.8.2",
+            env: Object.entries(S.deployment.env).map(([name, value]) => ({
+              name,
+              value,
+            })),
           },
         ],
       },
       status: {
         phase: "Running",
+        podIP: pod.node === "worker-01" ? "10.128.0.21" : "10.129.0.22",
         podIPs: [
           { ip: pod.node === "worker-01" ? "10.128.0.21" : "10.129.0.22" },
         ],
@@ -183,7 +197,7 @@ function coreResources(): Resource[] {
             name: "payment-api",
             ready: pod.ready,
             restartCount: 0,
-            state: { running: { startedAt: "2026-10-08T00:14:00Z" } },
+            state: { running: { startedAt: paymentPodCreated } },
           },
         ],
       },
@@ -195,6 +209,7 @@ function coreResources(): Resource[] {
         name: "ledger-86bbb-zyx12",
         namespace: "payments",
         creationTimestamp: "2026-10-08T00:14:00Z",
+        labels: { app: "ledger" },
         annotations: { "openshift.io/scc": "restricted-v3" },
       },
       spec: {
@@ -205,6 +220,7 @@ function coreResources(): Resource[] {
       },
       status: {
         phase: "Running",
+        podIP: "10.129.0.23",
         podIPs: [{ ip: "10.129.0.23" }],
         conditions: [{ type: "Ready", status: "True" }],
         containerStatuses: [
@@ -226,8 +242,8 @@ export function getResources(
   name?: string,
 ): Resource[] {
   const verb = name ? "get" : "list";
-  if (!authorized(verb, type, namespace)) {
-    const message = forbidden(verb, type, namespace);
+  if (!authorized(verb, type, namespace, name)) {
+    const message = forbidden(verb, type, namespace, name);
     auditRequest(verb, type, namespace, name, 403, message);
     throw new Error(message);
   }
@@ -358,6 +374,7 @@ function admitResource(resource: Resource, directRequest = true) {
   const containerStatuses = admission.spec.containers.map((container) => {
     const image = container.image.split("@")[0],
       uid = container.securityContext?.runAsUser;
+    const pullFailure = registryPullFailure(container.image);
     const fails =
       (image === "registry.example.test/owned:root" && uid !== 0) ||
       (image === "registry.example.test/vendor:fixed-uid" && uid !== 100);
@@ -371,42 +388,42 @@ function admitResource(resource: Resource, directRequest = true) {
     ].includes(image);
     return {
       name: container.name,
-      ready: known && !fails,
+      ready: known && !fails && !pullFailure,
       restartCount: fails ? 1 : 0,
-      state: !known
-        ? {
-            waiting: {
-              reason: "ImagePullBackOff",
-              message: "Image is absent from the offline registry",
-            },
-          }
-        : fails
+      state:
+        pullFailure || !known
           ? {
               waiting: {
-                reason: "CrashLoopBackOff",
+                reason: "ImagePullBackOff",
                 message:
-                  "Application cannot write its data directory: permission denied",
+                  pullFailure || "Image is absent from the offline registry",
               },
             }
-          : { running: { startedAt: new Date(clusterTime()).toISOString() } },
+          : fails
+            ? {
+                waiting: {
+                  reason: "CrashLoopBackOff",
+                  message:
+                    "Application cannot write its data directory: permission denied",
+                },
+              }
+            : { running: { startedAt: new Date(clusterTime()).toISOString() } },
     };
   });
   const running = containerStatuses.every(
     (c) => c.state.waiting?.reason !== "ImagePullBackOff",
   );
+  const network = creationNetwork(resource, S.cluster.resources);
+  const podIP = allocatePodAddress(resource, S.cluster.resources);
+  resource.metadata.annotations!["k8s.v1.cni.cncf.io/network-status"] =
+    JSON.stringify([
+      { name: network.domain, interface: "eth0", ips: [podIP], default: true },
+    ]);
   resource.status = {
     phase: running ? "Running" : "Pending",
     containerStatuses,
-    podIP: running
-      ? `10.128.1.${20 + S.cluster.resources.filter((r) => r.kind === "Pod").length}`
-      : "",
-    podIPs: running
-      ? [
-          {
-            ip: `10.128.1.${20 + S.cluster.resources.filter((r) => r.kind === "Pod").length}`,
-          },
-        ]
-      : [],
+    podIP,
+    podIPs: [{ ip: podIP }],
     conditions: [
       { type: "Initialized", status: "True" },
       {
@@ -433,7 +450,9 @@ function admitResource(resource: Resource, directRequest = true) {
           state: {
             waiting: {
               reason: scheduling
-                ? "FailedScheduling"
+                ? resource.metadata.annotations?.["k8s.v1.cni.cncf.io/networks"]
+                  ? "ContainerCreating"
+                  : "FailedScheduling"
                 : "CreateContainerConfigError",
               message: scheduling || "Referenced Secret is absent",
             },
@@ -448,7 +467,7 @@ function admitResource(resource: Resource, directRequest = true) {
       ref.valueFrom!.secretKeyRef.name,
       namespace,
     );
-    const value = secret?.stringData?.[ref.valueFrom!.secretKeyRef.key];
+    const value = secretValue(secret, ref.valueFrom!.secretKeyRef.key);
     if (value)
       resource.metadata.annotations!["roadshow.secret-version"] = value;
   }
@@ -564,6 +583,7 @@ export function applyResource(
 ) {
   refreshResourceTypes();
   const resource = structuredClone(input);
+  normalizeSecret(resource);
   const type = (Object.keys(resourceTypes) as ResourceType[]).find(
     (type) => resourceTypes[type].kind === resource.kind,
   );
@@ -788,7 +808,12 @@ export function applyResource(
     for (const port of resource.spec.ports ?? []) port.protocol ??= "TCP";
   }
   if (resource.kind === "Secret") resource.type ??= "Opaque";
-  if (resource.kind === "Route") resource.spec!.wildcardPolicy ??= "None";
+  if (resource.kind === "Route") {
+    resource.spec!.wildcardPolicy ??= "None";
+    resource.spec!.host ??=
+      old?.spec?.host ??
+      `${resource.metadata.name}-${ns}.apps.prod-east.example.test`;
+  }
   if (resource.kind === "Namespace" && !old) {
     const base = 1000780000 + S.cluster.generation++ * 10000;
     resource.metadata.annotations = {

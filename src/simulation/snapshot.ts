@@ -1,3 +1,5 @@
+import { normalizeSecret } from "./secrets.js";
+import { repairDuplicatePodAddresses } from "./pod-addresses.js";
 import { defaultSccs } from "./default-sccs.js";
 import { makeState, type SimulationState } from "./state.js";
 import { isScene } from "../world/scene-model.js";
@@ -283,6 +285,8 @@ export function decodeProgress(text: string): SimulationState {
     });
   state.x = Math.max(55, Math.min(1118, state.x));
   state.y = Math.max(105, Math.min(594, state.y));
+  state.cluster.resources.forEach(normalizeSecret);
+  repairDuplicatePodAddresses(state.cluster.resources);
   state.findings = evaluateFindings(state.env, state.policy);
   return state;
 }

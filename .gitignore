@@ -9,3 +9,8 @@ artifacts/roadshow/
 artifacts/campaign/
 
 artifacts/continuity-gameplay/
+
+# Keep raw intent-playtest notes locally; commit selected accepted proof images.
+artifacts/intent-playthrough/*
+!artifacts/intent-playthrough/10-containment-outage.png
+!artifacts/intent-playthrough/12-journey-closed.png

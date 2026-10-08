@@ -69,12 +69,24 @@ export function completePath(prefix: string, directoriesOnly = false) {
   const absolute = resolvePath(parent || ".");
   const base = absolute === "/" ? "/" : absolute + "/";
   const dirs = directories();
-  const entries = [...dirs, ...Object.keys(allFiles()).map(key => HOME + "/" + key)];
-  return [...new Set(entries)].filter(path => {
-    const tail = path.slice(base.length);
-    return path.startsWith(base) && tail && !tail.includes("/") &&
-      tail.startsWith(fragment) && (!directoriesOnly || dirs.has(path));
-  }).map(path => parent + path.slice(base.length) + (dirs.has(path) ? "/" : ""))
+  const entries = [
+    ...dirs,
+    ...Object.keys(allFiles()).map((key) => HOME + "/" + key),
+  ];
+  return [...new Set(entries)]
+    .filter((path) => {
+      const tail = path.slice(base.length);
+      return (
+        path.startsWith(base) &&
+        tail &&
+        !tail.includes("/") &&
+        tail.startsWith(fragment) &&
+        (!directoriesOnly || dirs.has(path))
+      );
+    })
+    .map(
+      (path) => parent + path.slice(base.length) + (dirs.has(path) ? "/" : ""),
+    )
     .sort((a, b) => a.localeCompare(b));
 }
 export function readVirtualFile(path: string) {
@@ -168,4 +180,37 @@ export function writeVirtualFile(path: string, content: string) {
   if (!directories().has(resolvePath("..", absolute)))
     throw new Error(`shell: ${path}: No such directory`);
   S.cluster.files[key] = content;
+}
+
+/** Flat shell wildcard expansion over the same virtual files and directories; never host paths. */
+export function expandFileGlob(pattern: string) {
+  const absolute = resolvePath(pattern);
+  const expression = new RegExp(
+    "^" +
+      absolute
+        .split("")
+        .map((char) =>
+          char === "*"
+            ? "[^/]*"
+            : char === "?"
+              ? "[^/]"
+              : char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        )
+        .join("") +
+      "$",
+  );
+  const entries = [
+    ...new Set([
+      ...directories(),
+      ...Object.keys(allFiles()).map((key) => HOME + "/" + key),
+    ]),
+  ];
+  const matches = entries.filter((path) => expression.test(path)).sort();
+  if (!matches.length) return [pattern];
+  if (pattern.startsWith("/") || pattern.startsWith("~")) return matches;
+  return matches.map((path) =>
+    path.startsWith(S.cluster.cwd + "/")
+      ? path.slice(S.cluster.cwd.length + 1)
+      : path,
+  );
 }

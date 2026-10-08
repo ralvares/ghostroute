@@ -190,6 +190,26 @@ a {
   position: absolute;
   z-index: 4;
 }
+.worldTargets {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.worldTargets button {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.worldTargets button:focus-visible {
+  outline: 3px solid #a5d7ec;
+  outline-offset: 3px;
+}
 .casehud {
   left: 20px;
   top: 18px;

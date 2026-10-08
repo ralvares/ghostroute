@@ -8,6 +8,10 @@ import {
 import type { Resource } from "./cluster-model.js";
 import { refreshResourceTypes, type ResourceType } from "./resource-types.js";
 import { S } from "./state.js";
+import { executePodFixture, type PodExecOptions } from "./pod-exec.js";
+import { authorized, forbidden } from "../security/rbac.js";
+import { auditRequest } from "./cluster-api.js";
+import { assertCanImpersonate } from "../security/rbac.js";
 import { resourceTable, type ResourceTable } from "./resource-table.js";
 import { crdPrinters } from "./crd-printers.js";
 import { labelPredicate, fieldPredicate } from "./selectors.js";
@@ -15,9 +19,10 @@ import { labelPredicate, fieldPredicate } from "./selectors.js";
 export interface ApiRequest {
   method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
-  body?: Resource;
+  body?: Resource | PodExecOptions;
   contentType?: string;
   accept?: string;
+  impersonateUser?: string;
 }
 export interface ApiResponse {
   code: number;
@@ -59,6 +64,21 @@ function status(code: number, reason: string, message: string): ApiResponse {
 /** Offline REST boundary. The CLI is a client; RBAC, SCC/controllers and audit remain server-owned. */
 export function kubeRequest(request: ApiRequest): ApiResponse {
   try {
+    if (request.impersonateUser) {
+      assertCanImpersonate(request.impersonateUser);
+      const authenticated = S.cluster.user;
+      const auditStart = S.cluster.audit.length;
+      S.cluster.user = request.impersonateUser;
+      try {
+        return kubeRequest({ ...request, impersonateUser: undefined });
+      } finally {
+        S.cluster.user = authenticated;
+        for (const event of S.cluster.audit.slice(auditStart)) {
+          event.impersonatedUser = { username: event.user.username };
+          event.user = { username: authenticated };
+        }
+      }
+    }
     refreshResourceTypes();
     const url = new URL(request.path, "https://prod-east.invalid");
     if (url.origin !== "https://prod-east.invalid")
@@ -126,6 +146,50 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
               })),
           },
         };
+    }
+    const exec = url.pathname.match(
+      /^\/api\/v1\/namespaces\/([^/]+)\/pods\/([^/]+)\/exec$/,
+    );
+    if (exec) {
+      const namespace = decodeURIComponent(exec[1]),
+        name = decodeURIComponent(exec[2]);
+      const record = (code: number, message = "") => {
+        auditRequest("create", "pods", namespace, name, code, message);
+        const event = S.cluster.audit.at(-1)!;
+        event.objectRef.subresource = "exec";
+        event.requestURI = url.pathname;
+      };
+      if (request.method !== "POST")
+        return status(
+          405,
+          "MethodNotAllowed",
+          "this fixture exec endpoint accepts POST",
+        );
+      if (!authorized("create", "pods/exec", namespace, name)) {
+        const message = forbidden("create", "pods/exec", namespace);
+        record(403, message);
+        return status(
+          403,
+          "Forbidden",
+          message.replace(/^Error from server \(Forbidden\): /, ""),
+        );
+      }
+      const pod = getResources("pods", namespace, name)[0];
+      if (!pod) {
+        record(404);
+        return status(404, "NotFound", `pods "${name}" not found`);
+      }
+      const options = request.body as PodExecOptions;
+      if (
+        !options ||
+        !Array.isArray(options.command) ||
+        !options.command.length ||
+        !options.command.every((c) => typeof c === "string")
+      )
+        return status(400, "BadRequest", "exec requires a command array");
+      const body = executePodFixture(pod, options);
+      record(101);
+      return { code: 101, body };
     }
     const match = url.pathname.match(
       /^\/(?:api\/(v1)|apis\/([^/]+\/[^/]+))\/(?:namespaces\/([^/]+)\/)?([^/]+)(?:\/([^/]+))?$/,
@@ -298,7 +362,7 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
         message,
       };
     }
-    const object = request.body;
+    const object = request.body as Resource | undefined;
     if (
       !object ||
       object.kind !== definition.kind ||
@@ -387,11 +451,13 @@ export function readApiResources(
   namespace?: string,
   name?: string,
   selectors?: { label?: string; field?: string },
+  impersonateUser?: string,
 ): Resource[] {
   const body = apiBody(
     kubeRequest({
       method: "GET",
       path: apiResourcePath(type, namespace, name) + selectorQuery(selectors),
+      impersonateUser,
     }),
   );
   return name ? [body as Resource] : (body as { items: Resource[] }).items;
@@ -407,11 +473,13 @@ export function readApiTable(
   namespace?: string,
   name?: string,
   selectors?: { label?: string; field?: string },
+  impersonateUser?: string,
 ): ResourceTable {
   return apiBody(
     kubeRequest({
       method: "GET",
       path: apiResourcePath(type, namespace, name) + selectorQuery(selectors),
+      impersonateUser,
       accept: "application/json;as=Table;g=meta.k8s.io;v=v1,application/json",
     }),
   ) as ResourceTable;

@@ -71,7 +71,7 @@ export const scenes: Record<
   operations: {
     title: "prod-east · operations room",
     description:
-      "Meet Kai · application build notes · SCC and RBAC investigation",
+      "Meet Kai · release handover · application security investigation",
     art: "operations-room",
     parent: "cluster",
     spawn: { x: 450, y: 460 },

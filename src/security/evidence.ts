@@ -17,7 +17,7 @@ export const clues = {
   },
   logs: {
     name: "Application log anomaly",
-    text: "The container logs show TELEMETRY_ENDPOINT repeatedly sending payment metadata outside the namespace.",
+    text: "The container logs record a telemetry POST to the unapproved endpoint. The request payload and intent are not established by these logs.",
   },
   env: {
     name: "Deployment configuration",

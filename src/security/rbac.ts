@@ -110,9 +110,17 @@ export function roleAllows(
   return false;
 }
 
-export function authorized(verb: string, resource: string, namespace?: string) {
+export function authorized(
+  verb: string,
+  resource: string,
+  namespace?: string,
+  name?: string,
+) {
   if (S.cluster.user === "platform-admin") return true;
-  if (roleAllows(S.cluster.user, verb, resource, namespace)) return true;
+  if (roleAllows(S.cluster.user, verb, resource, namespace, name)) return true;
+  // The operator has the authored baseline grant. Impersonated identities
+  // receive only their bindings, never the operator's training permissions.
+  if (S.cluster.user !== "operator") return false;
   if (["get", "list", "watch"].includes(verb)) return resource !== "secrets";
   if (resource === "namespaces" && verb === "create") return true;
   if (
@@ -127,16 +135,27 @@ export function authorized(verb: string, resource: string, namespace?: string) {
     ["create", "update", "patch", "delete"].includes(verb)
   );
 }
-export function forbidden(verb: string, resource: string, namespace?: string) {
-  const group =
-    resource === "securitycontextconstraints"
-      ? "security.openshift.io"
-      : ["rolebindings", "roles", "clusterrolebindings"].includes(resource)
-        ? "rbac.authorization.k8s.io"
-        : resource === "deployments"
-          ? "apps"
-          : resource === "networkpolicies"
-            ? "networking.k8s.io"
-            : "";
-  return `Error from server (Forbidden): ${resource}${group ? "." + group : ""} is forbidden: User "${S.cluster.user}" cannot ${verb} resource "${resource}" in API group "${group}" ${namespace ? `in the namespace "${namespace}"` : "at the cluster scope"}`;
+export function forbidden(
+  verb: string,
+  resource: string,
+  namespace?: string,
+  name?: string,
+) {
+  const type = resolveResource(resource.split("/")[0]);
+  const version = type ? resourceTypes[type].apiVersion : "v1";
+  const group = version.includes("/") ? version.split("/")[0] : "";
+  return `Error from server (Forbidden): ${resource}${group ? "." + group : ""}${name ? ` "${name}"` : ""} is forbidden: User "${S.cluster.user}" cannot ${verb} resource "${resource}" in API group "${group}" ${namespace ? `in the namespace "${namespace}"` : "at the cluster scope"}`;
+}
+
+export function assertCanImpersonate(identity: string) {
+  if (S.cluster.user === "platform-admin") return;
+  const sa = identity.match(/^system:serviceaccount:([^:]+):([^:]+)$/);
+  const resource = sa ? "serviceaccounts" : "users";
+  const name = sa ? sa[2] : identity;
+  const namespace = sa?.[1];
+  if (roleAllows(S.cluster.user, "impersonate", resource, namespace, name))
+    return;
+  throw new Error(
+    `Error from server (Forbidden): ${resource} "${name}" is forbidden: User "${S.cluster.user}" cannot impersonate resource "${resource}" in API group "" ${namespace ? `in the namespace "${namespace}"` : "at the cluster scope"}`,
+  );
 }

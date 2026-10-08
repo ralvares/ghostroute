@@ -3,6 +3,13 @@ import type { Chapter, Goal, Probe, Witness } from "./types.js";
 import type { SceneId } from "../world/scene-model.js";
 
 const image = "registry.example.test/owned:arbitrary-uid";
+const approvedRegistrySources = [
+  "registry.example.test",
+  "registry.redhat.io",
+  "registry.access.redhat.com",
+  "quay.io",
+  "image-registry.openshift-image-registry.svc:5000",
+];
 const security = {
   allowPrivilegeEscalation: false,
   capabilities: { drop: ["ALL"] },
@@ -22,7 +29,20 @@ export const workload = (
   object("Pod", name, {
     metadata: { name, labels: { app: name } },
     spec: {
-      containers: [{ name, image, securityContext: security, ...container }],
+      containers: [
+        {
+          name,
+          image,
+          securityContext: security,
+          ...(["server", "peer"].includes(name)
+            ? {
+                env: [{ name: "APP_PORT", value: "8443" }],
+                ports: [{ containerPort: 8443 }],
+              }
+            : {}),
+          ...container,
+        },
+      ],
       ...extra,
     },
   });
@@ -258,12 +278,17 @@ const drafts: Draft[] = [
       "The image expects ownership it does not have. Rebuilding for an arbitrary UID solves the application problem without weakening the platform.",
     voices: [
       "kai",
-      "I own this image. Before you ask Mira for an exception, read its permissions and the secure Dockerfile.",
+      "I own this image. Reproduce the failed build with campaign/02/broken.yaml, then inspect its SCC and logs. Compare build-note.txt with workloads/Dockerfile.secure before trying app.yaml.",
       "mira",
       "A green deployment request is not a running application. Inspect the Pod, its SCC and its logs.",
     ],
     artifact: "Rejected workshop release",
     files: {
+      "broken.yaml": workload(
+        "app",
+        {},
+        { image: "registry.example.test/owned:root" },
+      ),
       "app.yaml": workload(),
       "root.yaml": workload(
         "unsafe",
@@ -271,7 +296,7 @@ const drafts: Draft[] = [
         { securityContext: { runAsUser: 0 } },
       ),
       "build-note.txt":
-        "The owned source is available. Writable directory must use group 0 permissions; serve on 8080. The supplied rebuilt fixture supports arbitrary UIDs.",
+        "Reproduce the original with broken.yaml: it is admitted under restricted SCC but cannot write its data directory as the assigned UID. Inspect oc describe pod app and oc logs app. The owned source is available. Compare workloads/Dockerfile.secure: writable data directory uses group 0 permissions and the app serves on 8080. Image builds are not executed here; app.yaml selects the supplied rebuilt image fixture. The root.yaml alternative requests UID 0 and should fail admission.",
     },
     goals: [
       goal(
@@ -562,14 +587,15 @@ const drafts: Draft[] = [
     },
     seed: [
       object("Secret", "database", { stringData: { password: "training-v1" } }),
+      secretPod,
     ],
     goals: [
       goal(
         "Rotate the synthetic credential",
         "Secret",
         "database",
-        "stringData.password",
-        "training-v2",
+        "data.password",
+        "dHJhaW5pbmctdjI=",
       ),
       goal(
         "Reference the Secret instead of a literal",
@@ -601,6 +627,21 @@ const drafts: Draft[] = [
       "An HTTPS address proves less than people think. Distinguish client-to-router from router-to-Pod protection.",
     ],
     artifact: "Public entry-point diagram",
+    seed: [
+      workload(),
+      object("Service", "app", {
+        spec: {
+          selector: { app: "app" },
+          ports: [{ port: 8080, targetPort: 8080 }],
+        },
+      }),
+      object(
+        "Route",
+        "front-door",
+        { spec: { to: { kind: "Service", name: "app" } } },
+        "route.openshift.io/v1",
+      ),
+    ],
     files: {
       "route.yaml": secureRoute,
       "service.yaml": object("Service", "app", {
@@ -655,7 +696,7 @@ const drafts: Draft[] = [
     artifact: "Recorded artifact digest",
     files: {
       "registry.yaml": cr("Image", "cluster", "config.openshift.io/v1", {
-        registrySources: { allowedRegistries: ["registry.example.test"] },
+        registrySources: { allowedRegistries: approvedRegistrySources },
       }),
       "app.yaml": workload(
         "app",
@@ -663,6 +704,8 @@ const drafts: Draft[] = [
         { image: image + "@sha256:" + "a".repeat(64) },
       ),
       "attestation.yaml": signature,
+      "registry-note.txt":
+        "RegistrySources controls runtime pulls, not Pod admission. Preserve the recorded platform and internal registries when adding the workload allowlist. In a live cluster, the Machine Config Operator distributes this setting to nodes; this offline fixture models the resulting policy and image-pull failure, not that rollout.",
       "promotion-review.yaml": cm("promotion-review", {
         supportEnvImport: "disabled",
         configurationSource: "versioned-reviewed",
@@ -675,7 +718,7 @@ const drafts: Draft[] = [
         "Image",
         "cluster",
         "spec.registrySources.allowedRegistries",
-        ["registry.example.test"],
+        approvedRegistrySources,
       ),
       goal(
         "Retain the digest catalog",
@@ -702,12 +745,68 @@ const drafts: Draft[] = [
       "API caller, resource, timestamp and response must be correlated. Missing request bodies and a successful API call are limits on what the log proves.",
     voices: [
       "vale",
-      "Filter the retained audit, identify the exec and port-forward, and separate successful actions from denied attempts.",
+      "Filter campaign/10/audit.log: it is the retained, redacted incident extract. audit/kube-apiserver.log contains your current session requests. Separate the exec connection from the denied port-forward, and keep the request-body limits.",
       "rhea",
       "A credential does not identify a person. Read the redacted runtime record before claiming exfiltration.",
     ],
     artifact: "Retained incident timeline",
     files: {
+      "audit.log": [
+        {
+          auditID: "00000000-0000-4000-8000-000000000000",
+          time: "02:13:40",
+          user: "system:serviceaccount:payments:build-bot",
+          verb: "patch",
+          resource: "deployments",
+          name: "payment-api",
+          code: 200,
+        },
+        {
+          auditID: "00000000-0000-4000-8000-000000000010",
+          time: "02:13:55",
+          user: "support-agent",
+          verb: "create",
+          resource: "pods",
+          name: "payment-api-7d9cd-ab12",
+          subresource: "exec",
+          code: 101,
+        },
+        {
+          auditID: "00000000-0000-4000-8000-000000000011",
+          time: "02:14:02",
+          user: "support-agent",
+          verb: "create",
+          resource: "pods",
+          name: "payment-api-7d9cd-ab12",
+          subresource: "portforward",
+          code: 403,
+        },
+      ]
+        .map((e) =>
+          JSON.stringify({
+            kind: "Event",
+            apiVersion: "audit.k8s.io/v1",
+            level: "Metadata",
+            stage: e.code === 101 ? "ResponseStarted" : "ResponseComplete",
+            auditID: e.auditID,
+            requestReceivedTimestamp: `2026-10-08T${e.time}Z`,
+            user: { username: e.user },
+            verb: e.verb,
+            requestURI: `/api${e.resource === "deployments" ? "s/apps" : ""}/v1/namespaces/payments/${e.resource}/${e.name}${e.subresource ? "/" + e.subresource : ""}`,
+            objectRef: {
+              resource: e.resource,
+              namespace: "payments",
+              name: e.name,
+              ...(e.subresource ? { subresource: e.subresource } : {}),
+            },
+            responseStatus: { code: e.code },
+            annotations: {
+              "ghostroute.training/source":
+                "authored-redacted-incident-extract",
+            },
+          }),
+        )
+        .join("\n"),
       "timeline.json": JSON.stringify([
         {
           user: "build-bot",
@@ -720,7 +819,7 @@ const drafts: Draft[] = [
           verb: "create",
           subresource: "exec",
           time: "02:13:55",
-          code: 201,
+          code: 101,
         },
         {
           user: "support-agent",
@@ -966,12 +1065,29 @@ const drafts: Draft[] = [
       "EgressIP fixes the selected tenant's outbound source identity. It does not grant destination access or encrypt the traffic.",
     voices: [
       "mira",
-      "Assign only the reserved documentation address to the labeled tenant. Keep a control tenant.",
+      "Inspect worker-02 with node.yaml: it has a recorded reserved host address. Configure its egress-assignable label, then verify EgressIP controller assignment. Select only the partner tenant and keep a control tenant.",
       "vale",
       "The partner approved an address, not an unlimited network path. Preserve that distinction in the handover.",
     ],
     artifact: "Partner allowlist agreement",
     files: {
+      "node.yaml": object("Node", "worker-02", {
+        metadata: {
+          name: "worker-02",
+          labels: {
+            "node-role.kubernetes.io/worker": "",
+            "roadshow.virtualization": "true",
+            "roadshow.vlan200": "true",
+            "k8s.ovn.org/egress-assignable": "",
+          },
+          annotations: {
+            "k8s.ovn.org/host-cidrs": '["10.0.0.12/24","192.0.2.12/24"]',
+            "ghostroute.training/reserved-egress-addresses": "192.0.2.25",
+          },
+        },
+      }),
+      "assignment-note.txt":
+        "The supplied node inventory records a reserved documentation address on worker-02. Apply node.yaml and egress.yaml as platform-admin. Inspect oc get egressip rs-egress: Assigned Node and Assigned EgressIPs must be populated. This fixture models controller allocation from the recorded reservation; it does not observe external packets or grant destination access.",
       "egress.yaml": cr("EgressIP", "rs-egress", "k8s.ovn.org/v1", {
         egressIPs: ["192.0.2.25"],
         namespaceSelector: { matchLabels: { "roadshow.egress": "partner" } },
@@ -989,7 +1105,7 @@ const drafts: Draft[] = [
     probes: [
       probe(
         "selected",
-        "Selected tenant has the recorded source identity",
+        "Reserved source address is assigned on an eligible node",
         "egress-selected",
       ),
       probe("control", "Control tenant is unchanged", "egress-control"),
@@ -1002,7 +1118,7 @@ const drafts: Draft[] = [
     act: "IV · Borders and identity",
     district: "Harbor",
     sources: ["labs/intermediate/i4c.adoc", "labs/demo/network-flow.adoc"],
-    hook: "Two tenants share an address plan and assume a namespace is a private network. The probe reaches farther than either team expected.",
+    hook: "One tenant has its own primary network; the workshop still runs on the shared default network. Kai wants the same isolation before tomorrow's partner import.",
     reveal:
       "Distinct primary UDNs establish separate tenant network domains. Overlapping addresses are meaningful only within their own domain.",
     voices: [
@@ -1013,9 +1129,21 @@ const drafts: Draft[] = [
     ],
     artifact: "Tenant network allocation",
     files: {
+      "attachment-note.txt":
+        "Create the primary UDN before starting its workloads. Existing Pods keep their network attachment: delete client and server in this tenant, then apply client.yaml and server.yaml. Inspect Pod IPs and k8s.v1.cni.cncf.io/network-status. Both must use the declared 10.90.0.0/24 domain. The peer tenant is already attached to its separate recorded primary network.",
       "network.yaml": cr("UserDefinedNetwork", "primary", "k8s.ovn.org/v1", {
         topology: "Layer2",
         layer2: { role: "Primary", subnets: ["10.90.0.0/24"] },
+      }),
+      "client.yaml": workload("client"),
+      "server.yaml": workload("server"),
+      "peer.yaml": object("Pod", "peer", {
+        ...workload("peer"),
+        metadata: {
+          name: "peer",
+          namespace: "$NAMESPACE-peer",
+          labels: { app: "peer" },
+        },
       }),
     },
     seed: [workload("client"), workload("server")],
@@ -1121,11 +1249,17 @@ const drafts: Draft[] = [
     artifact: "Out-of-order release attestation",
     files: {
       "pipeline.yaml": cr("Pipeline", "secure-release", "tekton.dev/v1", {
+        params: [{ name: "digest", type: "string" }],
         tasks: [
-          { name: "build" },
-          { name: "scan", runAfter: ["build"] },
+          { name: "build", taskRef: { name: "recorded-build" } },
+          {
+            name: "scan",
+            taskRef: { name: "recorded-scan" },
+            runAfter: ["build"],
+          },
           {
             name: "sign",
+            taskRef: { name: "recorded-sign" },
             runAfter: ["scan"],
             when: [
               {
@@ -1222,18 +1356,30 @@ const drafts: Draft[] = [
           },
         },
       ),
-      "app.yaml": workload("app", {
-        volumes: [
-          {
-            name: "external",
-            csi: {
-              driver: "secrets-store.csi.k8s.io",
-              readOnly: true,
-              volumeAttributes: { secretProviderClass: "database" },
+      "app.yaml": workload(
+        "app",
+        {
+          volumes: [
+            {
+              name: "external",
+              csi: {
+                driver: "secrets-store.csi.k8s.io",
+                readOnly: true,
+                volumeAttributes: { secretProviderClass: "database" },
+              },
             },
-          },
-        ],
-      }),
+          ],
+        },
+        {
+          volumeMounts: [
+            {
+              name: "external",
+              mountPath: "/mnt/secrets-store",
+              readOnly: true,
+            },
+          ],
+        },
+      ),
       "provider-record.yaml": cm("provider-record", {
         path: "secret/data/database",
         version: "2",
@@ -1284,6 +1430,13 @@ const drafts: Draft[] = [
         provider: {
           vault: {
             server: "https://vault.example.test",
+            auth: {
+              kubernetes: {
+                mountPath: "kubernetes",
+                role: "database-reader",
+                serviceAccountRef: { name: "default" },
+              },
+            },
             path: "secret",
             version: "v2",
           },

@@ -26,7 +26,38 @@ import { registerCampaignFiles } from "./campaign/engine.js";
 import { showCampaignEnding } from "./ui/campaign.js";
 registerCampaignFiles();
 registerDocuments({
-  "README.md": clusterGuide,
+  "README.md": `# prod-east bastion — investigator's desk
+
+Checkout is still working. Rhea observed unexpected payment-api egress.
+Find what changed, explain how it happened, and protect customers while you investigate.
+
+Start with the evidence, not a guessed culprit:
+  cat case/assignment.txt
+  oc whoami
+  oc project
+  oc get pods -A
+  oc project payments
+  oc logs deployment/payment-api
+  oc get deployment/payment-api -o yaml | less
+
+Meet Mira in the cluster lobby for worker-room access. Interview Kai in Operations.
+The RHACS maintenance locker holds the keycard for Vale's records archive.
+Witness leads and your notebook travel with you; return here to test them.
+
+Useful places to look:
+  case/       incident records and release evidence
+  audit/      retained API audit events
+  policies/   candidate egress policies; read their dependencies before applying
+  campaign/   the current chapter's briefing and evidence
+
+TAB completes files and commands; Up/Down recalls history. Use cd, ls and cat to
+explore. Pipe long output to less (q quits, / searches). Notes save locally.
+case status shows what your current investigation still needs.
+
+Cluster/API reference: cat docs/cluster-guide.md | less
+Optional practice manifests: cat lab.txt
+This desk connects to the same offline training cluster throughout the journey.
+`,
   "docs/cluster-guide.md": clusterGuide,
   ...storyFiles,
 });

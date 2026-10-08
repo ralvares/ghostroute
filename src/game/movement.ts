@@ -9,6 +9,23 @@ import { toast } from "../ui/notifications.js";
 import { addClue } from "../security/evidence.js";
 import type { WorldObject } from "../world/locations.js";
 
+/** Mouse, visible labels and keyboard activation all approach the same object. */
+export function approachObject(hit: WorldObject) {
+  if (blocked()) return;
+  C.focus();
+  G.pending = hit;
+  const angle = Math.atan2(S.y - hit.y, S.x - hit.x);
+  G.target = floorPoint(
+    { x: hit.x + Math.cos(angle) * 34, y: hit.y + Math.sin(angle) * 34 },
+    S.world.scene,
+  );
+  if (Math.hypot(S.x - hit.x, S.y - hit.y) < 70) {
+    G.target = null;
+    G.pending = null;
+    interact(hit);
+  }
+}
+
 export function nearest() {
   let best: WorldObject | null = null,
     dist = 100;

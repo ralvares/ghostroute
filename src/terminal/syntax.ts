@@ -83,7 +83,8 @@ export function validOcCommand(raw: string) {
 
 export function validPodCommand(raw: string) {
   if (
-    ["env", "ip route", "nslookup ledger.payments.svc.cluster.local"].includes(
+    ["env", "ip route"].includes(raw) ||
+    /^nslookup (ledger|ledger\.payments|ledger\.payments\.svc|ledger\.payments\.svc\.cluster\.local)$/.test(
       raw,
     )
   )
@@ -95,6 +96,9 @@ export function validPodCommand(raw: string) {
     if (url.protocol !== "https:") return false;
     if (url.username || url.password || url.search || url.hash) return false;
     const ledger = [
+      "ledger",
+      "ledger.payments",
+      "ledger.payments.svc",
       "ledger.payments.svc.cluster.local",
       "172.30.121.42",
     ].includes(url.hostname);

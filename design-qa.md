@@ -221,3 +221,25 @@ A follow-up persistence check found and corrected installed CRD resurrection on
 current-save reload. Deletion removes instances/discovery and survives offline
 restore; old saves still acquire the default schemas once. The focused browser
 regression and all 131 unit checks pass.
+
+## Intent-driven junior playtest — 2026-10-08
+
+Manual result: all 27 chapters closed through the in-app browser, with evidence
+reading, witness/archive travel, wrong requests, customer-impact recovery, and
+final re-evaluation of earlier controls. This is separate from scripted chapter
+completion. `JUNIOR_PLAYTEST.md` contains the numbered stage record, repairs,
+rejected findings, selected inspected captures, and remaining product limits.
+
+The label click targets now follow the actual painted layout and have keyboard
+activation/focus styles. They walk to the target using the existing world path.
+The report screenshot pair verifies the deny-all confrontation and the final
+27/27 handover. This run does not provide a screenshot for every chapter or a
+full accessibility audit. Repeated rooms and the guided case-file structure
+remain visible product limitations.
+
+149 current unit/regression checks pass. The production `/ghostroute/` build and
+in-app jq/Go-template/JSONPath queries pass. Sixteen supported output contracts
+match native oc against the mock API. Cold offline reload in the in-app browser
+is inconclusive: HTML returns with the server stopped, but scripts do not start.
+An isolated Chromium check is pending permission; publication acceptance for
+offline use is not asserted from the historical receipts above.
