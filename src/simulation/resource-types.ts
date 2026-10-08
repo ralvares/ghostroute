@@ -1,4 +1,5 @@
 import { S } from "./state.js";
+import { installedCrds } from "./installed-crds.js";
 const builtinResourceTypes = {
   customresourcedefinitions: {
     kind: "CustomResourceDefinition",
@@ -232,9 +233,14 @@ export const resourceTypes: Record<ResourceType, ResourceDefinition> = {
 export function refreshResourceTypes() {
   for (const type of Object.keys(resourceTypes))
     if (!(type in builtinResourceTypes)) delete resourceTypes[type];
-  for (const crd of S.cluster.resources.filter(
+  Object.assign(resourceTypes, builtinResourceTypes);
+  const definitions = S.cluster.resources.filter(
     (r) => r.kind === "CustomResourceDefinition",
-  )) {
+  );
+  for (const installed of installedCrds)
+    if (!definitions.some((crd) => crd.metadata.name === installed.metadata.name))
+      delete resourceTypes[installed.spec!.names.plural];
+  for (const crd of definitions) {
     const spec = crd.spec ?? {},
       version = spec.versions?.find((v: any) => v.served && v.storage);
     if (

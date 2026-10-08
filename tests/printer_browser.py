@@ -36,12 +36,16 @@ with sync_playwright() as p:
  signal={'apiVersion':'security.example.test/v1','kind':'Signal','metadata':{'name':'suspicious','namespace':'payments'},'spec':{'severity':9,'owner':'mira'}}
  command("echo '"+json.dumps(signal)+"' > signal.json");command('oc apply -f signal.json','created');command('oc get sig -A -o wide','mira');page.screenshot(path=str(out/'custom-crd-table.png'))
  command('oc api-resources --api-group=security.example.test','Signal')
+ command('oc delete crd prometheusrules.monitoring.coreos.com','deleted')
+ assert 'PrometheusRule' not in command('oc api-resources --api-group=monitoring.coreos.com')
  command('oc get sig -A | less','suspicious');expect(page.locator('#terminalPager')).to_be_visible();page.locator('#terminalPager').press('q')
  command('game save','saved');page.wait_for_function("document.documentElement.dataset.offline==='ready'",polling=50);context.set_offline(True);page.reload();expect(page.locator('#startBtn')).to_have_text('Resume the case →');page.locator('#startBtn').click();page.evaluate('stepGame()');open_bastion(page)
  command('oc get sig -A -o wide','mira');command('cat signal-crd.json','additionalPrinterColumns')
+ command('oc get crd prometheusrules.monitoring.coreos.com','NotFound')
+ assert 'PrometheusRule' not in command('oc api-resources --api-group=monitoring.coreos.com')
  command("oc get pods -A -o jsonpath='{.items[0].metadata.namespace}'",'payments')
  command('oc get scc anyuid','RunAsAny')
  page.set_viewport_size({'width':390,'height':844});page.evaluate('stepGame()');command('oc get pods -A','NAMESPACE');page.screenshot(path=str(out/'native-pod-table-mobile.png'));assert page.evaluate('document.documentElement.scrollWidth===innerWidth')
  assert not errors,errors;assert not failed,failed;browser.close()
-receipt={'url':sys.argv[1],'commands':commands,'pods_default_columns':True,'scc_13_actual_defaults':True,'kubernetes_jsonpath_wasm':True,'custom_crd_offline_resume':True,'browser_errors':errors,'failed_requests':failed}
+receipt={'url':sys.argv[1],'commands':commands,'pods_default_columns':True,'scc_13_actual_defaults':True,'kubernetes_jsonpath_wasm':True,'custom_crd_offline_resume':True,'installed_crd_deletion_retained':True,'browser_errors':errors,'failed_requests':failed}
 (out/'printer-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))

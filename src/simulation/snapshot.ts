@@ -95,7 +95,9 @@ export function decodeProgress(text: string): SimulationState {
       )
         saved.data.cluster.resources.push(fixture);
     }
-  if (saved.data.cluster && !saved.data.cluster.policyRevision) {
+  const upgrade422Resources =
+    saved.data.cluster && !saved.data.cluster.policyRevision;
+  if (upgrade422Resources) {
     saved.data.cluster.policyRevision = "4.22-a18571de";
     const defaults = new Set(defaultSccs.map((scc) => scc.metadata.name));
     saved.data.cluster.sccs = [
@@ -130,7 +132,7 @@ export function decodeProgress(text: string): SimulationState {
     }
   }
   // Earlier saves retain their journey while acquiring the installed-operator discovery schemas.
-  if (saved.data.cluster?.resources)
+  if (upgrade422Resources && saved.data.cluster?.resources)
     for (const fixture of makeState().cluster.resources.filter(
       (r) => r.kind === "CustomResourceDefinition",
     )) {

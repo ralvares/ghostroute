@@ -532,6 +532,9 @@ test("older saves receive current defaults without losing authored vendor except
   });
   const before = JSON.parse(encodeProgress(S));
   delete before.data.cluster.policyRevision;
+  before.data.cluster.resources = before.data.cluster.resources.filter(
+    (r) => r.kind !== "CustomResourceDefinition",
+  );
   before.data.cluster.sccs = before.data.cluster.sccs.filter((s) =>
     [
       "restricted-v3",
@@ -542,6 +545,9 @@ test("older saves receive current defaults without losing authored vendor except
     ].includes(s.metadata.name),
   );
   const after = decodeProgress(JSON.stringify(before));
+  assert.ok(after.cluster.resources.some(
+    (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
+  ));
   assert.equal(after.story.notes, "Evidence I kept");
   assert.equal(after.cluster.sccs.length, 14);
   assert.equal(
@@ -615,4 +621,25 @@ test("created events are read from the same server collection and disappear on d
     }).code,
     404,
   );
+});
+
+test("installed CRD deletion survives current saves and reset restores its discovery", () => {
+  resetState();
+  S.cluster.user = "platform-admin";
+  S.cluster.resources.push({
+    apiVersion: "compliance.openshift.io/v1alpha1",
+    kind: "ComplianceScan",
+    metadata: { name: "temporary", namespace: "payments" },
+  });
+  const path = "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/compliancescans.compliance.openshift.io";
+  assert.equal(kubeRequest({ method: "DELETE", path }).code, 200);
+  assert.equal(resolveResource("compliancescans"), undefined);
+  assert.ok(!S.cluster.resources.some((r) => r.kind === "ComplianceScan"));
+  replaceState(decodeProgress(encodeProgress(S)));
+  assert.ok(!S.cluster.resources.some(
+    (r) => r.metadata.name === "compliancescans.compliance.openshift.io",
+  ));
+  assert.equal(resolveResource("compliancescans"), undefined);
+  resetState();
+  assert.equal(resolveResource("compliancescans"), "compliancescans");
 });

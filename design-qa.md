@@ -216,3 +216,8 @@ browser playthrough, bastion tools, offline custom-CRD resume, native JSONPath
 and cache-update checks. The native client is 4.20.6; pinned printer dependencies
 match the 4.22 source line. These checks establish the recorded contracts and
 preserve the story, without establishing full OpenShift cluster compatibility.
+
+A follow-up persistence check found and corrected installed CRD resurrection on
+current-save reload. Deletion removes instances/discovery and survives offline
+restore; old saves still acquire the default schemas once. The focused browser
+regression and all 131 unit checks pass.

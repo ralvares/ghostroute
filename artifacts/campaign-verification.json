@@ -1,7 +1,7 @@
 {
   "target": "27-chapter evolving prod-east journey; upstream resource printers, SCC defaults, installed/custom CRDs and offline bastion",
   "date": "2026-10-08",
-  "unit_tests": 130,
+  "unit_tests": 131,
   "unit_result": "passed",
   "production_build": "passed",
   "framework_revision": "e48d32014657e162d04ab1f7a07d4891d0abac03",
@@ -528,23 +528,24 @@
     "jq_after_update": true,
     "browser_errors": []
   },
-  "production_asset": "index-CkWIOxmB.js",
+  "production_asset": "index-Ctzxpryi.js",
   "api_contract": {
     "resource_reads": "offline REST paths, discovery, Status, negotiated Tables and paginated collections",
     "resource_crud": "shared RBAC/SCC/controller model",
     "preserved_adapters": "original incident mutations and domain-specific SCC/controller operations",
-    "fidelity": "100% OpenShift parity remains unmet; pinned printer contracts and sixteen native-client outputs verified, not live cluster acceptance"
+    "fidelity": "100% OpenShift parity remains unmet; pinned printer contracts and sixteen native-client outputs verified, not live cluster acceptance",
+    "crd_deletion": "Instances and discovery removed; current-save reload preserves deletion; legacy schema migration still supported"
   },
   "resource_printer_browser": {
     "url": "http://127.0.0.1:4186/ghostroute/",
     "commands": [
       {
         "command": "oc get pods -A",
-        "seconds": 0.122
+        "seconds": 0.119
       },
       {
         "command": "oc get pods -A -o wide",
-        "seconds": 0.114
+        "seconds": 0.113
       },
       {
         "command": "oc get pods -n payments --no-headers",
@@ -552,7 +553,7 @@
       },
       {
         "command": "oc get pods -A --show-labels -L app",
-        "seconds": 0.114
+        "seconds": 0.113
       },
       {
         "command": "oc get pods -A -l 'app in (payment-api)' --field-selector=spec.nodeName=worker-01",
@@ -560,35 +561,35 @@
       },
       {
         "command": "oc get pods -A -o 'custom-columns=Name:.metadata.name,scc:.metadata.annotations.openshift\\.io/scc'",
-        "seconds": 0.115
+        "seconds": 0.113
       },
       {
         "command": "oc get scc",
-        "seconds": 0.012
+        "seconds": 0.114
       },
       {
         "command": "oc get scc restricted-v3 -o jsonpath='{.runAsUser.uidRangeMin} {.runAsUser.uidRangeMax}'",
-        "seconds": 0.112
-      },
-      {
-        "command": "oc get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\"\\n\"}{end}'",
-        "seconds": 0.111
-      },
-      {
-        "command": "oc get pods -A -o jsonpath-as-json='{.items[*].metadata.name}'",
         "seconds": 0.109
       },
       {
-        "command": "oc get pods -A -o jsonpath='{.items[*].metadata.name}' | wc -l",
-        "seconds": 0.012
+        "command": "oc get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\"\\n\"}{end}'",
+        "seconds": 0.107
       },
       {
-        "command": "oc get pods -A -o jsonpath='{broken('",
+        "command": "oc get pods -A -o jsonpath-as-json='{.items[*].metadata.name}'",
+        "seconds": 0.01
+      },
+      {
+        "command": "oc get pods -A -o jsonpath='{.items[*].metadata.name}' | wc -l",
         "seconds": 0.11
       },
       {
+        "command": "oc get pods -A -o jsonpath='{broken('",
+        "seconds": 0.109
+      },
+      {
         "command": "oc get crd",
-        "seconds": 0.123
+        "seconds": 0.122
       },
       {
         "command": "oc get crd compliancescans.compliance.openshift.io -o json | jq -r '.spec.versions[0].additionalPrinterColumns[].name'",
@@ -596,39 +597,47 @@
       },
       {
         "command": "oc login -u platform-admin -p training",
-        "seconds": 0.112
+        "seconds": 0.01
       },
       {
         "command": "echo '{\"apiVersion\": \"apiextensions.k8s.io/v1\", \"kind\": \"CustomResourceDefinition\", \"metadata\": {\"name\": \"signals.security.example.test\"}, \"spec\": {\"group\": \"security.example.test\", \"scope\": \"Namespaced\", \"names\": {\"kind\": \"Signal\", \"plural\": \"signals\", \"singular\": \"signal\", \"shortNames\": [\"sig\"]}, \"versions\": [{\"name\": \"v1\", \"served\": true, \"storage\": true, \"schema\": {\"openAPIV3Schema\": {\"type\": \"object\", \"properties\": {\"spec\": {\"type\": \"object\", \"required\": [\"severity\"], \"properties\": {\"severity\": {\"type\": \"integer\", \"minimum\": 0, \"maximum\": 10}, \"owner\": {\"type\": \"string\"}}}}}}, \"additionalPrinterColumns\": [{\"name\": \"Severity\", \"type\": \"integer\", \"jsonPath\": \".spec.severity\"}, {\"name\": \"Owner\", \"type\": \"string\", \"priority\": 1, \"jsonPath\": \".spec.owner\"}]}]}}' > signal-crd.json",
-        "seconds": 0.112
+        "seconds": 0.11
       },
       {
         "command": "oc apply -f signal-crd.json",
-        "seconds": 0.119
+        "seconds": 0.116
       },
       {
         "command": "echo '{\"apiVersion\": \"security.example.test/v1\", \"kind\": \"Signal\", \"metadata\": {\"name\": \"suspicious\", \"namespace\": \"payments\"}, \"spec\": {\"severity\": 9, \"owner\": \"mira\"}}' > signal.json",
-        "seconds": 0.111
+        "seconds": 0.009
       },
       {
         "command": "oc apply -f signal.json",
-        "seconds": 0.012
+        "seconds": 0.112
       },
       {
         "command": "oc get sig -A -o wide",
-        "seconds": 0.114
+        "seconds": 0.111
       },
       {
         "command": "oc api-resources --api-group=security.example.test",
-        "seconds": 0.114
+        "seconds": 0.112
+      },
+      {
+        "command": "oc delete crd prometheusrules.monitoring.coreos.com",
+        "seconds": 0.112
+      },
+      {
+        "command": "oc api-resources --api-group=monitoring.coreos.com",
+        "seconds": 0.11
       },
       {
         "command": "oc get sig -A | less",
-        "seconds": 0.012
+        "seconds": 0.111
       },
       {
         "command": "game save",
-        "seconds": 0.112
+        "seconds": 0.109
       },
       {
         "command": "oc get sig -A -o wide",
@@ -636,11 +645,19 @@
       },
       {
         "command": "cat signal-crd.json",
-        "seconds": 0.114
+        "seconds": 0.111
+      },
+      {
+        "command": "oc get crd prometheusrules.monitoring.coreos.com",
+        "seconds": 0.115
+      },
+      {
+        "command": "oc api-resources --api-group=monitoring.coreos.com",
+        "seconds": 0.111
       },
       {
         "command": "oc get pods -A -o jsonpath='{.items[0].metadata.namespace}'",
-        "seconds": 0.109
+        "seconds": 0.11
       },
       {
         "command": "oc get scc anyuid",
@@ -648,13 +665,14 @@
       },
       {
         "command": "oc get pods -A",
-        "seconds": 0.114
+        "seconds": 0.013
       }
     ],
     "pods_default_columns": true,
     "scc_13_actual_defaults": true,
     "kubernetes_jsonpath_wasm": true,
     "custom_crd_offline_resume": true,
+    "installed_crd_deletion_retained": true,
     "browser_errors": [],
     "failed_requests": []
   },

@@ -329,7 +329,10 @@ Installed operator CRD schemas declare the displayed columns. The simulator also
 supports applying a new single-version namespaced or cluster-scoped CRD,
 discovery through `oc api-resources`, alias resolution, custom-resource CRUD and
 `additionalPrinterColumns` with priority for wide output. User-created definitions
-and instances survive offline reload and export/import. Structural admission
+and instances survive offline reload and export/import. Deleting installed CRDs
+also persists: their resources and discovery
+entries are removed, and current-save reload does not reinstall them. Legacy
+save migration supplies the newly introduced default schemas once. Structural admission
 implements the documented simple types, required fields, bounds, enums, defaults
 and unknown-field pruning. Complex schemas, CEL, conversion webhooks,
 multi-version conversion and arbitrary operator execution remain unimplemented.
