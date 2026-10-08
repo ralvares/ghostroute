@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0d17">
+<title>NEXUS // Ghost Route — OpenShift Security RPG</title>
+<style>
+:root{--red:#ee0000;--redlite:#ff6358;--ink:#edf2fc;--muted:#a1acc6;--dark:#0b0d17;--panel:#121a2b;--line:#344158;--teal:#70e6d2;--gold:#f6ca7c;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}html{background:var(--dark)}body{margin:0;color:var(--ink);font:15px/1.48 system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(ellipse at 50% -18%,#252b47 0%,#0b0d17 55%);min-height:100vh}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,canvas:focus-visible{outline:3px solid #f6ca7c;outline-offset:3px}button:disabled{cursor:not-allowed;opacity:.45}
+.top{max-width:1450px;margin:auto;padding:18px 24px 15px;display:flex;align-items:center;justify-content:space-between;gap:14px}.brand{display:flex;align-items:center;gap:13px}.hatmark{width:44px;height:44px;display:grid;place-items:center;background:var(--red);border-radius:12px;box-shadow:0 6px 26px #ee000032}.hatmark svg{width:33px;fill:white}.bname{font-size:21px;font-weight:900;letter-spacing:.13em;line-height:1}.bsub{font:11px/1.7 var(--mono);letter-spacing:.045em;color:#94a4bf}.topright{display:flex;align-items:center;gap:10px}.tag{font:11px var(--mono);padding:8px 10px;border:1px solid #3a4151;border-radius:20px;color:#bac6d8;white-space:nowrap}.tag.em{color:#f7cbb9;border-color:#733937;background:#421b2040}.textbtn{background:none;color:#cad4e4;border:1px solid #3b475b;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:750}.textbtn:hover{background:#263044}
+.page{max-width:1450px;margin:auto;padding:0 24px 20px}.frame{position:relative;overflow:hidden;border:1px solid #303b53;border-radius:19px;background:#0d1320;box-shadow:0 25px 90px #0008,0 0 0 1px #ffffff08 inset}.frame::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(transparent 55%,#03091532);border-radius:inherit}#world{display:block;width:100%;aspect-ratio:1180/650;background:#0e1521;cursor:crosshair;touch-action:manipulation}
+.overlay{position:absolute;z-index:4}.casehud{left:20px;top:20px;max-width:min(390px,57%);background:#111828e3;border:1px solid #38435b;border-left:4px solid #ee0000;backdrop-filter:blur(12px);padding:15px 18px;border-radius:13px}.eyebrow{color:#f98c83;letter-spacing:.13em;font:800 10px var(--mono);text-transform:uppercase}.casetitle{font-weight:900;font-size:19px;line-height:1.3;margin:5px 0 4px}.casehint{color:#c7d0e1;font-size:13px;line-height:1.42}.hudright{right:19px;top:19px;display:flex;gap:8px}.stat{padding:11px 14px;background:#101826e8;border:1px solid #354259;border-radius:11px;min-width:115px;backdrop-filter:blur(12px)}.stat .name{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#92a1bb}.stat b{display:block;font-size:16px;margin:2px 0 0;letter-spacing:-.015em}.stat b.good{color:#86e5bd}.stat b.bad{color:#f5a2a0}.stat b.warn{color:#ffcc80}.stat small{display:block;color:#8da0b9;font-size:10px}
+.prompt{left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:#0a101dea;padding:11px 17px;border:1px solid #516780;border-radius:13px;color:#f0f4ff;box-shadow:0 10px 34px #0009;white-space:nowrap;font-size:13px;max-width:95%}.prompt strong{background:#e8ecff;color:#141821;border-radius:6px;padding:4px 7px;font:900 12px var(--mono)}.prompt[hidden]{display:none}.radio{left:50%;bottom:12px;transform:translateX(-50%);width:min(670px,calc(100% - 36px));display:flex;gap:15px;align-items:center;padding:14px;background:#111c2aef;border:1px solid #6c7792;border-radius:14px;box-shadow:0 8px 36px #000c;backdrop-filter:blur(12px)}.radio[hidden]{display:none}.portrait{width:53px;height:53px;flex:none;border-radius:12px;display:grid;place-items:center;background:linear-gradient(140deg,#69373f,#253f60);font-size:28px;border:1px solid #9699a34d}.radioname{font:900 12px var(--mono);color:#ffc58b;letter-spacing:.08em}.radiotext{font-size:14px;color:#e7eaf1}.radio button{margin-left:auto;border:1px solid #556780;border-radius:9px;background:#293a53;color:#fff;padding:10px 13px;white-space:nowrap;font-size:12px;font-weight:800}
+.toast{top:115px;left:50%;transform:translateX(-50%);z-index:16;padding:11px 18px;border-radius:11px;background:#183d44ed;border:1px solid #65dcca;color:#dbfff5;font-size:13px;font-weight:750;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:85%}.toast.show{opacity:1}.ticker{bottom:15px;left:20px;padding:8px 12px;background:#101725ac;border:1px solid #334157;border-radius:8px;font:11px var(--mono);color:#a4b5ce;display:flex;gap:16px}.ticker strong{color:#d1daea}.helpkey{background:#303d4e;color:#fff;border-radius:4px;padding:1px 4px;font:10px var(--mono)}
+.below{display:flex;gap:13px;align-items:center;justify-content:space-between;padding:14px 2px}.control{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.actionbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid #51647d;border-radius:10px;background:#202f46;color:white;padding:10px 15px;font-size:13px;font-weight:800}.actionbtn:hover{background:#324766}.actionbtn.primary{border-color:#d52e29;background:#b91416}.actionbtn.primary:hover{background:#de282b}.tinyhelp{color:#879ab5;font-size:12px}.copyright{color:#647591;font-size:11px}.key{font:700 11px var(--mono);border:1px solid #71809888;padding:2px 5px;border-radius:4px}
+.sheet{position:absolute;z-index:10;inset:0;background:#020815aa;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(7px)}.sheet[hidden]{display:none}.modal{background:#141e2e;border:1px solid #52627b;border-radius:17px;box-shadow:0 30px 80px #000c;width:min(670px,100%);max-height:calc(100% - 16px);overflow:auto;padding:25px}.modal h2{margin:6px 0 10px;font-size:29px;line-height:1.12;letter-spacing:-.04em}.modal p{color:#c3cee0;margin:9px 0 13px}.modal .bigquote{border-left:3px solid #e6453a;padding:10px 16px;background:#e5352210;font-size:16px;color:#f0f3fb;line-height:1.6;border-radius:0 8px 8px 0}.modal-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}.modal-foot .hint{font-size:12px;color:#9eafc5}.btnred{background:#ee0000;color:white;border:0;padding:13px 19px;border-radius:10px;font-weight:900;min-height:45px}.btnred:hover{background:#cc1611}.btnquiet{background:#293b51;border:1px solid #4c6480;color:#e3edf9;padding:10px 14px;border-radius:9px;font-weight:800}.row{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.pill{font:11px var(--mono);padding:6px 8px;border-radius:7px;border:1px solid #546179;color:#c8d4e4}.pill.hot{color:#ffd1cb;border-color:#853735;background:#63202555}.divider{height:1px;background:#39465b;margin:16px 0}
+#casepanel{position:absolute;z-index:9;right:13px;top:13px;bottom:13px;width:min(360px,calc(100% - 26px));background:#141e2af5;border:1px solid #6b7593;border-radius:13px;box-shadow:0 25px 65px #000b;overflow-y:auto;padding:18px;backdrop-filter:blur(16px)}#casepanel[hidden]{display:none}.panelhead{display:flex;align-items:center;justify-content:space-between;gap:14px}.panelhead h2{margin:0;font-size:17px}.cross{background:#26364b;border:1px solid #4f6074;color:#f3f4f8;border-radius:8px;min-width:34px;min-height:34px;font-weight:900}.panelmeta{font:10px var(--mono);color:#a6b6ce;letter-spacing:.08em}.evidence{padding:13px 0;border-bottom:1px solid #38435a}.evidence b{font-size:13px;display:block;color:#dce9f8}.evidence p{font-size:12px;color:#9dacbf;margin:4px 0}.evidence .lock{color:#8d9db2;font-style:italic}
+#shellshade{position:absolute;inset:0;z-index:11;background:#030716bb;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}#shellshade[hidden]{display:none}.terminal{width:min(890px,100%);height:min(514px,calc(100% - 14px));display:flex;flex-direction:column;overflow:hidden;border-radius:14px;background:#070d15;border:1px solid #65758b;box-shadow:0 35px 110px #000e;color:#d2f5e5;font:13px/1.5 var(--mono)}.termbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1c2b3c;border-bottom:1px solid #42556e;color:#e3eaf2;font:12px system-ui}.termtabs{display:flex;align-items:center;gap:8px}.led{width:9px;height:9px;border-radius:50%;background:#ee554e;box-shadow:15px 0 #e8bd55,30px 0 #55ce8a;margin-right:31px}.termclose{border:1px solid #55647a;background:#283c54;color:#fff;border-radius:7px;padding:5px 10px;font-size:12px}.termoutput{overflow:auto;flex:1;white-space:pre-wrap;word-break:break-word;padding:15px 17px 5px;scrollbar-color:#3f5970 transparent}.termline{margin:0 0 7px}.termline.command{color:#b1e4ff}.termline.error{color:#ff9993}.termline.success{color:#82e5ad}.termline.meta{color:#9dacc2}.termline.reply{color:#c7d5e8}.termform{display:flex;align-items:center;gap:0;padding:10px 16px 15px;background:#090f19;border-top:1px solid #26374c}.termprompt{white-space:nowrap;color:#7be1bd;font:13px var(--mono)}.termcmd{position:relative;flex:1;min-width:0;margin-left:8px}.termcmd input{position:relative;z-index:2;width:100%;background:transparent;border:0;outline:0;color:#fff;padding:4px 0;font:13px var(--mono);caret-color:#fff;border-radius:0}.ghost{position:absolute;left:0;right:0;top:4px;white-space:pre;overflow:hidden;color:#6c819b;pointer-events:none;font:13px var(--mono);z-index:1}.termhelp{padding:6px 16px;background:#101a28;border-top:1px solid #253649;color:#748aa6;font:11px var(--mono);display:flex;gap:18px;flex-wrap:wrap}.termhelp b{color:#a4c3db}.terminal ::selection{background:#467e99}
+.tracepulse{animation:flash 1.4s infinite}@keyframes flash{50%{opacity:.45}}
+.endstats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.endstats div{background:#1b2d3b;border:1px solid #40526b;border-radius:12px;padding:15px;text-align:center}.endstats b{display:block;font-size:23px;color:#9eebcf}.endstats small{color:#aab9ce;font-size:11px}.grade{font-size:64px;color:#f8cb82;font-weight:950;line-height:1}
+@media(max-width:850px){.top{padding:12px}.page{padding:0 10px 14px}.bname{font-size:16px}.bsub{font-size:9px}.tag{display:none}.tag.em{display:block;font-size:9px}.casehud{left:9px;top:9px;padding:8px 10px;max-width:59%}.casetitle{font-size:14px;margin:2px 0}.casehint{font-size:10px}.eyebrow{font-size:9px}.hudright{right:8px;top:8px;gap:4px}.stat{min-width:auto;padding:6px 8px}.stat .name{font-size:9px}.stat b{font-size:12px}.stat small{display:none}.ticker{display:none}.below{flex-wrap:wrap}.tinyhelp{display:none}.toast{top:75px}.prompt{bottom:7px;padding:7px;font-size:11px}.prompt strong{font-size:10px}.radio{padding:8px;gap:7px}.radiotext{font-size:11px}.portrait{width:36px;height:36px;font-size:20px}.radio button{padding:8px;font-size:10px}.modal{padding:17px}.modal h2{font-size:24px}.terminal{font-size:11px}.endstats{gap:5px}.endstats div{padding:8px}.endstats b{font-size:17px}}
+@media(max-width:520px){.frame{border-radius:11px}#world{aspect-ratio:760/650;object-fit:fill}.hudright{top:auto;bottom:8px}.stat{background:#101826f4}.stat small{display:none}.casehud{max-width:83%}.hudright .stat:last-child{display:none}.control{width:100%}.actionbtn{flex:1;justify-content:center;padding:9px 6px;font-size:12px}.copyright{display:none}.radiotext{font-size:10px}.radio button{font-size:10px}.termhelp{gap:6px;font-size:9px}.termprompt{font-size:11px}.termcmd input,.ghost{font-size:12px}.terminal{max-height:95%}.shellshade{padding:5px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand"><div class="hatmark" aria-hidden="true"><svg viewBox="0 0 64 44"><path d="M17 20c-2-7 0-13 7-15 5 3 12 3 16 0 6 3 9 9 7 15l7 7c4 5-5 9-18 10-15 1-31-3-30-10 1-3 6-5 11-7Zm1 3c5 3 23 7 29-1l-2-6c-4 5-19 5-26 0l-1 7Z"/></svg></div><div><div class="bname">NEXUS <span style="font-size:11px;font-weight:500;letter-spacing:.01em;color:#d07e7e">/ GHOST ROUTE</span></div><div class="bsub">AN OPENSHIFT SECURITY ADVENTURE · EPISODE 01</div></div></div><div class="topright"><span class="tag em">● INCIDENT ACTIVE</span><span class="tag">OFFLINE SIMULATION</span><button class="textbtn" id="restartTop" type="button">↺ Restart</button></div></header>
+<main class="page">
+<div class="frame" id="frame">
+<canvas id="world" width="1180" height="650" tabindex="0" aria-label="Interactive map of an OpenShift cluster containing two worker nodes, payment API Pods, the RHACS station, and an operator avatar. Click a destination to walk. Use WASD or arrows to move."></canvas>
+<div class="overlay casehud" id="casehud"><div class="eyebrow" id="phase">CASE 018 · DETECT</div><div class="casetitle" id="objectiveTitle">Something is leaving the cluster.</div><div class="casehint" id="objective">Follow the red network signal. Trace Vision reveals where it starts.</div></div>
+<div class="overlay hudright"><div class="stat"><div class="name">Customer service</div><b class="good" id="health">HEALTHY</b><small id="healthDetail">2 / 2 replicas ready</small></div><div class="stat"><div class="name">Exposure</div><b class="bad" id="exposure">UNCONTROLLED</b><small id="exposureDetail">Unapproved egress path</small></div></div>
+<div class="overlay ticker"><span>MOVE <strong>WASD</strong></span><span>TRACE <strong>SPACE</strong></span><span>INTERACT <strong>E</strong></span><span>TERMINAL <strong>T</strong></span></div>
+<div class="overlay prompt" id="nearby" hidden><strong>E</strong><span id="nearbyText">Interact</span></div>
+<div class="overlay radio" id="radio" hidden><div class="portrait" id="radioPortrait">👤</div><div style="min-width:0"><div class="radioname" id="radioName">RHEA</div><div class="radiotext" id="radioText"></div></div><button id="radioClose" type="button">Got it ↵</button></div>
+<div class="overlay toast" id="toast" role="status" aria-live="polite"></div>
+<section class="sheet" id="opening" aria-label="Incident briefing"><div class="modal"><div class="eyebrow">02:14 UTC · PAYMENTS DISTRICT · OPENSHIFT CLUSTER</div><h2>The service is healthy.<br><span style="color:#ff7067">The traffic isn't.</span></h2><p class="bigquote">“RHACS learned our normal network traffic. Five minutes ago, <strong>payment-api</strong> started talking to a destination nobody recognizes. I need to know whether we're compromised—before we start breaking things.”</p><div class="row"><span class="pill">● Real investigation</span><span class="pill">● Realistic oc commands</span><span class="pill">● Decisions have consequences</span></div><div class="modal-foot"><span class="hint">No timer. Think before you act. Your changes affect a live-looking simulation.</span><button class="btnred" id="startBtn" type="button">Enter the cluster →</button></div></div></section>
+<section class="sheet" id="details" hidden aria-label="Investigation details"><div class="modal" id="detailsBody"></div></section>
+<section id="casepanel" hidden aria-label="Evidence case board"><div class="panelhead"><h2>Caseboard</h2><button class="cross" id="closeCase" type="button" aria-label="Close caseboard">×</button></div><div class="panelmeta">INCIDENT 018 · RHACS NETWORK ANOMALY</div><div id="evidenceList"></div><p style="font-size:11px;color:#8e9bb3;margin-top:14px">Evidence is collected from exploration and commands. A deviation is a lead—not proof of compromise.</p></section>
+<div id="shellshade" hidden><section class="terminal" role="dialog" aria-label="OpenShift command terminal"><div class="termbar"><div class="termtabs"><span class="led"></span><strong id="termTitle">operator@bastion — bash-like shell</strong></div><button class="termclose" id="closeTerm" type="button">✕ Close <span style="font-size:10px">Esc</span></button></div><div class="termoutput" id="termOutput" aria-live="polite"></div><form class="termform" id="termform"><label class="termprompt" for="termInput" id="termPrompt">operator@bastion:~$</label><div class="termcmd"><div class="ghost"><span id="ghostLead"></span><span id="ghostTail"></span></div><input id="termInput" type="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Enter shell command" /></div></form><div class="termhelp"><span><b>TAB</b> complete</span><span><b>↑↓</b> history</span><span><b>→</b> accept suggestion</span><span><b>Ctrl+L</b> clear</span><span><b>help</b> supported commands</span></div></section></div>
+<section class="sheet" id="ending" hidden aria-label="Mission debrief"><div class="modal" id="endBody"></div></section>
+</div>
+<div class="below"><div class="control"><button class="actionbtn primary" id="terminalBtn" type="button">⌘ Open terminal <span class="key">T</span></button><button class="actionbtn" id="traceBtn" type="button">◎ Trace Vision <span class="key">SPACE</span></button><button class="actionbtn" id="caseBtn" type="button">◇ Caseboard <span class="key" id="evidenceCount">0 / 5</span></button></div><div class="tinyhelp">Walk with <span class="key">W A S D</span> or click any location · Click characters and stations to interact.</div></div>
+<p class="copyright">An independent OpenShift-inspired learning prototype. Simulated infrastructure, no real network access. OpenShift, RHACS, and Red Hat names belong to their respective owners.</p>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const C=$('world'), ctx=C.getContext('2d');
+const W=1180,H=650, reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let cameraX=0, frame=0, lastTime=0, active=false, terminalOpen=false, detailOpen=false, radioOpen=false, caseOpen=false, endOpen=false, traceEnd=0, traceOn=false, target=null, near=null, pending=null, toastTimer=0, tabIndex=0, histPointer=-1;
+const keys=new Set();
+const objects=[
+ {id:'rhacs',x:220,y:310,r:62,label:'RHACS SOC',sub:'Network anomaly',kind:'terminal'},
+ {id:'pod1',x:468,y:312,r:54,label:'payment-api',sub:'Pod · worker-01',kind:'pod'},
+ {id:'pod2',x:758,y:363,r:54,label:'payment-api',sub:'Pod · worker-02',kind:'pod'},
+ {id:'ledger',x:747,y:252,r:55,label:'ledger',sub:'Internal API · worker-02',kind:'pod'},
+ {id:'ops',x:525,y:526,r:56,label:'OPS TERMINAL',sub:'OpenShift CLI',kind:'terminal'},
+ {id:'rhea',x:291,y:470,r:52,label:'RHEA',sub:'RHACS analyst',kind:'npc'},
+ {id:'mira',x:882,y:505,r:52,label:'MIRA',sub:'Platform engineer',kind:'npc'},
+ {id:'edge',x:1067,y:330,r:62,label:'OUTSIDE',sub:'Untrusted network',kind:'edge'},
+];
+function makeState(){return {x:423,y:512,facing:1,step:0,env:true,policy:'none',podRev:1,evidence:new Set(),checked:new Set(),verified:new Set(),history:[],commands:0,interruptions:0,traceFound:false,seenR:0,started:false,done:false,firstDeny:false,mentorSeen:false,patchSeen:false,scorePenalty:0,seenIssue:false}}
+let S=makeState();
+const clues={rhacs:{name:'Network baseline deviation',text:'RHACS observed payment-api → 203.0.113.77:443. This destination is absent from the learned baseline. An anomaly alone does not establish malicious intent.'},trace:{name:'Trace to payment-api',text:'The unapproved connection originates from payment-api Pods on both workers—not from the internal ledger service.'},logs:{name:'Application log anomaly',text:'The container logs show TELEMETRY_ENDPOINT repeatedly sending payment metadata outside the namespace.'},env:{name:'Deployment configuration',text:'The payment-api Deployment sets TELEMETRY_ENDPOINT=https://203.0.113.77/upload. That value is an unexpected application configuration change.'},policy:{name:'Missing egress boundary',text:'No egress NetworkPolicy selects payment-api. Without egress isolation, an accidental or malicious connection can reach external addresses.'}};
+function addClue(k){if(S.evidence.has(k))return;S.evidence.add(k);$('evidenceCount').textContent=S.evidence.size+' / 5';toast('✦ Evidence discovered: '+clues[k].name);if(S.evidence.size===2&&S.env)radio('RHEA','Two independent signals now point at payment-api. Correlate its application logs and Deployment before changing production.');updateHUD();maybeWin();}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function toast(s){const el=$('toast');el.textContent=s;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2700)}
+function radio(who,msg){if(!S.started||terminalOpen||endOpen)return;radioOpen=true;$('radioName').textContent=who;$('radioText').textContent=msg;$('radioPortrait').textContent=who==='RHEA'?'🛡️':'👩🏽‍💻';$('radio').hidden=false;$('nearby').hidden=true;}
+function closeRadio(){radioOpen=false;$('radio').hidden=true}
+$('radioClose').addEventListener('click',closeRadio);
+function updateHUD(){let title,txt,phase;
+ if(S.done){phase='CASE 018 · RESOLVED';title='Route secured. District restored.';txt='The payment service survived. The case is closed.'}
+ else if(S.env&&S.evidence.size<2){phase='CASE 018 · INVESTIGATE';title='Where is the red traffic coming from?';txt='Use Trace Vision (Space). Investigate RHACS, the Pods, and your terminal.'}
+ else if(S.env){phase='CASE 018 · FIND THE CAUSE';title='Something in payment-api changed.';txt='Read its logs and Deployment config. Then choose how to contain the connection.'}
+ else if(S.policy==='none'){phase='CASE 018 · PREVENT RECURRENCE';title='The suspicious setting is gone.';txt='An open network path remains. Apply least-privilege egress controls.'}
+ else if(S.policy==='deny'){phase='CASE 018 · CUSTOMER IMPACT';title='Checkout is failing!';txt='Default-deny also blocked DNS and ledger. Restore required egress, not all egress.'}
+ else if(!((S.evidence.has('rhacs')||S.evidence.has('trace'))&&S.evidence.size>=3)){phase='CASE 018 · EXPLAIN THE INCIDENT';title='Fix deployed. Can you prove what happened?';txt='Complete the investigation: collect RHACS/trace evidence and at least three independent clues.'}
+ else {phase='CASE 018 · PROVE IT';title='Can customers still pay?';txt='From a Pod, test ledger access and external blocking. Check the Deployment rollout.'}
+ $('phase').textContent=phase;$('objectiveTitle').textContent=title;$('objective').textContent=txt;
+ const bad=S.policy==='deny';$('health').textContent=bad?'DEGRADED':'HEALTHY';$('health').className=bad?'bad':'good';$('healthDetail').textContent=bad?'Ledger requests timing out':'2 / 2 replicas ready';
+ $('exposure').textContent=S.policy==='allow'?'CONTAINED':S.env?'UNCONTROLLED':'OPEN PATH';$('exposure').className=S.policy==='allow'?'good':S.env?'bad':'warn';$('exposureDetail').textContent=S.policy==='allow'?'Only required Pod egress':'No enforced egress boundary';
+ if(S.policy==='deny'&&!S.firstDeny){S.firstDeny=true;S.interruptions++;setTimeout(()=>radio('MIRA','Your default-deny policy stopped the suspicious path, but it also cut off DNS and the ledger dependency. That is why we test legitimate traffic before calling a fix complete.'),500)}
+}
+function toggleTrace(){if(!S.started||terminalOpen||detailOpen||endOpen)return;traceOn=!traceOn;traceEnd=performance.now()+12500;toast(traceOn?'Trace Vision ON · Follow the outbound path':'Trace Vision OFF');if(traceOn){const d=Math.hypot(S.x-objects[1].x,S.y-objects[1].y);if(d<170){addClue('trace');S.traceFound=true}}}
+function nearest(){let best=null,dist=100;for(const o of objects){const d=Math.hypot(S.x-o.x,S.y-o.y);if(d<dist){dist=d;best=o}}return best}
+function interact(o=nearest()){if(!o||!S.started||terminalOpen||detailOpen||endOpen)return;closeRadio();if(o.id==='ops'){openTerminal();return}
+ if(o.id==='rhacs'){addClue('rhacs');openDetail(`<div class="eyebrow">RHACS · NETWORK ANOMALY</div><h2>An unexpected route.</h2><p>The learned baseline for <code>payments/payment-api</code> contains traffic to the internal ledger and DNS. A new external flow was observed.</p><div class="divider"></div><div class="panelmeta">SOURCE → DESTINATION</div><p style="font-family:var(--mono);font-size:13px;color:#fdb3ad;word-break:break-all">payment-api → 203.0.113.77:443</p><div class="row"><span class="pill hot">Observed: outside baseline</span><span class="pill">Not yet confirmed malicious</span></div><p style="font-size:13px">The alert identifies a deviation, not its cause. Correlate application logs, configuration and outbound tests before drawing conclusions.</p>`);return}
+ if(o.id==='pod1'||o.id==='pod2'){if(traceOn){addClue('trace');S.traceFound=true}openDetail(`<div class="eyebrow">WORKLOAD · PAYMENTS NAMESPACE</div><h2>payment-api <span style="color:#75d9c9;font-size:15px">2 / 2 ready</span></h2><p>This Pod is running on <strong>${o.id==='pod1'?'worker-01':'worker-02'}</strong>. Both replicas come from the same Deployment template.</p><div class="row"><span class="pill">app=payment-api</span><span class="pill">Deployment/payment-api</span><span class="pill">ServiceAccount: payment-app</span></div><div class="divider"></div><p>${traceOn?'<strong style="color:#ffa8a4">Trace Vision:</strong> outgoing signal to an unrecognized endpoint detected.':'Open Trace Vision near a Pod to reveal its network flows.'}</p><p style="font-size:13px">To investigate what the application is doing, open the operator terminal and inspect <code>oc logs deployment/payment-api -n payments</code>.</p>`);return}
+ if(o.id==='ledger'){openDetail(`<div class="eyebrow">INTERNAL DEPENDENCY</div><h2>ledger · tcp/8443</h2><p>The payment service calls this internal workload to complete checkout requests.</p><div class="row"><span class="pill">Namespace: payments</span><span class="pill">app=ledger</span><span class="pill">worker-02</span></div><p>When you introduce egress restrictions, <strong>this dependency and OpenShift DNS must remain reachable</strong>. Otherwise customers cannot complete payments.</p>`);return}
+ if(o.id==='edge'){openDetail(`<div class="eyebrow">NETWORK EDGE · OUTSIDE THE CLUSTER</div><h2>Untrusted destination</h2><p>Traffic crosses the cluster edge toward <code>203.0.113.77:443</code> (a documentation-only address used by this offline simulation).</p><p>This path is only visible when Trace Vision is active. A NetworkPolicy can restrict which destinations selected Pods are allowed to reach.</p>`);return}
+ if(o.id==='rhea'){radio('RHEA',!S.evidence.has('logs')?'An alert is a clue, not a conviction. First identify the source and inspect its logs. What operation produced the unexpected traffic?':S.env?'The logs and config are connected. A setting was changed. Don\'t forget to verify both the bad path and the good path after remediation.':"You stopped the application's suspicious behavior. Now ensure the cluster enforces the intended boundary.");return}
+ if(o.id==='mira'){radio('MIRA',S.policy==='deny'?'Default-deny was too broad by itself. Open the policy files in your simulated home directory: compare deny-all.yaml with payments-egress.yaml.':S.policy==='allow'?'A fix is only useful if it preserves service. Open a Pod shell and curl both the ledger and the untrusted address.': 'SCC controls what a container can do. NetworkPolicy controls allowed Pod traffic. Here we need to inspect the Deployment and egress rules. The CLI is open at the Ops terminal.');return}
+}
+function openDetail(html){detailOpen=true;$('detailsBody').innerHTML=html+`<div class="modal-foot"><span class="hint">This is evidence, not a one-click fix.</span><button type="button" class="btnquiet" id="detailDone">Return to world ↵</button></div>`;$('details').hidden=false;$('detailDone').addEventListener('click',closeDetail)}
+function closeDetail(){detailOpen=false;$('details').hidden=true;C.focus()}
+function showCase(){if(!S.started||terminalOpen||detailOpen||endOpen)return;caseOpen=!caseOpen;$('casepanel').hidden=!caseOpen;if(caseOpen){$('evidenceList').innerHTML=Object.entries(clues).map(([k,v])=>`<div class="evidence"><b>${S.evidence.has(k)?'✓':'◇'} ${esc(v.name)}</b>${S.evidence.has(k)?`<p>${esc(v.text)}</p>`:'<p class="lock">Not discovered yet — explore or investigate with oc.</p>'}</div>`).join('')}}
+$('closeCase').addEventListener('click',()=>{caseOpen=false;$('casepanel').hidden=true;C.focus()});$('caseBtn').addEventListener('click',showCase);$('traceBtn').addEventListener('click',toggleTrace);$('terminalBtn').addEventListener('click',openTerminal);
+$('startBtn').addEventListener('click',()=>{S.started=true;active=true;$('opening').hidden=true;C.focus();radio('RHEA','Both payment Pods report Ready. That makes this harder: the system looks healthy. Press Space to trace traffic, and come see me or the RHACS station.');updateHUD()});
+$('restartTop').addEventListener('click',restart);
+function restart(){switchPrompt();S=makeState();traceOn=false;target=null;pending=null;closeRadio();closeTerminal();closeDetail();caseOpen=false;$('casepanel').hidden=true;endOpen=false;$('ending').hidden=true;$('opening').hidden=false;active=false;$('evidenceCount').textContent='0 / 5';$('termOutput').innerHTML='';updateHUD()}
+function drawRounded(x,y,w,h,r,fill,stroke,lw=1){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}}
+function drawText(s,x,y,color='#e0e9f6',font='12px system-ui',align='left'){ctx.font=font;ctx.textAlign=align;ctx.fillStyle=color;ctx.fillText(s,x,y);ctx.textAlign='left'}
+function line(x1,y1,x2,y2,color,width=2,dash=[]){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([])}
+function glowDot(x,y,r,color){const g=ctx.createRadialGradient(x,y,1,x,y,r*3);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*3,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()}
+function fillPolygon(points,fill,stroke){ctx.beginPath();ctx.moveTo(...points[0]);for(let i=1;i<points.length;i++)ctx.lineTo(...points[i]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.stroke()}}
+function drawBackground(t){const gr=ctx.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#19243c');gr.addColorStop(1,'#0a121f');ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+ // floor panels, gutters and a horizon of server architecture
+ for(let x=24;x<W;x+=57){for(let y=30;y<H;y+=57){drawRounded(x,y,51,51,5,((x+y)%3)?'#ffffff03':'#88aaff04','#ffffff05')}}
+ for(let x=0;x<W;x+=57)line(x,0,x,H,'#5371a70a');for(let y=0;y<H;y+=57)line(0,y,W,y,'#5371a70a');
+ // edge conduits
+ line(0,590,W,590,'#4e76983c',16);line(0,590,W,590,'#74b8b94b',2);
+ drawRounded(0,0,W,78,0,'#0b111ba6');drawText('OPENSHIFT PLATFORM · CLUSTER / prod-east',24,33,'#91a9c4','bold 12px ui-monospace,monospace');
+ drawText('WORKER NODES · APPLICATION PLANE',390,113,'#87a4c9','bold 11px ui-monospace,monospace');
+ drawText('PAYMENTS NAMESPACE (logical scope across both nodes)',389,152,'#80d9e0','11px ui-monospace,monospace');
+ ctx.strokeStyle='#429ca777';ctx.lineWidth=1.5;ctx.setLineDash([8,7]);ctx.strokeRect(374,160,554,328);ctx.setLineDash([]);
+ // floating pipes/wires
+ for(let i=0;i<7;i++){const x=24+i*186;line(x,75,x,120,'#83a2c037',5);glowDot(x,118,1.5,'#5ca8c4')}
+ // city windows / distant racks
+ for(let i=0;i<10;i++){let x=15+i*123;drawRounded(x,60,57,42,5,'#1e2b46','#33476b');for(let j=0;j<4;j++)drawRounded(x+8+j*11,69,6,17,2,j%3===0?'#6b8bba':'#30415f')}
+ // center corridor floor
+ drawRounded(310,492,639,110,13,'#24324866','#34496388');drawRounded(354,515,556,50,7,'#91b9bd12','#5c859a2b');
+ // external edge gateway
+ drawRounded(975,180,175,322,15,'#281a2b9c','#67435e');drawRounded(993,222,137,198,12,'#180d20','#ad445f');drawText('EXTERNAL',1061,202,'#faafaf','bold 13px system-ui','center');drawText('NETWORK',1061,219,'#ba8c9d','11px system-ui','center');
+ for(let i=0;i<6;i++){const yy=252+i*26;line(1015,yy,1109,yy,'#9f315a6b',7);glowDot(1110,yy,2.2,'#f26c6c')}
+ drawText('203.0.113.77',1062,458,'#ffa3a3','12px ui-monospace,monospace','center');
+ }
+function drawNode(x,y,id,healthy=true){ctx.save();ctx.shadowColor='#050815aa';ctx.shadowBlur=27;ctx.shadowOffsetY=13;drawRounded(x,y,252,283,16,'#1a2d44','#57718f',2);ctx.restore();drawRounded(x+3,y+3,246,65,12,'#293e5d');drawRounded(x+14,y+13,39,37,9,'#112038','#587896');drawText('▦',x+24,y+41,'#9dd4ea','25px ui-monospace,monospace');drawText(id,x+62,y+32,'#f1f5ff','bold 16px system-ui');drawText('RUNNING  •  READY',x+62,y+52,healthy?'#8be0c3':'#f59c95','bold 10px ui-monospace,monospace');
+ for(let i=0;i<4;i++){drawRounded(x+17+i*57,y+78,46,13,4,'#1d3754','#36526f');drawRounded(x+24+i*57,y+82,15,4,2,'#5ab9aa')}
+ drawRounded(x+12,y+109,228,157,12,'#0b1627','#45617e');
+}
+function drawPod(o,t){const led=o.id==='ledger',broken=S.policy==='deny',isPayment=!led;
+ const x=o.x,y=o.y;ctx.save();ctx.shadowBlur=18;ctx.shadowColor=led?'#66dfcc25':'#6ebced38';
+ drawRounded(x-49,y-32,98,84,12,'#263b55',led?'#67aeaa':'#5688ae',2);ctx.restore();
+ // container 3D face
+ fillPolygon([[x-36,y-29],[x-25,y-40],[x+38,y-40],[x+49,y-29]],'#456484','#617e9e');
+ drawRounded(x-34,y-26,69,49,7,'#111f32','#7c9cb3');
+ for(let i=0;i<3;i++){drawRounded(x-26,y-17+i*12,46,8,2,'#2f4965');glowDot(x+24,y-13+i*12,2,broken?'#ffa096':'#78dfbc')}
+ drawRounded(x-40,y+27,80,15,4,broken?'#6f2a35':'#225d5a');drawText(led?'LEDGER':'PAYMENT',x,y+38,broken?'#ffd3d2':'#c3fdf1','bold 10px ui-monospace,monospace','center');
+ if(isPayment&&S.podRev>1){let pct=(t%2.3)/2.3;ctx.strokeStyle='#9dc8ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,43,pct*Math.PI*2,(pct+.6)*Math.PI*2);ctx.stroke()}
+ if(isPayment&&traceOn){glowDot(x+39,y-28,4,S.policy==='allow'?'#68e9ce':'#ff7373')}
+}
+function drawStation(o,t){let x=o.x,y=o.y;
+ if(o.id==='rhacs'){ctx.save();ctx.shadowColor='#ef5e6777';ctx.shadowBlur=20;drawRounded(x-60,y-62,120,103,12,'#273549','#db767f',2);ctx.restore();drawRounded(x-44,y-50,88,54,6,'#111827','#607a95');ctx.fillStyle='#e84c57';ctx.beginPath();ctx.arc(x-20,y-24,8,0,Math.PI*2);ctx.fill();drawText('!',x-20,y-19,'white','bold 12px system-ui','center');line(x-3,y-31,x+31,y-31,'#e76b74',3);line(x-3,y-21,x+20,y-21,'#b97081',3);drawText('BASELINE',x,y+31,'#ffe9ea','bold 11px ui-monospace,monospace','center')}
+ if(o.id==='ops'){drawRounded(x-75,y-42,150,96,13,'#263c55','#77afbf',2);drawRounded(x-59,y-29,118,54,8,'#071826','#3d7989');drawText('> oc _',x-47,y+5,'#95f6bf','bold 18px ui-monospace,monospace');drawText('OPERATIONS',x,y+42,'#e0f8fb','bold 11px ui-monospace,monospace','center');glowDot(x+61,y-34,2.8,'#89e2b0')}
+}
+function drawNPC(o,t){let x=o.x,y=o.y;ctx.save();ctx.shadowColor='#000a';ctx.shadowBlur=11;ctx.fillStyle='#070d19b0';ctx.beginPath();ctx.ellipse(x,y+24,19,7,0,0,Math.PI*2);ctx.fill();ctx.restore();const outfit=o.id==='rhea'?'#734876':'#3e7795';drawRounded(x-15,y-2,30,29,9,outfit,'#bdd0e1');drawRounded(x-12,y-23,24,26,10,'#cc9a7d','#f2d1b0');drawRounded(x-14,y-26,28,8,5,o.id==='rhea'?'#32263b':'#293f51');line(x-14,y+13,x-20,y+25,'#bd9a87',6);line(x+14,y+13,x+20,y+25,'#bd9a87',6);line(x-7,y+28,x-10,y+36,'#607492',7);line(x+7,y+28,x+10,y+36,'#607492',7);drawText(o.label,x,y-45,'#f3e3ee','bold 12px system-ui','center');glowDot(x+19,y-32,2.5,'#f6c683')}
+function drawAvatar(t){const bob=(Math.sin(S.step*11))*2, x=S.x,y=S.y+bob;
+ // shadow, boots, arms, jacket, skin and the red fedora
+ ctx.fillStyle='#000a';ctx.beginPath();ctx.ellipse(x,y+23,18,7,0,0,Math.PI*2);ctx.fill();
+ const walk=Math.sin(S.step*8)*4;
+ line(x-7,y+16,x-9+walk,y+26,'#4b5667',9);line(x+7,y+16,x+9-walk,y+26,'#4b5667',9);line(x-10+walk,y+27,x-4+walk,y+29,'#142037',7);line(x+9-walk,y+27,x+16-walk,y+29,'#142037',7);
+ drawRounded(x-14,y-7,28,28,8,'#d9e7ee','#526980');drawRounded(x-11,y-4,22,22,5,'#384f65');line(x-13,y,x-19-walk,y+15,'#d6c3b7',6);line(x+13,y,x+19+walk,y+15,'#d6c3b7',6);
+ drawRounded(x-11,y-26,22,22,10,'#d6a98c','#eec2a1');drawRounded(x-9,y-22,18,7,3,'#302b32');drawRounded(x-11,y-14,22,4,2,'#1c2731');
+ // fedora crown + brim
+ drawRounded(x-11,y-37,22,15,5,'#d91d23','#ff8c83',1.5);drawRounded(x-10,y-29,20,4,2,'#341e29');drawRounded(x-21,y-26,42,8,5,'#ec2027','#ff8e8b',1.5);
+ if(traceOn){ctx.strokeStyle='#7ae7ed70';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y-8,31+Math.sin(t*3)*3,0,Math.PI*2);ctx.stroke()}
+}
+function drawFlows(t){const a=objects.find(x=>x.id==='pod1'), b=objects.find(x=>x.id==='pod2'), ledger=objects.find(x=>x.id==='ledger'),edge=objects.find(x=>x.id==='edge');
+ const flow=(x1,y1,x2,y2,color,velocity,weight=2)=>{line(x1,y1,x2,y2,color+'70',weight,[6,9]);for(let k=0;k<3;k++){const p=((t*velocity+k/3)%1);glowDot(x1+(x2-x1)*p,y1+(y2-y1)*p,2.5,color)}};
+ flow(a.x+20,a.y,ledger.x-14,ledger.y+10,'#5ce5c8',.13);
+ flow(b.x,b.y-29,ledger.x,ledger.y+15,'#5ce5c8',.15);
+ if(S.policy==='none'){
+  if(S.env)flow(a.x+36,a.y-20,edge.x-66,edge.y,'#fd7776',.17,3);
+  else flow(a.x+36,a.y-20,edge.x-66,edge.y,'#f6aa5988',.08,1);
+ }
+ if(S.policy!=='none'){
+  line(920,325,971,325,'#e46b77',3,[4,5]);drawRounded(929,303,41,34,8,'#451a2d','#dc6474');drawText('×',950,327,'#ffb7b7','bold 25px system-ui','center');
+ }
+}
+function drawLabels(t){for(const o of objects){if(o.kind==='pod'){if(traceOn || o.id==='ledger'){drawRounded(o.x-54,o.y+60,108,31,7,'#0e1c30e8','#6a8ba299');drawText(o.id==='ledger'?'ledger':'payment-api',o.x,o.y+80,'#eaf5ff','11px system-ui','center')}continue}
+ if(o.kind==='edge')continue;
+ if(o.kind==='npc')continue;
+ drawRounded(o.x-67,o.y+48,134,39,8,'#07101dd9','#4b6887aa');drawText(o.id==='rhacs'?'RHACS ALERT':'OPS TERMINAL',o.x,o.y+65,'#eff5ff','bold 11px system-ui','center');drawText(o.id==='rhacs'?'Inspect anomaly':'Use oc commands',o.x,o.y+79,'#9cb1cc','10px system-ui','center');
+ }
+ if(near&&!terminalOpen&&!detailOpen&&!radioOpen&&!caseOpen){const o=near;ctx.strokeStyle='#f6ce82';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.arc(o.x,o.y,Math.min(o.r,55)+8+Math.sin(t*4)*2,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+ if(pending&&!terminalOpen&&S.started){glowDot(pending.x,pending.y,2.5,'#e4d092')}
+}
+function draw(t){frame++;const narrow=window.innerWidth<=520;const vw=narrow?760:W;if(C.width!==vw)C.width=vw;cameraX=narrow?Math.max(0,Math.min(W-vw,S.x-vw/2)):0;ctx.setTransform(1,0,0,1,-cameraX,0);drawBackground(t);drawNode(379,177,'worker-01');drawNode(656,177,'worker-02');
+ if(traceOn)drawFlows(t);
+ for(const o of objects){if(o.kind==='pod')drawPod(o,t);else if(o.kind==='terminal')drawStation(o,t);else if(o.kind==='npc')drawNPC(o,t)}
+ drawAvatar(t);drawLabels(t);
+ // foreground grain, sparking lights
+ for(let i=0;i<20;i++){let x=(i*173+57)%W,y=(i*89+33)%H;let alpha=.15+.1*Math.sin(t+i);ctx.fillStyle=`rgba(154,194,234,${alpha})`;ctx.fillRect(x,y,1.5,1.5)}
+ if(!reduced){for(let i=0;i<19;i++){const x=((i*99+t*(14+i%3*6))%1250)-35;const y=(i*233)%650;ctx.strokeStyle='#b5d6ff09';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y+12);ctx.stroke()}}
+}
+function blocked(){return terminalOpen||detailOpen||endOpen||caseOpen||!S.started||!active}
+function update(dt){if(!S.started||blocked())return;
+ let dx=0,dy=0;if(keys.has('w')||keys.has('arrowup'))dy--;if(keys.has('s')||keys.has('arrowdown'))dy++;if(keys.has('a')||keys.has('arrowleft'))dx--;if(keys.has('d')||keys.has('arrowright'))dx++;
+ if(dx||dy){target=null;pending=null;let n=Math.hypot(dx,dy);S.x+=dx/n*dt*208;S.y+=dy/n*dt*208;S.step+=dt*3.1}
+ else if(target){const dist=Math.hypot(target.x-S.x,target.y-S.y);if(dist>5){let speed=Math.min(dt*240,dist);S.x+=(target.x-S.x)/dist*speed;S.y+=(target.y-S.y)/dist*speed;S.step+=dt*2.9}else{target=null;if(pending){const p=pending;pending=null;interact(p)}}}
+ S.x=Math.max(55,Math.min(1118,S.x));S.y=Math.max(105,Math.min(594,S.y));
+ near=nearest();$('nearby').hidden=!near||radioOpen||terminalOpen||detailOpen||caseOpen;
+ if(near){$('nearbyText').textContent=near.kind==='npc'?'Talk to '+near.label:near.id==='ops'?'Open OpenShift terminal':'Investigate '+near.label}
+ if(traceOn&&performance.now()>traceEnd){traceOn=false;toast('Trace Vision faded. Press Space to reactivate.')}
+ if(traceOn&&Math.hypot(S.x-objects[1].x,S.y-objects[1].y)<125){addClue('trace')}
+}
+let stopLoop=false;
+function loop(now){if(stopLoop)return;const dt=Math.min((now-lastTime)/1000 || 0,.045);lastTime=now;const t=now/1000;if(!reduced || frame===0||S.started){update(dt);draw(t)}requestAnimationFrame(loop)}requestAnimationFrame(loop);
+function worldPos(e){const r=C.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*C.width+cameraX,y:(e.clientY-r.top)/r.height*H}}
+C.addEventListener('click',e=>{if(!S.started||blocked()){return}C.focus();const p=worldPos(e);let hit=null,dist=85;for(const o of objects){const d=Math.hypot(p.x-o.x,p.y-o.y);if(d<dist){hit=o;dist=d}}
+ if(hit){pending=hit;const a=Math.atan2(S.y-hit.y,S.x-hit.x);target={x:Math.max(55,Math.min(1118,hit.x+Math.cos(a)*34)),y:Math.max(110,Math.min(594,hit.y+Math.sin(a)*34))};if(Math.hypot(S.x-hit.x,S.y-hit.y)<70){target=null;pending=null;interact(hit)}}else{target={x:Math.max(55,Math.min(1118,p.x)),y:Math.max(110,Math.min(594,p.y))};pending=null}
+});
+document.addEventListener('keydown',e=>{if(e.target===$('termInput'))return;if(detailOpen){if(e.key==='Escape'||e.key==='Enter'){e.preventDefault();closeDetail()}return}if(endOpen)return;if(e.key==='Escape'){if(caseOpen){caseOpen=false;$('casepanel').hidden=true}else closeRadio();return}if(!S.started)return;if(e.key==='t'||e.key==='T'||e.key==='`'){e.preventDefault();openTerminal();return}if(e.key===' '){e.preventDefault();toggleTrace();return}if(e.key==='e'||e.key==='E'){e.preventDefault();interact();return}if(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){if(e.target&&['BUTTON','INPUT','TEXTAREA'].includes(e.target.tagName))return;e.preventDefault();keys.add(e.key.toLowerCase())}});
+document.addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase())});window.addEventListener('blur',()=>keys.clear());
+// ------ simulated OpenShift shell ------
+function openTerminal(){if(!S.started||detailOpen||endOpen||!$('opening').hidden)return;caseOpen=false;$('casepanel').hidden=true;closeRadio();terminalOpen=true;$('shellshade').hidden=false;if(!$('termOutput').children.length){print(`Connected to OpenShift training bastion. Context: prod-east\nYou have a real-feeling command prompt in a bounded OFFLINE simulation.\nType help or use TAB to explore. Nothing is sent to any cluster.`, 'meta');}
+ $('termInput').value='';suggest();setTimeout(()=>$('termInput').focus(),25)}
+function closeTerminal(){terminalOpen=false;$('shellshade').hidden=true;$('termPrompt').textContent='operator@bastion:~$';$('termTitle').textContent='operator@bastion — shell';if(S.started)C.focus()}
+$('closeTerm').addEventListener('click',closeTerminal);
+function print(msg,typ='reply'){const node=document.createElement('div');node.className='termline '+typ;node.textContent=msg;$('termOutput').appendChild(node);$('termOutput').scrollTop=$('termOutput').scrollHeight;}
+const cmdCandidates=[
+ 'help','oc whoami','oc get nodes','oc get namespaces','oc get pods -n payments -o wide',
+ 'oc get deployment payment-api -n payments -o yaml',
+ 'oc logs deployment/payment-api -n payments --tail=25',
+ 'oc get networkpolicies -n payments',
+ 'oc describe deployment payment-api -n payments',
+ 'oc auth can-i patch deployments -n payments',
+ 'oc rsh -n payments deployment/payment-api',
+ 'oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-',
+ 'oc rollout status deployment/payment-api -n payments',
+ 'oc apply -f policies/deny-all.yaml',
+ 'oc apply -f policies/payments-egress.yaml',
+ 'oc get networkpolicy payment-egress -n payments -o yaml',
+ 'pwd','ls','ls policies','cat policies/deny-all.yaml','cat policies/payments-egress.yaml',
+ 'clear','exit'
+];
+const podCandidates=[ 'help','env','ip route','nslookup ledger.payments.svc.cluster.local','curl -I https://ledger.payments.svc.cluster.local:8443/health','curl -I https://203.0.113.77','curl -v https://203.0.113.77/upload','exit','clear'];
+let podShell=false;
+function candidates(){return podShell?podCandidates:cmdCandidates}
+function matchSuggestion(v){if(!v.trim())return'';const all=[...S.history.slice().reverse(),...candidates()];return all.find(a=>a.startsWith(v)&&a!==v)||''}
+function suggest(){let v=$('termInput').value, m=matchSuggestion(v),remaining=m?m.slice(v.length):'';$('ghostLead').textContent=v;$('ghostLead').style.visibility='hidden';$('ghostTail').textContent=remaining}
+function printError(s){print(s,'error')}
+function yes(s){print(s,'success')}
+function switchPrompt(){podShell=false;$('termPrompt').textContent='operator@bastion:~$';$('termTitle').textContent='operator@bastion — shell'}
+function exec(cmd){const raw=cmd.trim(), low=raw.toLowerCase();if(!raw)return;
+ S.history.push(raw);S.commands++;print((podShell?'sh-5.1$ ':'operator@bastion:~$ ')+raw,'command');
+ if(raw==='clear'){ $('termOutput').innerHTML='';return;}
+ if(['help','?','man'].includes(low)){print(podShell?`Inside the payment-api Pod (SIMULATED):\n  env                 inspect process environment\n  curl -I URL         test an HTTP destination\n  nslookup NAME       test DNS\n  ip route            view route\n  exit                return to bastion`:`Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cat / pwd\n\nExplore the resources and policies. TAB completes supported commands.`, 'meta');return}
+ if(raw==='exit'){if(podShell){switchPrompt();yes('Exited Pod shell. Back on bastion.')}else{closeTerminal()}return}
+ if(podShell){podCmd(raw);return}
+ if(raw==='pwd'){print('/home/operator');return}
+ if(/^ls(\s+(-la?\s*)?)?$/.test(raw)){print('policies/   notes.txt');return}
+ if(/^ls\s+(policies\/?|\.\/policies)\s*$/.test(raw)){print('deny-all.yaml  payments-egress.yaml');return}
+ if(/^cat\s+(notes\.txt|\.\/notes\.txt)$/.test(raw)){print('Incident response tip: compare observed network paths with deployment configuration. RHACS anomalies are not convictions.');return}
+ const policyFiles={
+ 'policies/deny-all.yaml':`apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: default-deny-egress\n  namespace: payments\nspec:\n  podSelector:\n    matchLabels:\n      app: payment-api\n  policyTypes: [Egress]\n  egress: []`,
+ 'policies/payments-egress.yaml':`apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: payment-egress\n  namespace: payments\nspec:\n  podSelector:\n    matchLabels:\n      app: payment-api\n  policyTypes: [Egress]\n  egress:\n  - to:\n    - namespaceSelector:\n        matchLabels:\n          kubernetes.io/metadata.name: openshift-dns\n      podSelector:\n        matchLabels:\n          dns.operator.openshift.io/daemonset-dns: default\n    ports:\n    - { protocol: UDP, port: 53 }\n    - { protocol: TCP, port: 53 }\n  - to:\n    - podSelector:\n        matchLabels:\n          app: ledger\n    ports:\n    - { protocol: TCP, port: 8443 }`};
+ const fileMatch=raw.match(/^cat\s+(?:\.\/)?(policies\/[^\s]+)$/);if(fileMatch){if(policyFiles[fileMatch[1]])print(policyFiles[fileMatch[1]]);else printError(`cat: ${fileMatch[1]}: No such file`);return}
+ if(raw==='oc whoami'){print('operator');return}
+ if(/^oc\s+(?:get|describe)\s+nodes?\b/.test(raw)){print('NAME         STATUS   ROLES    AGE   VERSION\nworker-01    Ready    worker   29d   v1.32.x\nworker-02    Ready    worker   29d   v1.32.x');return}
+ if(/^oc\s+get\s+(?:ns|namespaces)\b/.test(raw)){print('NAME           STATUS   AGE\npayments       Active   42d\nopenshift-dns   Active   49d\nopenshift-*    Active   49d');return}
+ if(/^oc\s+(?:get|describe)\s+(?:pods?|po)\b/.test(raw)){
+  if(!/\bpayments\b/.test(raw)){printError('No resources found in the default namespace. Hint: the app runs in payments.');return}
+  let pods=`NAME                          READY   STATUS    NODE\npayment-api-${S.podRev===1?'7d9cd':'8dc11'}-ab12   1/1     Running   worker-01\npayment-api-${S.podRev===1?'7d9cd':'8dc11'}-cd34   1/1     Running   worker-02\nledger-86bbb-zyx12            1/1     Running   worker-02`;
+  print(pods);return
+ }
+ if(/^oc\s+(?:get|describe)\s+(deploy(?:ment)?s?|deployments?)\b/.test(raw)){
+  if(/(payment-api|\bdeployments?\b|\bdeploy\b|\bdeployment\b)/.test(raw)){
+    const yaml=/-o\s*(?:yaml|json)\b/.test(raw);
+    if(yaml){addClue('env');print(`apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: payment-api\n  namespace: payments\nspec:\n  replicas: 2\n  template:\n    metadata:\n      labels: { app: payment-api }\n    spec:\n      containers:\n      - name: payment-api\n        image: registry.example.test/payments:v1.8.2\n        env:${S.env?'\n        - name: TELEMETRY_ENDPOINT\n          value: https://203.0.113.77/upload':' [] # suspicious endpoint removed'}\nstatus:\n  readyReplicas: 2`)}
+    else if(/^oc\s+describe/.test(raw)){addClue('env');print(`Name: payment-api\nNamespace: payments\nReplicas: 2 desired | 2 available\nContainer: payment-api\n${S.env?'Environment: TELEMETRY_ENDPOINT=https://203.0.113.77/upload':'Environment: no unapproved telemetry setting'}\nConditions: Available=True`)}
+    else print('NAME          READY   UP-TO-DATE   AVAILABLE\npayment-api   2/2     2            2');return
+  }
+ }
+ if(/^oc\s+logs\b/.test(raw)){
+  if(!/payment-api/.test(raw)){printError('error: only the payment-api Deployment is included in this lab.');return}
+  if(!/\bpayments\b/.test(raw)){printError('Error from server (NotFound): deployments.apps "payment-api" not found in namespace "default"');return}
+  addClue('logs');let line=S.env?'WARN telemetry: POST https://203.0.113.77/upload (unexpected configured target)':'INFO telemetry: external exporter disabled (config updated)';
+  print(`2026-10-08T02:13:44Z INFO payment-api: ready, listening on :8080\n2026-10-08T02:14:02Z ${line}\n2026-10-08T02:14:11Z ${S.policy==='deny'?'ERROR ledger request failed: i/o timeout (egress blocked)':'INFO ledger request completed: 200 OK'}\n2026-10-08T02:14:18Z ${S.policy==='deny'?'ERROR checkout degraded: cannot resolve dependencies':'INFO /healthz passed'}`);return
+ }
+ if(/^oc\s+(?:get|describe)\s+(?:netpol|networkpolic(?:y|ies))\b/.test(raw)){
+  addClue('policy');if(S.policy==='none')print('No resources found in payments namespace. payment-api egress is not restricted by a NetworkPolicy.');
+  else if(S.policy==='deny')print('NAME                 POD-SELECTOR      AGE\ndefault-deny-egress   app=payment-api   1m\nEgress: none (all selected Pod egress denied)');
+  else print('NAME                 POD-SELECTOR      AGE\ndefault-deny-egress   app=payment-api   2m\npayment-egress       app=payment-api   1m\nEgress: DNS (openshift-dns/53), ledger (payments/app=ledger:8443)');return
+ }
+ if(/^oc\s+auth\s+can-i\b/.test(raw)){print('yes');return}
+ if(/^oc\s+rsh\b/.test(raw)){
+  if(!/payment-api/.test(raw)){printError('error: choose deployment/payment-api');return}
+  if(!/\bpayments\b/.test(raw)){printError('Error from server (NotFound): deployment not found in namespace default');return}
+  podShell=true;$('termPrompt').textContent='sh-5.1$';$('termTitle').textContent='payment-api Pod — simulated /bin/sh';yes('Connected to payment-api Pod in payments namespace. Type help; exit returns to bastion.');return
+ }
+ if(/^oc\s+set\s+env\b/.test(raw)){
+  if(!/\b(?:deploy(?:ment)?\/?payment-api|deployment\s+payment-api)\b/.test(raw)){printError('error: specify deployment/payment-api');return}
+  if(!/\bpayments\b/.test(raw)){printError('Error from server (NotFound): deployment payment-api not found in namespace default');return}
+  if(/\bTELEMETRY_ENDPOINT-\b/.test(raw)||/TELEMETRY_ENDPOINT-\s*(?:$|-n\b)/.test(raw)||/TELEMETRY_ENDPOINT-$/.test(raw)){
+    if(!S.env){print('deployment.apps/payment-api unchanged (TELEMETRY_ENDPOINT absent)');return}
+    S.env=false;S.podRev++;S.patchSeen=true;yes('deployment.apps/payment-api env updated\nRolling out revised Pod template... 2 new Pods become Ready.');toast('✦ Root cause removed · New Pods deployed');updateHUD();radio('MIRA','Good. The replacement Pods no longer export telemetry to that endpoint. But remember: removing a setting is not the same as restricting egress. What would prevent another unauthorized connection?');return
+  }
+  printError('error: unrecognized environment update. This lab expects the TELEMETRY_ENDPOINT variable to be removed.');return
+ }
+ if(/^oc\s+apply\s+-f\b/.test(raw)){
+  const m=raw.match(/-f\s+(?:\.\/)?(policies\/[^\s]+)/);
+  if(!m||!policyFiles[m[1]]){printError('error: no such local manifest. Use ls policies, then cat to inspect it.');return}
+  if(m[1].includes('deny-all')){S.policy='deny';S.checked.delete('positive');S.checked.delete('negative');yes('networkpolicy.networking.k8s.io/default-deny-egress configured');toast('⚠ All egress denied · Checkout dependency failing!')}
+  else {S.policy='allow';S.checked.delete('positive');S.checked.delete('negative');yes('networkpolicy.networking.k8s.io/payment-egress configured\nSelected Pods may reach openshift-dns/53 and payments/ledger:8443.');toast('✓ Least-privilege egress enforced');}
+  updateHUD();if(!S.env){maybeWin()}return
+ }
+ if(/^oc\s+rollout\s+status\b/.test(raw)){
+  if(!/payment-api/.test(raw)||!/payments/.test(raw)){printError('error: deployment/payment-api not found in current namespace');return}
+  if(S.env){print('deployment "payment-api" successfully rolled out (current template still contains an unexpected telemetry setting)')}
+  else {S.checked.add('rollout');yes('deployment "payment-api" successfully rolled out\n2 of 2 updated replicas are available.');maybeWin()}return
+ }
+ if(/^oc\s+/.test(raw)){printError(`error: unsupported oc syntax in this offline episode. Type help for implemented operations. Your real cluster is never accessed.`);return}
+ printError(`${raw.split(/\s/)[0]}: command not found. Type help.`);
+}
+function podCmd(raw){const txt=raw.trim();
+ if(/^env(?:\s|$)/.test(txt)){print(`POD_NAME=payment-api-${S.podRev===1?'7d9cd':'8dc11'}-ab12\nPOD_NAMESPACE=payments\nLEDGER_URL=https://ledger.payments.svc.cluster.local:8443\n${S.env?'TELEMETRY_ENDPOINT=https://203.0.113.77/upload':'# No TELEMETRY_ENDPOINT configured'}`);return}
+ if(/^ip\s+route/.test(txt)){print('default via 10.128.0.1 dev eth0\n10.128.0.0/23 dev eth0 proto kernel scope link');return}
+ if(/^nslookup\b/.test(txt)){if(S.policy==='deny')printError(';; connection timed out; no servers could be reached (egress DNS blocked)');else print('Server: 172.30.0.10\nName: ledger.payments.svc.cluster.local\nAddress: 172.30.121.42');return}
+ if(/^curl\b/.test(txt)){
+  const addr=txt.match(/https?:\/\/([^\s/]+)/)?.[1]||'';
+  if(addr.includes('ledger')||addr.includes('172.30.121.42')){
+    S.checked.add('positive');if(S.policy==='deny'){printError('curl: (28) Connection timed out after 3000 milliseconds\nThe selected Pod cannot reach the ledger dependency.');S.checked.delete('positive')}else{yes('HTTP/1.1 200 OK\ncontent-type: application/json\n{ "status": "healthy", "ledger": "connected" }');maybeWin()}return
+  }
+  if(/203\.0\.113\.77/.test(addr)){if(S.policy==='none'){print('HTTP/1.1 202 Accepted\nserver: simulated-external-listener\nWARNING: external egress is still reachable. This does not mean the app is actively sending data.','error');S.checked.delete('negative')}
+    else{S.checked.add('negative');yes('curl: (28) Failed to connect to 203.0.113.77 port 443: Operation timed out\nExpected negative test: egress is blocked by NetworkPolicy.');maybeWin()}return}
+  printError('curl: (6) Could not resolve host (offline scenario only supports ledger and 203.0.113.77)');return
+ }
+ printError(`sh: ${txt.split(/\s/)[0]}: not found in the simulated payment-api Pod. Type help.`)
+}
+function maybeWin(){updateHUD();if(S.done)return;if(S.env===false&&S.policy==='allow'&&(S.evidence.has('rhacs')||S.evidence.has('trace'))&&S.evidence.size>=3&&S.checked.has('rollout')&&S.checked.has('positive')&&S.checked.has('negative')){
+ S.done=true;endOpen=true;terminalOpen=false;$('shellshade').hidden=true;closeRadio();const grade=S.evidence.size===5&&S.interruptions===0?'S':S.evidence.size>=4&&S.interruptions===0?'A':'B';
+ $('endBody').innerHTML=`<div class="eyebrow">INCIDENT 018 · RESOLVED</div><h2>Ghost Route contained.</h2><p>You didn't just silence an alert. You identified a root cause, changed the Deployment, enforced an egress boundary, and tested both an allowed and a blocked path.</p><div class="divider"></div><div class="row" style="align-items:center;justify-content:space-between"><div><div class="panelmeta">INCIDENT RATING</div><div class="grade">${grade}</div></div><div class="pill" style="font-size:13px;color:#b7e9d7">✓ Service restored · Unauthorized egress denied</div></div><div class="endstats"><div><b>${S.evidence.size}/5</b><small>Evidence found</small></div><div><b>${S.commands}</b><small>Commands used</small></div><div><b>${S.interruptions}</b><small>Service disruptions</small></div></div><p style="font-size:13px"><strong>What you learned:</strong> RHACS network deviations require investigation; Deployment configuration can cause unexpected behavior; NetworkPolicy enforces egress for selected Pods; a fix needs both positive and negative tests.</p><div class="modal-foot"><span class="hint">Chapter 01 complete · Security Operator path (101)</span><button class="btnred" id="playAgain" type="button">↺ Replay with a better strategy</button></div>`;$('ending').hidden=false;$('playAgain').addEventListener('click',restart);updateHUD()}
+}
+$('termform').addEventListener('submit',e=>{e.preventDefault();const v=$('termInput').value;histPointer=-1;tabIndex=0;$('termInput').value='';suggest();exec(v)});
+$('termInput').addEventListener('input',()=>{histPointer=-1;tabIndex=0;suggest()});
+$('termInput').addEventListener('keydown',e=>{
+ if(e.key==='Escape'){e.preventDefault();closeTerminal();return}
+ if(e.key==='Tab'){e.preventDefault();let v=e.target.value, ms=[...new Set([...S.history.slice().reverse(),...candidates()])].filter(c=>c.startsWith(v)&&c!==v);if(ms.length){e.target.value=ms[tabIndex%ms.length];tabIndex++;suggest()}else{toast('No completions for that prefix')}return}
+ if(e.key==='ArrowRight'&&e.target.selectionStart===e.target.value.length){let m=matchSuggestion(e.target.value);if(m){e.preventDefault();e.target.value=m;suggest()}return}
+ if(e.key==='ArrowUp'){e.preventDefault();if(!S.history.length)return;histPointer=histPointer<0?S.history.length-1:Math.max(0,histPointer-1);e.target.value=S.history[histPointer];suggest();return}
+ if(e.key==='ArrowDown'){e.preventDefault();if(histPointer<0)return;histPointer++;e.target.value=histPointer<S.history.length?S.history[histPointer]:'';if(histPointer>=S.history.length)histPointer=-1;suggest();return}
+ if(e.ctrlKey&&e.key.toLowerCase()==='l'){e.preventDefault();$('termOutput').innerHTML='';return}
+ if(e.ctrlKey&&e.key.toLowerCase()==='r'){e.preventDefault();const q=e.target.value;const x=S.history.slice().reverse().find(a=>a.includes(q));if(x){e.target.value=x;suggest()}else toast('No matching command in history')}
+});
+$('closeTerm').addEventListener('click',closeTerminal);
+// modal click outside and escape
+$('details').addEventListener('click',e=>{if(e.target===$('details'))closeDetail()});
+$('opening').addEventListener('keydown',e=>{if(e.key==='Enter')$('startBtn').click()});
+// Initial visual frame and HUD
+updateHUD();
+})();
+</script>
+</body>
+</html>

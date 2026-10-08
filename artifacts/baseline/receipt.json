@@ -1,0 +1,10 @@
+{
+  "url": "http://127.0.0.1:4173/legacy/nexus_ghost_route_game.html",
+  "flows": [
+    "WASD movement, Trace Vision, nearby interaction, modal escape",
+    "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
+    "Autocomplete/history, evidence, rollout, deny-all outage, recovery, DNS, positive/negative tests, B-grade completion",
+    "Restart, S-grade safe completion and mobile canvas"
+  ],
+  "browser_errors": []
+}
