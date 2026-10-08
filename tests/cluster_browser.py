@@ -49,7 +49,7 @@ with sync_playwright() as p:
     command("oc get pods -o json | jq -r '.items[] | select(.metadata.name | startswith(\"vendor-sim\")) | .metadata.annotations[\"openshift.io/scc\"]'", 'vendor-fixed-uid')
     command('oc auth can-i use scc/vendor-fixed-uid --as=system:serviceaccount:lab:vendor', 'yes')
     command('oc auth can-i use scc/anyuid --as=system:serviceaccount:lab:default', 'no')
-    command("oc adm node-logs master-01 --path=kube-apiserver/audit.log | jq -r 'select(.verb == \"patch\") | .user.username'", 'build-bot')
+    command("oc adm node-logs control-01 --path=kube-apiserver/audit.log | jq -r 'select(.verb == \"patch\") | .user.username'", 'build-bot')
     custom = json.dumps({'apiVersion':'v1', 'kind':'ConfigMap', 'metadata':{'name':'investigation'}, 'data':{'case':'018'}})
     command(f"echo '{custom}' > workloads/investigation.json", "echo")
     command('oc apply -f workloads/investigation.json', 'configmap/investigation created')

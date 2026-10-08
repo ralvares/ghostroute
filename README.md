@@ -1,9 +1,14 @@
-# ROADSHOW / Ghost Route
+# The Ghost Route — OpenShift Security Adventure
 
 A 27-chapter OpenShift security adventure in seven connected acts, migrated from its original HTML into
 Vite and TypeScript. Interview witnesses, collect access passes and evidence, then return to the
 bastion to investigate an anomalous payment service. Your changes affect both
-customer checkout and the story.
+customer checkout and the story. The header shows the current chapter name; there is no separate game brand.
+
+All chapters evolve the same `prod-east` cluster. Chapter 01 must explain the
+release job, API caller and weak links. Chapters 03 and 18 repair the original
+bot permissions and unreviewed import; the final handover checks all earlier
+controls against current state.
 
 This project lives in `security-game`. The preserved original is
 `legacy/nexus_ghost_route_game.html`.

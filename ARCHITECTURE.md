@@ -271,8 +271,8 @@ only if neither a higher admin decision nor tenant isolation decides that egress
 
 `ui/campaign.ts` owns interviews, dossier panels, journey map and chapter debriefs.
 Physical interviews require the matching scene. Case closure requires two
-interviews, the archive dossier, three actual file reads, resource goals and two
-fresh probe receipts. A resource/control mutation invalidates previous probe
+interviews, the archive dossier, three actual file reads, resource goals and all
+required fresh probe receipts. A resource/control mutation invalidates previous probe
 fingerprints; audit reads do not. Saves restore these records and support older
 Chapter 01 checkpoints. The browser test closes the original case and all
 26 further cases through real world interactions and bastion commands.
@@ -288,3 +288,34 @@ and the generated service worker provide per-origin progress and offline play.
 No server-side API or cluster connection is introduced. GitHub Pages needs the
 repository base path at build time. See README.md and CAMPAIGN.md for deployment
 and the explicit per-topic fidelity boundaries.
+
+## Incident and world continuity
+
+`missions/incident.ts` observes successful source reads, links the original API
+auditID to the authored delivery record and gates Chapter 01’s causal finding.
+`S.incident` persists this evidence. Legacy saves can review the cause at any
+chapter; migration adds missing new incident fixtures only for older saves,
+never resurrecting controls a current player deleted.
+
+A Goal may override its namespace: Chapter 03 repairs the original payments
+Role. Chapter 18 records reviewed promotion inputs. The final history probe
+reevaluates all prior goals and probes against current resources, together
+with the original checkout and containment. `campaign/continuity.ts` evaluates
+current tenant readiness and intended service connectivity; Ready Pods with a
+blocked required path still raise DEGRADED.
+
+`S.story.mira` owns Mira’s single scene and coordinates. Reactions move that
+world object; worker notes do not duplicate a character. `world/label-layout.ts`
+places camera-bounded cards avoiding sprites, the investigator, overlay panels
+and one another; rendering measures text and adapts font sizes on mobile.
+Visible stage titles come from the chapter catalog. Save format and storage
+keys retain compatibility. Pending autosaves immediately report saving, so
+ready/saved UI cannot refer to an earlier checkpoint while work is queued.
+
+Control-plane node display and audit-node commands use `control-01`. Save import
+migrates the older node name and any Pod assignment referencing it.
+
+Runtime-failure proof captures the observed failed Pod in campaign diagnostics.
+Chapter 04 requires deletion of that failed Pod after capture and successful
+startup of its replacement. Later handovers check the retained diagnosis and
+the live replacement, rather than requiring the faulty workload to remain.

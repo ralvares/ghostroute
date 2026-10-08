@@ -85,6 +85,7 @@ export function saveProgress() {
 }
 
 export function scheduleSave() {
+  status("saving");
   clearTimeout(pending);
   pending = setTimeout(() => void saveProgress(), 150);
 }

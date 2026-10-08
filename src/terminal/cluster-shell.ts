@@ -206,13 +206,13 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     if (S.cluster.user !== "platform-admin")
       throw new Error(forbidden("get", "nodes/log"));
     if (
-      args[2] !== "master-01" ||
+      args[2] !== "control-01" ||
       !["kube-apiserver/audit.log", "openshift-apiserver/audit.log"].includes(
         flag("--path") ?? "",
       )
     )
       throw new Error(
-        "simulation: use master-01 --path=kube-apiserver/audit.log",
+        "simulation: use control-01 --path=kube-apiserver/audit.log",
       );
     return result(auditText());
   }

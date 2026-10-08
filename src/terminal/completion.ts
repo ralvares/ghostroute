@@ -6,6 +6,7 @@ import { pathCompletions } from "./path-completion.js";
 
 export const cmdCandidates = [
   "case status",
+  "case explain release-import",
   "case hint",
   "case next",
   "game status",

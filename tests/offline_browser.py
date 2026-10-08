@@ -113,7 +113,7 @@ with TemporaryDirectory(prefix='ghost-route-profile-') as profile, sync_playwrig
     page.locator('#startBtn').click()
     open_bastion(page)
     with page.expect_file_chooser() as chooser:
-        command('game import', 'Choose a ROADSHOW progress file')
+        command('game import', 'Choose a game progress file')
     chooser.value.set_files(backup)
     expect(page.locator('#startBtn')).to_have_text('Resume the case →')
     page.locator('#startBtn').click()
@@ -126,7 +126,7 @@ with TemporaryDirectory(prefix='ghost-route-profile-') as profile, sync_playwrig
     command('oc get configmap saved', 'saved')
     # Invalid imports leave the current incident playable.
     with page.expect_file_chooser() as chooser:
-        command('game import', 'Choose a ROADSHOW progress file')
+        command('game import', 'Choose a game progress file')
     chooser.value.set_files({'name':'broken.json','mimeType':'application/json','buffer':b'{}'})
     expect(page.locator('.termline').last).to_contain_text('Import failed')
     command('oc project','offline-lab')

@@ -11,11 +11,13 @@ export function startMiraReaction() {
   closeTerminal();
   G.target = null;
   G.pending = null;
+  S.story.mira = { scene: "soc", x: 980, y: 485 };
   G.miraReaction = { x: 980, y: 485, step: 0, arrived: false };
+  scheduleSave();
 }
 export function updateReaction(dt: number) {
   const actor = G.miraReaction;
-  if (!actor || actor.arrived || !S.started || S.done) return;
+  if (!actor || actor.arrived || !S.started) return;
   if (S.world.scene !== "soc") {
     G.miraReaction = null;
     return;
@@ -38,21 +40,10 @@ export function updateReaction(dt: number) {
       "What did you do? Checkout is offline! Both Pods are still Ready, but your default-deny cut off DNS and ledger. Stopping the signal cannot cost us the payment service. Go back to the bastion: inspect the targeted egress policy, restore the required paths, then prove both the allowed and blocked connections.",
     );
   }
+  S.story.mira.x = actor.x;
+  S.story.mira.y = actor.y;
 }
 export function reactionObjects(): WorldObject[] {
-  const actor = G.miraReaction;
-  return actor && S.world.scene === "soc"
-    ? [
-        {
-          id: "mira-reaction",
-          x: actor.x,
-          y: actor.y,
-          r: 45,
-          label: "MIRA",
-          sub: "Platform engineer · responding to outage",
-          kind: "npc",
-          art: "mira",
-        },
-      ]
-    : [];
+  // Mira is an ordinary world object with one persisted location.
+  return [];
 }

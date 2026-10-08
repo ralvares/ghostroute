@@ -5,6 +5,9 @@ import { updateWorkbench } from "./workbench.js";
 import { currentChapter, campaignChecks } from "../campaign/engine.js";
 
 export function updateHUD() {
+  const stage = currentChapter().title;
+  $("stageName").textContent = stage;
+  document.title = stage + " — OpenShift Security Adventure";
   updateWorkbench();
   updateHealthMap();
   if (S.campaign.active) {
@@ -12,9 +15,11 @@ export function updateHUD() {
     const missing = campaignChecks().filter((g) => !g.passed);
     $("phase").textContent = chapter.act + " · CHAPTER " + chapter.id;
     $("objectiveTitle").textContent = chapter.title;
-    $("objective").textContent =
-      missing[0]?.label ??
-      "Conclude the case at the bastion: case conclude " + chapter.conclusion;
+    $("objective").textContent = S.campaign.finished
+      ? "All 27 cases are closed. Your verified handover, controls and notes remain in prod-east."
+      : (missing[0]?.label ??
+        "Conclude the case at the bastion: case conclude " +
+          chapter.conclusion);
     $("exposure").textContent = missing.length ? "UNVERIFIED" : "VERIFIED";
     $("exposure").className = missing.length ? "warn" : "good";
     $("exposureDetail").textContent =
@@ -22,7 +27,12 @@ export function updateHUD() {
     return;
   }
   let title, txt, phase;
-  if (S.done) {
+  if (!S.incident.explained && S.evidence.size >= 3) {
+    phase = "CASE 018 · EXPLAIN THE CHANGE";
+    title = "Who changed the telemetry?";
+    txt =
+      "Correlate the build-bot audit request, case/release-job.json and case/permission-review.yaml. Explain the mechanism before closing the incident.";
+  } else if (S.done) {
     phase = "CASE 018 · RESOLVED";
     title = "Route secured. District restored.";
     txt = "The payment service survived. The case is closed.";

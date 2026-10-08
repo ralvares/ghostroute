@@ -51,14 +51,14 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
         "cluster-entry",
         820,
         295,
+        "prod-east",
         state.campaign.active
-          ? chapters[state.campaign.active].district
-          : "prod-east",
-        "Enter cluster building",
+          ? "Continue in the same cluster · tenant " +
+              chapters[state.campaign.active].namespace
+          : "Enter cluster building",
         "portal",
         { destination: "cluster", r: 70 },
       ),
-      object("rhea", 345, 405, "RHEA", "RHACS analyst", "npc"),
     ];
   if (state.world.scene === "soc")
     return [
@@ -80,6 +80,19 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
         "terminal",
       ),
       object("rhea", 480, 410, "RHEA", "RHACS analyst", "npc"),
+      ...(state.story.mira.scene === "soc"
+        ? [
+            object(
+              "mira",
+              state.story.mira.x,
+              state.story.mira.y,
+              "MIRA",
+              "Platform engineer · responding to outage",
+              "npc",
+              { art: "mira" },
+            ),
+          ]
+        : []),
       object(
         "soc-exit",
         160,
@@ -163,7 +176,13 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
         "portal",
         { destination: "district" },
       ),
-      object("mira", 895, 465, "MIRA", "Platform engineer", "npc"),
+      ...(state.story.mira.scene === "cluster"
+        ? [
+            object("mira", 895, 465, "MIRA", "Platform engineer", "npc", {
+              art: "mira",
+            }),
+          ]
+        : []),
     ];
   if (state.world.scene === "operations" || state.world.scene === "archive")
     return [
@@ -219,24 +238,24 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
     ...(worker === "worker-01"
       ? [
           object(
-            "kai",
+            "release-desk",
             860,
             340,
-            "KAI",
-            "Release engineer · investigate the change",
-            "npc",
-            { action: "release", art: "kai" },
+            "Kai’s release handover",
+            "Inspect retained delivery notes",
+            "prop",
+            { action: "release" },
           ),
         ]
       : [
           object(
-            "mira-dependency",
+            "dependency-board",
             300,
             370,
-            "MIRA",
-            "Platform engineer · ask about checkout",
-            "npc",
-            { action: "boundary", art: "mira" },
+            "Mira’s dependency notes",
+            "Read checkout’s required paths",
+            "prop",
+            { action: "boundary" },
           ),
         ]),
     object(
@@ -248,21 +267,17 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       "portal",
       { destination: "cluster" },
     ),
-    ...(!state.campaign.active
-      ? [
-          object(
-            worker === "worker-01" ? "pod1" : "pod2",
-            490,
-            330,
-            "payment-api",
-            `payments · Pod · ${worker}`,
-            "pod",
-            { namespace: "payments", resourceName: payment.name },
-          ),
-        ]
-      : []),
+    object(
+      worker === "worker-01" ? "pod1" : "pod2",
+      490,
+      330,
+      "payment-api",
+      `payments · Pod · ${worker}`,
+      "pod",
+      { namespace: "payments", resourceName: payment.name },
+    ),
   ];
-  if (worker === "worker-02" && !state.campaign.active)
+  if (worker === "worker-02")
     objects.push(
       object(
         "ledger",
@@ -275,13 +290,30 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       ),
     );
   const labPods = state.cluster.resources.filter(
-    (item) =>
-      item.kind === "Pod" &&
-      item.spec?.nodeName === worker &&
-      (!state.campaign.active ||
-        item.metadata.namespace === chapters[state.campaign.active].namespace),
+    (item) => item.kind === "Pod" && item.spec?.nodeName === worker,
   );
-  labPods.slice(0, 4).forEach((pod, index) =>
+  if (state.campaign.active)
+    labPods.sort(
+      (a, b) =>
+        Number(
+          b.metadata.namespace === chapters[state.campaign.active].namespace,
+        ) -
+        Number(
+          a.metadata.namespace === chapters[state.campaign.active].namespace,
+        ),
+    );
+  if (state.campaign.active)
+    objects.push(
+      object(
+        "worker-register",
+        370,
+        275,
+        "Tenant register",
+        labPods.length + " scheduled Pods · inspect full register",
+        "prop",
+      ),
+    );
+  labPods.slice(0, 2).forEach((pod, index) =>
     objects.push(
       object(
         `lab-pod:${pod.metadata.namespace}/${pod.metadata.name}`,

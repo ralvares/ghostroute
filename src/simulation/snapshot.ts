@@ -60,14 +60,40 @@ export function decodeProgress(text: string): SimulationState {
     saved.version !== 1 ||
     !saved.data
   )
-    throw new Error(
-      "Unsupported progress file. Expected ROADSHOW save version 1.",
-    );
+    throw new Error("Unsupported progress file. Expected game save version 1.");
   saved.data.story ??= { inventory: [], discoveries: [] };
   saved.data.story.notes ??= "";
   saved.data.story.outageSeen ??= false;
+  saved.data.story.mira ??= makeState().story.mira;
   saved.data.world ??= { scene: "district", visited: ["district"] };
   saved.data.campaign ??= makeState().campaign;
+  if (!saved.data.campaign.diagnostics) {
+    saved.data.campaign.diagnostics = {};
+    const broken = saved.data.cluster?.resources?.find(
+      (r: any) =>
+        r.kind === "Pod" &&
+        r.metadata.namespace === "rs-04" &&
+        r.metadata.name === "broken",
+    );
+    if (broken)
+      saved.data.campaign.diagnostics["rs-04"] = structuredClone(broken);
+  }
+  const legacyIncident = !saved.data.incident;
+  saved.data.incident ??= makeState().incident;
+  if (legacyIncident && saved.data.cluster?.resources)
+    for (const fixture of makeState().cluster.resources.filter((r) =>
+      ["release-bot", "build-bot"].includes(r.metadata.name),
+    )) {
+      if (
+        !saved.data.cluster.resources.some(
+          (r: any) =>
+            r.kind === fixture.kind &&
+            r.metadata.name === fixture.metadata.name &&
+            r.metadata.namespace === fixture.metadata.namespace,
+        )
+      )
+        saved.data.cluster.resources.push(fixture);
+    }
   // Version 1 saves made before filesystem navigation retain their incident.
   if (saved.data.cluster) {
     saved.data.cluster.cwd ??= "/home/operator";
@@ -95,6 +121,14 @@ export function decodeProgress(text: string): SimulationState {
   )
     throw new Error("Progress file is incomplete or damaged.");
   const data = saved.data as SimulationState;
+  for (const resource of data.cluster.resources) {
+    if (resource.kind === "Node" && resource.metadata.name === "master-01")
+      resource.metadata.name = "control-01";
+    if (resource.kind === "Pod" && resource.spec?.nodeName === "master-01")
+      resource.spec.nodeName = "control-01";
+  }
+  for (const pod of data.pods)
+    if (pod.node === "master-01") pod.node = "control-01";
   const campaign = data.campaign;
   if (
     !Number.isInteger(campaign.active) ||
@@ -139,6 +173,7 @@ export function decodeProgress(text: string): SimulationState {
         item,
       ),
     ) ||
+    !["cluster", "soc"].includes(data.story.mira.scene) ||
     !isScene(data.world.scene) ||
     !data.world.visited.every(isScene) ||
     data.cluster.version !== "4.22" ||
@@ -163,6 +198,7 @@ export function decodeProgress(text: string): SimulationState {
       ...data.cluster.resources,
       ...data.cluster.sccs,
       ...data.cluster.events,
+      ...Object.values(data.campaign.diagnostics),
     ].every(
       (item) =>
         item &&

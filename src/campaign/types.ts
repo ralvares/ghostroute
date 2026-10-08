@@ -4,6 +4,7 @@ export type Witness = "rhea" | "mira" | "kai" | "vale";
 export interface Goal {
   label: string;
   kind: string;
+  namespace?: string;
   name: string;
   path: string;
   value: unknown;
@@ -46,6 +47,7 @@ export function makeCampaign() {
     evidence: [] as string[],
     artifactFound: false,
     proofs: {} as Record<string, Proof>,
+    diagnostics: {} as Record<string, Resource>,
     reports: [] as {
       chapter: number;
       conclusion: string;

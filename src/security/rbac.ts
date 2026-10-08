@@ -12,6 +12,14 @@ export function roleAllows(
   name?: string,
 ) {
   const type = resolveResource(resource.split("/")[0]);
+  // A namespace RoleBinding cannot grant access to ordinary cluster-scoped resources.
+  // OpenShift SCC use is evaluated for the bound service account in this namespace.
+  if (
+    type &&
+    !resourceTypes[type].namespaced &&
+    resource !== "securitycontextconstraints"
+  )
+    return false;
   const version = type ? resourceTypes[type].apiVersion : "v1";
   const group = version.includes("/") ? version.split("/")[0] : "";
   for (const binding of S.cluster.resources.filter(
@@ -46,6 +54,16 @@ export function roleAllows(
         return true;
       if (
         ["edit", "admin"].includes(ref.name) &&
+        [
+          "get",
+          "list",
+          "watch",
+          "create",
+          "update",
+          "patch",
+          "delete",
+          "deletecollection",
+        ].includes(verb) &&
         !["securitycontextconstraints", "rolebindings", "roles"].includes(
           resource,
         )

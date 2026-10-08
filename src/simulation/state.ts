@@ -9,12 +9,19 @@ export function makeState() {
   return {
     cluster: createCluster(),
     campaign: makeCampaign(),
+    incident: {
+      auditSeen: false,
+      releaseSeen: false,
+      accessSeen: false,
+      explained: false,
+    },
     world: { scene: "district" as SceneId, visited: ["district"] as SceneId[] },
     story: {
       inventory: [] as string[],
       discoveries: [] as string[],
       notes: "",
       outageSeen: false,
+      mira: { scene: "cluster" as SceneId, x: 895, y: 465 },
     },
     x: 520,
     y: 410,

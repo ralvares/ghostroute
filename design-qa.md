@@ -162,3 +162,26 @@ No actionable P0/P1/P2 layout findings remain in reviewed states. Existing P3
 animation/art and accessibility coverage limits remain. Advanced use cases are
 explicit recorded fixture evaluations, not real provider/operator execution;
 CAMPAIGN.md maps each chapter to source labs and states the boundaries.
+
+## Final continuity, labels and cast pass — 2026-10-08
+
+Status: passed for reviewed states. The supplied reference, native desktop,
+worker-room and 390px mobile captures were reviewed together at their original
+viewport sizes. World cards measure their text, avoid sprite/actor/overlay and
+card collisions, stay inside the camera and use larger mobile fonts. Worker
+rooms show two tenant Pod sprites plus the original application, with the
+full persistent workload list behind the register. No unlabelled overflow
+Pod sprites are drawn.
+
+The header displays the current chapter name only. Mira has one persisted
+location; her dependency board is a prop. Rhea and Kai no longer have second
+physical appearances. The native release check confirms control-01 in the
+Cluster map. Final completion shows a verified handover and healthy payments
+instead of an unfinished investigation prompt.
+
+The runtime case now retains its observed diagnosis and requires deletion
+of the failed Pod. First-case cause review, original bot permission repair,
+release-input review, and final live-control drift rejection are exercised
+through real browser commands. All 43 unit checks pass. Every chapter is
+played by the automated browser; manual visual review covers selected scenes
+and responsive states, not every chapter. No zero-bug claim is made.

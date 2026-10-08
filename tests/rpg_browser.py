@@ -39,7 +39,7 @@ with sync_playwright() as p:
  for name,contains in [('Inventory','Maintenance keycard'),('Journal','Build-bot audit trail')]:
   page.locator(f'[data-nav="{name.lower()}"]').click();expect(page.locator('#detailsBody')).to_contain_text(contains);page.locator('#detailDone').click()
  walk(160,535);walk(1050,480);expect(page.locator('#zoneBadge')).to_have_text('UNTRUSTED NETWORK');walk(980,370);expect(page.locator('#detailsBody')).to_contain_text('documentation-only');page.locator('#detailDone').click();shot('untrusted');walk(205,400)
- walk(820,295);walk(800,280);page.locator('#caseNotes').fill('Saved investigation: build-bot credential identified; human attribution remains unproven.');page.wait_for_timeout(300);page.wait_for_function("document.documentElement.dataset.progress === 'saved'")
+ walk(820,295);walk(800,280);page.locator('#caseNotes').fill('Saved investigation: build-bot credential identified; human attribution remains unproven.');page.wait_for_timeout(300);page.wait_for_function("document.documentElement.dataset.progress === 'saved'",polling=50)
  reload=context.new_page();reload.goto(sys.argv[1]);reload.locator('#startBtn').click();expect(reload.locator('#sceneTitle')).to_contain_text('worker-02');expect(reload.locator('#caseNotes')).to_have_value('Saved investigation: build-bot credential identified; human attribution remains unproven.');reload.locator('[data-nav=inventory]').click();expect(reload.locator('#detailsBody')).to_contain_text('Issued by Mira');reload.close();page.bring_to_front()
  flows.append('Visited worker, access passes, discoveries, personal notes and outage acknowledgement survive a fresh page')
  layout=[]

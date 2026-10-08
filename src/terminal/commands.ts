@@ -25,14 +25,29 @@ import { radio } from "../characters/dialogue.js";
 import { maybeWin } from "../missions/progression.js";
 import { progressCommand } from "./progress-commands.js";
 import { campaignCommand } from "./campaign-commands.js";
+import { observeIncidentCommand } from "../missions/incident.js";
 import { observeCampaignCommand } from "../campaign/engine.js";
 
 export async function exec(cmd: string) {
-  const before=$("termOutput").children.length;
+  const before = $("termOutput").children.length;
   await executeCommand(cmd);
-  const last=$("termOutput").lastElementChild as HTMLElement|null;
-  observeCampaignCommand(cmd,$("termOutput").children.length>before && !!last?.textContent && !last.classList.contains("error") && !last.classList.contains("command"));
+  const last = $("termOutput").lastElementChild as HTMLElement | null;
+  observeCampaignCommand(
+    cmd,
+    $("termOutput").children.length > before &&
+      !!last?.textContent &&
+      !last.classList.contains("error") &&
+      !last.classList.contains("command"),
+  );
+  observeIncidentCommand(
+    cmd,
+    last?.textContent ?? "",
+    !!last &&
+      !last.classList.contains("error") &&
+      !last.classList.contains("command"),
+  );
   updateHUD();
+  maybeWin();
 }
 async function executeCommand(cmd: string) {
   const incident = S;

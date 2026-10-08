@@ -1,3 +1,6 @@
+import { explainIncident } from "../missions/incident.js";
+import { S } from "../simulation/state.js";
+import { showEnding } from "../missions/progression.js";
 import {
   campaignStatus,
   currentChapter,
@@ -13,7 +16,16 @@ export function campaignCommand(raw: string) {
   const words = raw.split(/\s+/);
   try {
     if (words[1] === "status") print(campaignStatus());
-    else if (words[1] === "hint") {
+    else if (words[1] === "explain" && words.length === 3) {
+      print(explainIncident(words[2]));
+      if (S.done && !S.campaign.active) showEnding();
+    } else if (words[1] === "hint") {
+      if (!S.campaign.active) {
+        print(
+          "First explain the change: cat audit/kube-apiserver.log; cat case/release-job.json; cat case/permission-review.yaml. Correlate the auditID and import-support-config step. Then case explain release-import. Preserve checkout and verify containment.",
+        );
+        return true;
+      }
       const ch = currentChapter();
       print(
         "Read " +
@@ -25,7 +37,7 @@ export function campaignCommand(raw: string) {
           ". Inspect the archive dossier.\nUse cd ~/" +
           chapterRoot() +
           " and cat the manifests. Apply dependency resources before their consumers.\n" +
-          "Resource changes invalidate older proof; rerun both case tests after the final change.\n" +
+          "Resource changes invalidate older proof; rerun all required case tests after the final change.\n" +
           ch.risk,
       );
       if (ch.id === "05")

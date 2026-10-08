@@ -1,4 +1,4 @@
-name: Publish ROADSHOW
+name: Publish the security adventure
 on:
   push:
     branches: [master, main]

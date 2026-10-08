@@ -105,6 +105,11 @@ def run(url, output):
         page.evaluate("flushPaint()")
         page.screenshot(animations="disabled", path=str(output / "investigation.png"))
         command("cat policies/payments-egress.yaml", "port: 8443")
+        if rpg:
+            command("cat audit/kube-apiserver.log", "build-bot")
+            command("cat case/release-job.json", "import-support-config")
+            command("cat case/permission-review.yaml", "release-bot")
+            command("case explain release-import", "CAUSE VERIFIED")
         command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
         command("oc apply -f policies/deny-all.yaml", "default-deny-egress configured")
         expect(page.locator("#health")).to_have_text("DEGRADED")
@@ -149,6 +154,11 @@ def run(url, output):
         page.keyboard.press("Space")
         expect(page.locator("#evidenceCount")).to_have_text("5 / 5")
         open_bastion(page) if rpg else page.locator("#terminalBtn").click()
+        if rpg:
+            command("cat audit/kube-apiserver.log", "build-bot")
+            command("cat case/release-job.json", "import-support-config")
+            command("cat case/permission-review.yaml", "release-bot")
+            command("case explain release-import", "CAUSE VERIFIED")
         command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
         command("oc apply -f policies/payments-egress.yaml", "Selected Pods may reach")
         command("oc rollout status deployment/payment-api -n payments", "2 of 2")

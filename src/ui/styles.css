@@ -2027,3 +2027,35 @@ button:disabled {
     max-height: 28svh;
   }
 }
+
+/* The chapter supplies the title; there is no separate game brand. */
+.bname {
+  max-width: 310px;
+  white-space: normal;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.bname #stageName {
+  font: inherit;
+  color: var(--text);
+  letter-spacing: inherit;
+  font-size: 21px;
+}
+.episode #episodeTitle {
+  display: none;
+}
+@media (max-width: 600px) {
+  .bname {
+    max-width: 220px;
+  }
+  .bname #stageName {
+    font-size: 17px;
+  }
+  .hatmark {
+    width: 42px;
+    height: 42px;
+  }
+  .bsub {
+    font-size: 9px;
+  }
+}

@@ -1,4 +1,5 @@
 interface Elements {
+  stageName: HTMLElement;
   restartTop: HTMLButtonElement;
   frame: HTMLElement;
   world: HTMLCanvasElement;

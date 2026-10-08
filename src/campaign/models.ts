@@ -1,3 +1,5 @@
+import { chapters } from "./catalog.js";
+import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
 import type { Resource, PodSpec } from "../simulation/cluster-model.js";
 import { roleAllows } from "../security/rbac.js";
@@ -451,14 +453,17 @@ export function evaluateProbe(
       detail = "Restricted admission evaluated the UID-0 negative request.";
       break;
     }
-    case "runtime-distinction":
+    case "runtime-distinction": {
+      const failed = get("Pod", "broken") ?? S.campaign.diagnostics[namespace];
       passed =
-        !!get("Pod", "broken") &&
-        get("Pod", "broken")?.metadata.annotations?.["openshift.io/scc"] ===
-          "restricted-v3" &&
-        !ready(get("Pod", "broken"));
-      detail = "Admitted Pod is retained with runtime failure.";
+        !!failed &&
+        failed.metadata.annotations?.["openshift.io/scc"] === "restricted-v3" &&
+        !ready(failed);
+      detail = get("Pod", "broken")
+        ? "Admitted Pod has a runtime failure; retain this diagnosis, then remove the failed Pod."
+        : "Retained runtime diagnosis explains the failure; the failed Pod has been removed.";
       break;
+    }
     case "reader-allowed":
       passed = roleAllows("case-reader", "get", "configmaps", namespace);
       detail = "RBAC evaluated get ConfigMaps for case-reader.";
@@ -683,10 +688,25 @@ export function evaluateProbe(
       detail =
         "Wrong-node negative request fails the recorded capability requirement.";
       break;
-    case "pipeline-clean":
-      passed = get("PipelineRun", "release")?.status?.signed === true;
+    case "release-scoped": {
+      const bot = "system:serviceaccount:payments:build-bot";
+      passed =
+        roleAllows(bot, "get", "deployments", "payments", "payment-api") &&
+        !roleAllows(bot, "patch", "deployments", "payments", "payment-api") &&
+        !roleAllows(bot, "get", "deployments", "payments", "other") &&
+        !roleAllows(bot, "get", "secrets", "payments");
       detail =
-        "Recorded clean artifact passes scan-before-sign and digest binding.";
+        "Original delivery identity retains only payment-api inspection; patching and unrelated reads are denied.";
+      break;
+    }
+    case "pipeline-clean":
+      passed =
+        get("PipelineRun", "release")?.status?.signed === true &&
+        data("promotion-review").supportEnvImport === "disabled" &&
+        data("promotion-review").configurationSource === "versioned-reviewed" &&
+        data("promotion-review").owner === "Kai and Mira";
+      detail =
+        "Recorded clean artifact passes scan-before-sign and digest binding; the original unreviewed support import is disabled.";
       break;
     case "pipeline-high": {
       const pipe = get("Pipeline", "secure-release");
@@ -838,13 +858,45 @@ export function evaluateProbe(
         data("handover").claim === "bounded-simulation";
       detail = "Handover keeps ownership and the actual evidence boundary.";
       break;
-    case "campaign-history":
+    case "campaign-history": {
+      const missing = chapters
+        .slice(1, -1)
+        .flatMap((ch) => [
+          ...ch.goals
+            .filter(
+              (g) =>
+                JSON.stringify(
+                  valueAt(
+                    resource(g.kind, g.name, g.namespace ?? ch.namespace),
+                    g.path,
+                  ),
+                ) !== JSON.stringify(g.value),
+            )
+            .map((g) => "Chapter " + ch.id + " · " + g.label),
+          ...ch.probes
+            .filter((p) => !evaluateProbe(p.model, ch.namespace).passed)
+            .map((p) => "Chapter " + ch.id + " · " + p.label),
+        ]);
+      const initial =
+        !S.env &&
+        S.policy === "allow" &&
+        projectHealth(S).checkout === "HEALTHY" &&
+        S.incident.explained;
       passed =
+        initial &&
+        !missing.length &&
         S.campaign.completed.length === S.campaign.active &&
         S.campaign.completed.every((n, i) => n === i);
       detail =
-        "Every earlier chapter has an ordered verified completion record.";
+        (initial
+          ? "Original payment cause and containment remain verified."
+          : "Original payment cause/containment requires review.") +
+        "\n" +
+        (missing.length
+          ? "Controls to repair:\n" + missing.join("\n")
+          : "Every earlier chapter’s resource goals and fixture probes still hold in prod-east.");
       break;
+    }
     default:
       throw new Error("simulation: unknown campaign probe " + model);
   }

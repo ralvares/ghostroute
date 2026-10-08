@@ -88,7 +88,7 @@ export async function progressCommand(raw: string) {
     };
     picker.click();
     print(
-      "Choose a ROADSHOW progress file. Import replaces the current local save.",
+      "Choose a game progress file. Import replaces the current local save.",
     );
   } else {
     printError(

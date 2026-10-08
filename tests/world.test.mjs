@@ -72,3 +72,41 @@ test("room and visited scenes persist; unknown scene imports reject", () => {
     /invalid simulation/,
   );
 });
+test("each named witness occupies exactly one room; Mira's outage location persists", () => {
+  const state = makeState();
+  for (const location of ["cluster", "soc"]) {
+    state.story.mira.scene = location;
+    const actors = sceneIds.flatMap((scene) => {
+      state.world.scene = scene;
+      return worldObjects(state).filter((o) => o.kind === "npc");
+    });
+    for (const who of ["mira", "kai", "rhea", "vale"])
+      assert.equal(
+        actors.filter((o) => o.id === who).length,
+        1,
+        who + " in " + location,
+      );
+    assert.equal(
+      decodeProgress(encodeProgress(state)).story.mira.scene,
+      location,
+    );
+  }
+});
+
+test("legacy control-plane node names migrate to control-01 on save import", () => {
+  const state = makeState();
+  state.cluster.resources.find(
+    (r) => r.kind === "Node" && r.metadata.name === "control-01",
+  ).metadata.name = "master-01";
+  const restored = decodeProgress(encodeProgress(state));
+  assert.ok(
+    restored.cluster.resources.some(
+      (r) => r.kind === "Node" && r.metadata.name === "control-01",
+    ),
+  );
+  assert.ok(
+    !restored.cluster.resources.some(
+      (r) => r.kind === "Node" && r.metadata.name === "master-01",
+    ),
+  );
+});

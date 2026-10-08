@@ -25,11 +25,22 @@ import {
   decodeProgress,
 } from "../.test-build/src/simulation/snapshot.js";
 import { flow, resource } from "../.test-build/src/campaign/models.js";
+import {
+  removeTelemetry,
+  applyPolicy,
+} from "../.test-build/src/simulation/operations.js";
 function setup() {
   resetState();
   registerCampaignFiles();
   S.done = true;
-  S.env;
+  removeTelemetry();
+  applyPolicy("payment-egress");
+  S.incident = {
+    auditSeen: true,
+    releaseSeen: true,
+    accessSeen: true,
+    explained: true,
+  };
   S.story.inventory = ["worker-pass", "maintenance-keycard"];
 }
 function applyFiles(ch) {
@@ -61,6 +72,10 @@ function applyFiles(ch) {
     restartDeployment("vendor", ch.namespace);
   }
   S.cluster.user = "operator";
+  if (ch.id === "04") {
+    assert.match(runCampaignProbe("diagnose"), /^PASS/);
+    deleteResource("pods", "broken", ch.namespace);
+  }
 }
 function gather(ch) {
   S.campaign.interviews = ch.witnesses.map((w) => w.who);
@@ -76,6 +91,16 @@ test("27 chapters can be completed in order through the real resource/admission 
     assert.throws(() => concludeCampaign(ch.conclusion), /Case remains open/);
     applyFiles(ch);
     gather(ch);
+    if (ch.id === "27") {
+      S.cluster.user = "platform-admin";
+      const repaired = structuredClone(
+        resource("Role", "release-bot", "payments"),
+      );
+      deleteResource("roles", "release-bot", "payments");
+      assert.match(runCampaignProbe("history"), /^FAIL/);
+      applyResource(repaired, "payments");
+      S.cluster.user = "operator";
+    }
     for (const p of ch.probes)
       assert.match(runCampaignProbe(p.id), /^PASS/, ch.id + " " + p.id);
     assert.deepEqual(
@@ -86,6 +111,8 @@ test("27 chapters can be completed in order through the real resource/admission 
     concludeCampaign(ch.conclusion);
   }
   assert.equal(S.campaign.finished, true);
+  assert.ok(S.cluster.resources.filter(r=>r.kind==="Pod").every(r=>r.status.containerStatuses.every(c=>c.ready)),"No failed Pod is left running after the journey");
+  assert.ok(S.campaign.diagnostics["rs-04"],"Runtime diagnosis survives removal of the broken Pod");
   assert.equal(S.campaign.completed.length, 27);
   const restore = decodeProgress(encodeProgress(S));
   assert.equal(restore.campaign.active, 26);

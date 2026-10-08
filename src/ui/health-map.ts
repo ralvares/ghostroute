@@ -1,3 +1,4 @@
+import { campaignHealth } from "../campaign/continuity.js";
 import { S } from "../simulation/state.js";
 import { projectHealth } from "../simulation/health.js";
 import { esc } from "./notifications.js";
@@ -9,15 +10,8 @@ export function updateHealthMap() {
   const health = projectHealth(S);
   if (S.campaign.active) {
     const ch = currentChapter(),
-      pods = S.cluster.resources.filter(
-        (r) => r.kind === "Pod" && r.metadata.namespace === ch.namespace,
-      );
-    const ready = pods.filter((r) =>
-      (r.status?.containerStatuses as { ready: boolean }[] | undefined)?.every(
-        (c) => c.ready,
-      ),
-    ).length;
-    const degraded = pods.length > ready;
+      { pods, ready, blocked, degraded: tenantDegraded } = campaignHealth();
+    const degraded = tenantDegraded || health.checkout === "DEGRADED";
     const state = degraded
       ? "DEGRADED"
       : pods.length
@@ -27,13 +21,25 @@ export function updateHealthMap() {
       met = checklist.filter((g) => g.passed).length;
     el("impactFlag").hidden = !degraded;
     el("impactFlag").textContent =
-      "WORKLOAD DEGRADED · " + ready + "/" + pods.length + " tenant Pods Ready";
-    el("health").textContent = state;
+      health.checkout === "DEGRADED"
+        ? "PAYMENTS CHECKOUT DEGRADED · earlier service boundary broken"
+        : blocked
+          ? "APPLICATION DEGRADED · intended service path blocked · Pods remain Ready"
+          : "WORKLOAD DEGRADED · " +
+            ready +
+            "/" +
+            pods.length +
+            " tenant Pods Ready";
+    el("health").textContent = S.campaign.finished ? health.checkout : state;
     el("health").className = degraded ? "bad" : "good";
     el("healthDetail").textContent = pods.length
       ? ready + "/" + pods.length + " tenant Pods Ready"
-      : "No workload in this assessment";
-    el("healthSummary").textContent = state + " · " + ch.namespace;
+      : S.campaign.finished
+        ? "2 / 2 payment Pods Ready"
+        : "No workload in this assessment";
+    el("healthSummary").textContent = S.campaign.finished
+      ? "HANDOVER VERIFIED · prod-east"
+      : state + " · prod-east / " + ch.namespace;
     el("healthSummary").className = degraded ? "bad" : "good";
     el("bastionHealth").textContent =
       ch.title +
@@ -43,7 +49,8 @@ export function updateHealthMap() {
       met +
       "/" +
       checklist.length +
-      " case objectives";
+      " case objectives · payments " +
+      health.checkout.toLowerCase();
     if (view === "application")
       el("healthMap").innerHTML =
         '<div class="chapterHealth"><strong>' +
@@ -106,7 +113,7 @@ export function updateHealthMap() {
   el("healthMap").dataset.view = view;
   if (view === "cluster") {
     el("healthMap").innerHTML =
-      `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods${node.name.startsWith("master") ? " · control plane" : ""}</small><div class="podDots">${node.pods.map((pod) => `<i class="${pod.ready ? "ready" : "notReady"}" title="${esc(pod.namespace)}/${esc(pod.name)}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">${health.nodes.filter((node) => node.ready).length}/${health.nodes.length} nodes Ready · ${health.checkout === "DEGRADED" ? "Application impact below" : "No checkout impact"}</p>`;
+      `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods${node.name === "control-01" ? " · control plane" : ""}</small><div class="podDots">${node.pods.map((pod) => `<i class="${pod.ready ? "ready" : "notReady"}" title="${esc(pod.namespace)}/${esc(pod.name)}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">${health.nodes.filter((node) => node.ready).length}/${health.nodes.length} nodes Ready · ${health.checkout === "DEGRADED" ? "Application impact below" : "No checkout impact"}</p>`;
   } else {
     const dependency = health.dnsAllowed ? "allowed" : "blocked";
     const external = health.externalAllowed

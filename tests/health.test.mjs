@@ -7,7 +7,11 @@ import {
 } from "../.test-build/src/simulation/state.js";
 import { applyPolicy } from "../.test-build/src/simulation/operations.js";
 import { projectHealth } from "../.test-build/src/simulation/health.js";
-import { discover, canEnterWorker, canEnterArchive } from "../.test-build/src/world/story.js";
+import {
+  discover,
+  canEnterWorker,
+  canEnterArchive,
+} from "../.test-build/src/world/story.js";
 import {
   encodeProgress,
   decodeProgress,
@@ -56,6 +60,7 @@ test("archive key unlocks story access only; discoveries and key survive checkpo
     discoveries: [],
     notes: "",
     outageSeen: false,
+    mira: { scene: "cluster", x: 895, y: 465 },
   });
   older.data.story = { inventory: ["cluster-admin"], discoveries: [] };
   assert.throws(
@@ -64,7 +69,31 @@ test("archive key unlocks story access only; discoveries and key survive checkpo
   );
 });
 
-test("worker story access and notebook persist without altering API authorization",()=>{
- const state=makeState();assert.equal(canEnterWorker(state),false);discover(state,"access");assert.equal(canEnterWorker(state),true);state.story.notes="Review logs; do not equate API identity with human attribution.";state.story.outageSeen=true;const restored=decodeProgress(encodeProgress(state));assert.equal(canEnterWorker(restored),true);assert.equal(restored.story.notes,state.story.notes);assert.equal(restored.story.outageSeen,true);assert.equal(restored.cluster.user,"operator");
- const crash={apiVersion:"v1",kind:"Pod",metadata:{name:"broken",namespace:"lab"},spec:{nodeName:"worker-01",containers:[]},status:{phase:"Running",containerStatuses:[{ready:false}]}};state.cluster.resources.push(crash);assert.equal(projectHealth(state).nodes.find(node=>node.name==="worker-01").pods.find(pod=>pod.name==="broken").ready,false);
+test("worker story access and notebook persist without altering API authorization", () => {
+  const state = makeState();
+  assert.equal(canEnterWorker(state), false);
+  discover(state, "access");
+  assert.equal(canEnterWorker(state), true);
+  state.story.notes =
+    "Review logs; do not equate API identity with human attribution.";
+  state.story.outageSeen = true;
+  const restored = decodeProgress(encodeProgress(state));
+  assert.equal(canEnterWorker(restored), true);
+  assert.equal(restored.story.notes, state.story.notes);
+  assert.equal(restored.story.outageSeen, true);
+  assert.equal(restored.cluster.user, "operator");
+  const crash = {
+    apiVersion: "v1",
+    kind: "Pod",
+    metadata: { name: "broken", namespace: "lab" },
+    spec: { nodeName: "worker-01", containers: [] },
+    status: { phase: "Running", containerStatuses: [{ ready: false }] },
+  };
+  state.cluster.resources.push(crash);
+  assert.equal(
+    projectHealth(state)
+      .nodes.find((node) => node.name === "worker-01")
+      .pods.find((pod) => pod.name === "broken").ready,
+    false,
+  );
 });

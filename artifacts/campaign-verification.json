@@ -1,12 +1,12 @@
 {
-  "target": "ROADSHOW 27-chapter campaign and static GitHub Pages build",
+  "target": "27-chapter evolving prod-east journey; stage-only UI and static GitHub Pages",
   "date": "2026-10-08",
-  "unit_tests": 32,
+  "unit_tests": 43,
   "unit_result": "passed",
   "production_build": "passed",
   "framework_revision": "e48d32014657e162d04ab1f7a07d4891d0abac03",
   "original_gameplay": {
-    "url": "http://127.0.0.1:4179/",
+    "url": "http://127.0.0.1:4183/ghostroute/",
     "flows": [
       "WASD movement, Trace Vision, nearby interaction, modal escape",
       "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
@@ -17,7 +17,7 @@
     "browser_errors": []
   },
   "campaign_browser": {
-    "url": "http://127.0.0.1:4180/ghostroute/",
+    "url": "http://127.0.0.1:4183/ghostroute/",
     "chapters": [
       "02 The Borrowed Image",
       "03 The Door That Opens Twice",
@@ -259,5 +259,105 @@
       "artifacts/campaign/iab-journey-desktop.png"
     ],
     "comparison": "Reference and native full-view/mobile images reviewed in the same input"
+  },
+  "rpg_browser": {
+    "url": "http://127.0.0.1:4182/ghostroute/",
+    "flows": [
+      "Rhea incident report -> Mira physical access pass -> worker interviews -> maintenance keycard -> Vale audit trail; doors enforce story access without granting API permissions",
+      "Single physical bastion opens modal terminal; T elsewhere is rejected; logs/config shortcuts removed; leaving console hides terminal; notebooks mirror and save leads",
+      "Default-deny interrupts console and animates Mira approaching; dialogue challenges outage; checkout degrades while Pods/nodes remain Ready; targeted recovery clears flag and raises recovery notice",
+      "Visited worker, access passes, discoveries, personal notes and outage acknowledgement survive a fresh page"
+    ],
+    "layout": [
+      {
+        "width": 1536,
+        "scrollWidth": 1536,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1536,
+          "h": 569
+        },
+        "notes": {
+          "x": 16,
+          "y": 752.5,
+          "w": 1120,
+          "h": 205
+        },
+        "intel": {
+          "x": 1150,
+          "y": 752.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 1024,
+        "scrollWidth": 1024,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1024,
+          "h": 470
+        },
+        "notes": {
+          "x": 16,
+          "y": 653.5,
+          "w": 608,
+          "h": 205
+        },
+        "intel": {
+          "x": 638,
+          "y": 653.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 390,
+        "scrollWidth": 390,
+        "world": {
+          "x": 0,
+          "y": 395.875,
+          "w": 390,
+          "h": 333.546875
+        },
+        "notes": {
+          "x": 10,
+          "y": 742.421875,
+          "w": 370,
+          "h": 210
+        },
+        "intel": {
+          "x": 10,
+          "y": 964.421875,
+          "w": 370,
+          "h": 220
+        }
+      }
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "continuity_checks": [
+    "Linked API auditID, release-184 job and permission review gate the first causal finding",
+    "Chapter 03 withdraws the original build-bot Deployment write grant",
+    "Chapter 18 disables unreviewed support imports and requires reviewed versioned settings",
+    "Final handover rejects a deleted original bot Role and passes after repair and fresh tests",
+    "Runtime diagnosis retained; failed Pod removed; every surviving Pod Ready at final unit checkpoint",
+    "Same prod-east state and player position across advancement",
+    "Unique Rhea/Kai/Vale placements; Mira moves between one persisted lobby/SOC location",
+    "control-01 name and legacy save migration"
+  ],
+  "visual_review": {
+    "status": "passed",
+    "screenshots": [
+      "artifacts/campaign/iab-release-desktop.png",
+      "artifacts/campaign/persistent-worker-labels.png",
+      "artifacts/roadshow/worker-02.png",
+      "artifacts/roadshow/layout-390.png"
+    ],
+    "comparison": "Supplied reference and native desktop/mobile captures reviewed together",
+    "manual_scope": "Selected scenes and breakpoints; every chapter played by automated real-input browser"
   }
 }

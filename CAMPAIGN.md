@@ -123,3 +123,13 @@ terminal commands, live Tab completion, case gates and debrief buttons across
 all 27 chapters. It checks the final 26 follow-on reports, offline reload,
 portable export, Journey/Journal and mobile layout. Evidence is recorded in
 artifacts/campaign/receipt.json. No browser state is injected to bypass gameplay.
+
+## Continuous incident contract
+
+Chapter 01 explains the matched release-184 support import, build-bot caller
+and weak links; it does not invent a human attacker. Chapter 03 withdraws the
+original payments bot write grant, and Chapter 18 closes the unreviewed
+configuration import. Chapter 27 reevaluates every earlier goal and probe
+against current state. The browser journey deliberately deletes the repaired
+bot Role, verifies a failed handover and restores it before completion. All
+chapters share prod-east and retain the earlier services, resources and notes.

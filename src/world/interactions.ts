@@ -13,7 +13,11 @@ import { closeRadio, radio } from "../characters/dialogue.js";
 import { openTerminal } from "../terminal/shell.js";
 import { openDetail } from "../ui/panels.js";
 import type { WorldObject } from "../world/locations.js";
-import { campaignInterview, discoverCampaignArtifact } from "../ui/campaign.js";
+import {
+  campaignInterview,
+  discoverCampaignArtifact,
+  showCampaignContext,
+} from "../ui/campaign.js";
 
 export function toggleTrace() {
   if (!S.started || G.detailOpen || G.endOpen) return;
@@ -25,10 +29,12 @@ export function toggleTrace() {
   G.traceEnd = performance.now() + 12500;
   toast(
     G.traceOn
-      ? "Trace Vision ON · Follow the outbound path"
+      ? S.campaign.active
+        ? "Trace Vision ON · use case tests at the bastion for this tenant’s recorded paths"
+        : "Trace Vision ON · Follow the outbound path"
       : "Trace Vision OFF",
   );
-  if (G.traceOn) {
+  if (G.traceOn && !S.campaign.active) {
     const pod = worldObjects().find(
       (object) => object.id === "pod1" || object.id === "pod2",
     );
@@ -42,8 +48,28 @@ export function toggleTrace() {
 export function interact(o: WorldObject | null = nearest()) {
   if (!o || !S.started || G.detailOpen || G.endOpen) return;
   closeRadio();
-  if (S.campaign.active && o.id==="campaign-dossier") { discoverCampaignArtifact(); return; }
-  if (S.campaign.active && o.kind==="npc" && campaignInterview(o.art ?? o.id.split("-")[0])) return;
+  if (S.campaign.active && o.id === "campaign-dossier") {
+    discoverCampaignArtifact();
+    return;
+  }
+  if (S.campaign.active && o.id === "worker-register") {
+    showCampaignContext("register");
+    return;
+  }
+  if (o.id === "mira" && S.world.scene === "soc" && !S.campaign.active) {
+    radio(
+      "MIRA",
+      S.policy === "deny"
+        ? "Checkout is offline. Restore DNS and ledger from the bastion, then verify the required paths."
+        : "Checkout is back. Finish your verification; I will return to the cluster lobby when we leave the operations hub.",
+    );
+    return;
+  }
+  if (S.campaign.active && o.kind === "npc") {
+    const who = o.art ?? o.id.split("-")[0];
+    if (!campaignInterview(who)) showCampaignContext(who);
+    return;
+  }
   if (o.kind === "portal" && o.destination) {
     enterScene(o.destination);
     return;
@@ -64,7 +90,7 @@ export function interact(o: WorldObject | null = nearest()) {
     }
     const content: Record<string, string> = {
       keycard: `<h2>Maintenance keycard found.</h2><p>Rhea left a physical access badge in the locker. It opens the records archive in the cluster corridor. Your inventory now contains the badge.</p><p>This key only opens a story room. It does not grant API permissions or SCC access.</p><img class="inventoryKey" src="${import.meta.env.BASE_URL}art/keycard.webp" alt="Maintenance access keycard">`,
-      audit: `<h2>Who changed payment-api?</h2><p>The retained training audit event records a Deployment patch by <code>system:serviceaccount:payments:build-bot</code> at 02:13:40 UTC. Its request body includes the telemetry endpoint. A service account name identifies the API caller; it does not establish who controlled its credential.</p><pre class="journal">jq 'select(.verb == "patch" and .objectRef.name == "payment-api") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log</pre><p>Run the query in your terminal. Compare the retained request with the current Deployment configuration.</p>`,
+      audit: `<h2>Who changed payment-api?</h2><p>The retained training audit event records a Deployment patch by <code>system:serviceaccount:payments:build-bot</code> at 02:13:40 UTC. Its request body includes the telemetry endpoint. A service account name identifies the API caller; it does not establish who controlled its credential.</p><pre class="journal">jq 'select(.verb == "patch" and .objectRef.name == "payment-api") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log</pre><p>Run the query in your terminal. Compare the retained request with the current Deployment configuration. Then read <code>case/release-job.json</code>: its response auditID links the delivery job to this patch. Read <code>case/permission-review.yaml</code> to find the weak permission boundary. Use <code>case explain release-import</code> after correlating all three.</p>`,
       release: `<h2>The exporter was enabled.</h2><p>The incident's retained patch added <code>TELEMETRY_ENDPOINT=https://203.0.113.77/upload</code>. The application logs show payment metadata sent to this destination. Inspect both sources before changing the live simulation.</p><pre class="journal">oc logs deployment/payment-api -n payments
 oc get deployment payment-api -n payments -o yaml</pre><p>Configuration can explain an unexpected flow. Investigate whether the change was approved; a deviation alone is not proof of an intruder.</p>`,
       image: `<h2>Build for an arbitrary UID.</h2><p>The owned application requests UID 0. Restricted SCC admission rejects that request. Repair the application and file permissions so it runs with the namespace-assigned UID.</p><pre class="journal">cat workloads/Dockerfile.secure
@@ -128,7 +154,7 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
     return;
   }
   if (o.id === "pod1" || o.id === "pod2") {
-    if (G.traceOn) {
+    if (G.traceOn && !S.campaign.active) {
       addClue("trace");
       S.traceFound = true;
     }
@@ -175,7 +201,7 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
       updateHUD();
       radio(
         "MIRA",
-        "Rhea’s report checks out. Here is a worker investigation pass. Worker-01 hosts a payment Pod and Kai can explain the release. Worker-02 hosts the other payment Pod and ledger. Gather your clues, then return to the bastion at RHACS Central to investigate with oc.",
+        "Rhea’s report checks out. Here is a worker investigation pass. Worker-01 hosts a payment Pod and Kai’s release handover. Kai is in Operations. Worker-02 hosts the other payment Pod and ledger. Gather your clues, then return to the bastion at RHACS Central to investigate with oc.",
       );
       return;
     }

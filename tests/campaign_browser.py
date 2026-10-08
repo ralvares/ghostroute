@@ -25,7 +25,7 @@ with sync_playwright() as p:
  walk(210,340);walk(480,410);page.locator('#radioClose').click();walk(830,390);page.locator('#recordLead').click();page.locator('#detailDone').click()
  open_bastion(page);command('oc logs deployment/payment-api -n payments','WARN telemetry');command('oc get deployment payment-api -n payments -o yaml','TELEMETRY_ENDPOINT');command('oc get networkpolicies -n payments','not restricted')
  lobby();walk(895,465);page.locator('#radioClose').click();walk(380,230);walk(490,330);page.locator('#detailDone').click();page.keyboard.press('Space')
- open_bastion(page);command('oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-','2 new Pods');command('oc apply -f policies/payments-egress.yaml','Selected Pods may reach');command('oc rollout status deployment/payment-api -n payments','2 of 2');command('oc rsh -n payments deployment/payment-api','Connected');command('curl -I https://ledger.payments.svc.cluster.local:8443/health','200 OK');command('curl -I https://203.0.113.77','Expected negative test');expect(page.locator('#ending')).to_be_visible();expect(page.locator('.grade')).to_have_text('S');page.locator('#continueJourney').click();page.locator('#radioClose').click()
+ open_bastion(page);command('case explain release-import','Read the audit');command('cat audit/kube-apiserver.log','build-bot');command('cat case/release-job.json','import-support-config');command('cat case/permission-review.yaml','release-bot');command('case explain release-import','CAUSE VERIFIED');command('oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-','2 new Pods');command('oc apply -f policies/payments-egress.yaml','Selected Pods may reach');command('oc rollout status deployment/payment-api -n payments','2 of 2');command('oc rsh -n payments deployment/payment-api','Connected');command('curl -I https://ledger.payments.svc.cluster.local:8443/health','200 OK');command('curl -I https://203.0.113.77','Expected negative test');expect(page.locator('#ending')).to_be_visible();expect(page.locator('.grade')).to_have_text('S');page.locator('#continueJourney').click();page.locator('#radioClose').click()
  for ch in plan:
   expect(page.locator('#episodeLabel')).to_have_text('CHAPTER '+ch['id']+' / 27')
   page.locator('[data-nav=journey]').click();expect(page.locator('.journeyCase.current')).to_contain_text(ch['title']);expect(page.locator('.journeyCase')).to_have_count(27);page.locator('#detailDone').click()
@@ -56,17 +56,23 @@ with sync_playwright() as p:
   if ch['id']=='05':
    command('oc login -u platform-admin -p training','Logged in');command('oc adm policy add-scc-to-user rs-vendor -z vendor -n '+ch['namespace'],'added');command('oc login -u operator -p training','Logged in');command('oc rollout restart deployment/vendor -n '+ch['namespace'],'restarted')
   if ch['id']=='04':
-   page.locator('#closeTerm').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');open_bastion(page)
+   page.locator('#closeTerm').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');open_bastion(page);command('case test diagnose','PASS ·');command('oc delete pod broken -n '+ch['namespace'],'deleted')
   for probe in ch['probes']:command('case test '+probe,'PASS ·')
+  if ch['id']=='27':
+   command('oc login -u platform-admin -p training','Logged in')
+   command('oc delete role release-bot -n payments','deleted')
+   command('case test history','FAIL ·')
+   command('oc apply -f ~/campaign/03/release-bot.yaml -n payments','created')
+   for probe in ch['probes']:command('case test '+probe,'PASS ·')
   command('case conclude '+ch['conclusion'],'Case closed');expect(page.locator('#ending')).to_be_visible();results.append(ch['id']+' '+ch['title']);print(results[-1],flush=True)
   if ch['id'] in ['02','14','18','25','27']:shot('chapter-'+ch['id']+'-closed')
   if ch['id']!='27':page.locator('#chapterNext').click();page.locator('#radioClose').click()
- expect(page.locator('#endBody')).to_contain_text('27/27');page.wait_for_function("document.documentElement.dataset.progress==='saved'")
+ expect(page.locator('#endBody')).to_contain_text('27/27');page.wait_for_function("document.documentElement.dataset.progress==='saved'",polling=50)
  # Offline reload restores final chapter and all reports; local WASM still runs.
- page.wait_for_function("document.documentElement.dataset.offline==='ready'");context.set_offline(True);page.reload();expect(page.locator('#endBody')).to_contain_text('27/27');page.locator('#chapterNext').click();page.evaluate('stepGame(2)');open_bastion(page);command("cat evidence.json | jq '.sourceType'",'authored-training-fixture');command('game export','Downloaded')
+ page.wait_for_function("document.documentElement.dataset.offline==='ready'",polling=50);context.set_offline(True);page.reload();expect(page.locator('#endBody')).to_contain_text('27/27');page.locator('#chapterNext').click();page.evaluate('stepGame(2)');open_bastion(page);command("cat evidence.json | jq '.sourceType'",'authored-training-fixture');command('game export','Downloaded')
  with page.expect_download() as d:command('game export','Downloaded')
  save=d.value;save.save_as(str(out/'completed-progress.json'));export=json.loads((out/'completed-progress.json').read_text());assert len(export['data']['campaign']['reports'])==26
- page.locator('#closeTerm').click();page.locator('[data-nav=journal]').click();expect(page.locator('#detailsBody')).to_contain_text('Verified handovers');expect(page.locator('#detailsBody')).to_contain_text('The City That Remembers');shot('final-journal');page.locator('#detailDone').click()
+ page.locator('#closeTerm').click();page.locator('[data-nav=journal]').click();expect(page.locator('#detailsBody')).to_contain_text('Verified handovers');expect(page.locator('#detailsBody')).to_contain_text('The City That Remembers');shot('final-journal');page.locator('#detailDone').click();lobby();walk(380,230);shot('persistent-worker-labels');assert int(page.locator('#world').get_attribute('data-visible-labels'))>=3
  page.set_viewport_size({'width':390,'height':844});page.evaluate('stepGame()');page.locator('[data-nav=journey]').click();shot('journey-mobile');assert page.evaluate('document.documentElement.scrollWidth===innerWidth');page.locator('#detailDone').click();open_bastion(page);shot('bastion-mobile')
  assert not errors,errors;assert not failed,failed
  browser.close()

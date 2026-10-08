@@ -27,6 +27,16 @@ export function enterScene(scene: SceneId) {
   }
   closeTerminal();
   const previous = S.world.scene;
+  if (
+    previous === "soc" &&
+    scene !== "soc" &&
+    S.story.mira.scene === "soc" &&
+    S.policy !== "deny"
+  ) {
+    S.story.mira = { scene: "cluster", x: 895, y: 465 };
+    G.miraReaction = null;
+    toast("Checkout is restored. Mira returns to the cluster lobby.");
+  }
   S.world.scene = scene;
   if (!S.world.visited.includes(scene)) S.world.visited.push(scene);
   const spawn = scenes[scene].spawn;
@@ -67,23 +77,16 @@ export function enterScene(scene: SceneId) {
 export function updateSceneHUD() {
   const scene = scenes[S.world.scene];
   const chapter = S.campaign.active ? currentChapter() : null;
-  const title = chapter
-    ? S.world.scene === "district"
-      ? chapter.district + " · security district"
-      : scene.title.replace(
-          "prod-east",
-          chapter.district + " / " + chapter.namespace,
-        )
-    : scene.title;
+  const title = scene.title;
   const description = chapter
-    ? "Chapter " +
+    ? "prod-east · " +
+      chapter.district +
+      " business area · tenant " +
+      chapter.namespace +
+      " · Chapter " +
       chapter.id +
       " · " +
-      chapter.title +
-      " · " +
-      (S.world.scene.startsWith("worker")
-        ? "Scheduled tenant Pods and field evidence"
-        : scene.description)
+      chapter.title
     : scene.description;
   C.dataset.scene = S.world.scene;
   document.getElementById("sceneTitle")!.textContent = title;

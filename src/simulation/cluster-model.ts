@@ -10,13 +10,20 @@ export interface ContainerSpec {
   name: string;
   image: string;
   securityContext?: SecurityContext;
-  env?: { name: string; value?: string; valueFrom?: { secretKeyRef: { name: string; key: string } } }[];
-  resources?: { requests?: Record<string,string>; limits?: Record<string,string> };
+  env?: {
+    name: string;
+    value?: string;
+    valueFrom?: { secretKeyRef: { name: string; key: string } };
+  }[];
+  resources?: {
+    requests?: Record<string, string>;
+    limits?: Record<string, string>;
+  };
   volumeMounts?: { name: string; mountPath: string; readOnly?: boolean }[];
 }
 export interface PodSpec {
   runtimeClassName?: string;
-  nodeSelector?: Record<string,string>;
+  nodeSelector?: Record<string, string>;
   nodeName?: string;
   containers: ContainerSpec[];
   serviceAccountName?: string;
@@ -42,9 +49,9 @@ export interface Resource {
     template?: { metadata?: Resource["metadata"]; spec: PodSpec };
   };
   status?: Record<string, unknown>;
-  data?: Record<string,string>;
-  stringData?: Record<string,string>;
-  disableRules?: {name:string;rationale:string}[];
+  data?: Record<string, string>;
+  stringData?: Record<string, string>;
+  disableRules?: { name: string; rationale: string }[];
   [key: string]: unknown;
 }
 export interface Scc extends Resource {
@@ -89,7 +96,7 @@ export function createCluster() {
       status: { phase: "Active" },
     }),
   );
-  for (const name of ["master-01", "worker-01", "worker-02"])
+  for (const name of ["control-01", "worker-01", "worker-02"])
     resources.push({
       apiVersion: "v1",
       kind: "Node",
@@ -170,7 +177,39 @@ export function createCluster() {
     cwd: "/home/operator",
     previousCwd: "/home/operator",
     directories: [] as string[],
-    resources,
+    resources: [
+      ...resources,
+      {
+        apiVersion: "v1",
+        kind: "ServiceAccount",
+        metadata: { name: "build-bot", namespace: "payments" },
+      },
+      {
+        apiVersion: "rbac.authorization.k8s.io/v1",
+        kind: "Role",
+        metadata: { name: "release-bot", namespace: "payments" },
+        rules: [
+          {
+            apiGroups: ["apps"],
+            resources: ["deployments"],
+            verbs: ["get", "list", "patch", "update"],
+          },
+        ],
+      },
+      {
+        apiVersion: "rbac.authorization.k8s.io/v1",
+        kind: "RoleBinding",
+        metadata: { name: "release-bot", namespace: "payments" },
+        roleRef: {
+          apiGroup: "rbac.authorization.k8s.io",
+          kind: "Role",
+          name: "release-bot",
+        },
+        subjects: [
+          { kind: "ServiceAccount", name: "build-bot", namespace: "payments" },
+        ],
+      },
+    ] as Resource[],
     sccs,
     ownedNamespaces: new Set(["payments"]),
     audit: [

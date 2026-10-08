@@ -294,7 +294,7 @@ const drafts: Draft[] = [
     act: "I · The district wakes",
     district: "Foundry",
     sources: ["labs/basic/b2.adoc", "labs/intermediate/i2.adoc"],
-    hook: "A maintenance identity can read its own settings and somebody else's secrets. The stolen build-bot trail leads to a permission handover nobody reviewed.",
+    hook: "A maintenance identity can read its own settings and somebody else's secrets. The original release bot still has its broad write grant. Mira will not close the handover until you withdraw it.",
     reveal:
       "The handover needs ConfigMap reads, not secret access, writes or cluster administration.",
     voices: [
@@ -308,8 +308,41 @@ const drafts: Draft[] = [
       "role.yaml": accessRole,
       "binding.yaml": binding("handover", "handover"),
       "settings.yaml": cm("settings", { mode: "production" }),
+      "release-bot.yaml": object(
+        "Role",
+        "release-bot",
+        {
+          metadata: { name: "release-bot", namespace: "payments" },
+          rules: [
+            {
+              apiGroups: ["apps"],
+              resources: ["deployments"],
+              resourceNames: ["payment-api"],
+              verbs: ["get"],
+            },
+          ],
+        },
+        "rbac.authorization.k8s.io/v1",
+      ),
     },
     goals: [
+      {
+        ...goal(
+          "Withdraw the original bot write grant",
+          "Role",
+          "release-bot",
+          "rules",
+          [
+            {
+              apiGroups: ["apps"],
+              resources: ["deployments"],
+              resourceNames: ["payment-api"],
+              verbs: ["get"],
+            },
+          ],
+        ),
+        namespace: "payments",
+      },
       goal(
         "Create the bounded read Role",
         "Role",
@@ -326,6 +359,11 @@ const drafts: Draft[] = [
       ),
     ],
     probes: [
+      probe(
+        "bot",
+        "Original release bot can inspect payment-api but cannot patch it",
+        "release-scoped",
+      ),
       probe("read", "ConfigMap read is allowed", "reader-allowed"),
       probe("secret", "Secret read remains denied", "reader-secret-denied"),
     ],
@@ -355,12 +393,19 @@ const drafts: Draft[] = [
       ),
       "app.yaml": workload(),
       "diagnosis.txt":
-        "Compare: oc describe pod broken; oc logs broken. Runtime permissions fail after successful SCC admission. Keep the platform defaults.",
+        "Compare: oc describe pod broken; oc logs broken. Runtime permissions fail after successful SCC admission. Keep the platform defaults. Run case test diagnose to retain the observed failure, then oc delete pod broken before the final tests and handover.",
     },
     seed: [
       workload("broken", {}, { image: "registry.example.test/owned:root" }),
     ],
     goals: [
+      goal(
+        "Remove the failed Pod after preserving its diagnosis",
+        "Pod",
+        "broken",
+        "metadata.name",
+        undefined,
+      ),
       goal(
         "Deploy the compatible replacement",
         "Pod",
@@ -618,6 +663,11 @@ const drafts: Draft[] = [
         { image: image + "@sha256:" + "a".repeat(64) },
       ),
       "attestation.yaml": signature,
+      "promotion-review.yaml": cm("promotion-review", {
+        supportEnvImport: "disabled",
+        configurationSource: "versioned-reviewed",
+        owner: "Kai and Mira",
+      }),
     },
     goals: [
       goal(
@@ -1092,8 +1142,27 @@ const drafts: Draft[] = [
         params: [{ name: "digest", value: "sha256:" + "a".repeat(64) }],
       }),
       "attestation.yaml": signature,
+      "promotion-review.yaml": cm("promotion-review", {
+        supportEnvImport: "disabled",
+        configurationSource: "versioned-reviewed",
+        owner: "Kai and Mira",
+      }),
     },
     goals: [
+      goal(
+        "Close the original unreviewed configuration import",
+        "ConfigMap",
+        "promotion-review",
+        "data.supportEnvImport",
+        "disabled",
+      ),
+      goal(
+        "Require reviewed versioned configuration",
+        "ConfigMap",
+        "promotion-review",
+        "data.configurationSource",
+        "versioned-reviewed",
+      ),
       goal(
         "Gate signing after scanning",
         "Pipeline",
@@ -1668,7 +1737,7 @@ const drafts: Draft[] = [
       "docs/rhacs-internal-entities.adoc",
       "docs/plan.adoc",
     ],
-    hook: "The ghost route is gone. The council wants to know what happens when the next alert arrives in another cluster and you are not there.",
+    hook: "The ghost route is gone. The council wants to know what happens when the next alert arrives in prod-east and you are not there.",
     reveal:
       "The final handover binds evidence, control ownership, exception expiry and fleet scope. Completed cases are a learning record, not live multi-cluster posture.",
     voices: [

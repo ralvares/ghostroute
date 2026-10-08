@@ -99,7 +99,7 @@ export function registerWorkbench() {
       }
       if (!S.started || G.endOpen) return;
       closeTerminal();
-      const heading = `<div class="eyebrow">ROADSHOW · CHAPTER ${currentChapter().id}</div><h2>${esc(button.textContent)}</h2>`;
+      const heading = `<div class="eyebrow">CHAPTER ${currentChapter().id}</div><h2>${esc(button.textContent)}</h2>`;
       if (view === "inventory")
         openDetail(
           heading +

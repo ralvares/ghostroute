@@ -13,10 +13,12 @@ import { radio, closeRadio } from "../characters/dialogue.js";
 import { updateHUD } from "./hud.js";
 import { updateSceneHUD } from "../world/scenes.js";
 import { esc, toast } from "./notifications.js";
+import { projectHealth } from "../simulation/health.js";
 import { scheduleSave } from "../simulation/persistence.js";
 
 export function continueJourney() {
   try {
+    const previous = currentChapter();
     const ch = advanceCampaign();
     closeTerminal();
     closeDetail();
@@ -25,9 +27,7 @@ export function continueJourney() {
     G.caseOpen = false;
     document.getElementById("ending")!.hidden = true;
     document.getElementById("casepanel")!.hidden = true;
-    S.world.scene = "district";
-    S.x = 520;
-    S.y = 410;
+    // Continue in place: the same cluster and investigator position persist.
     G.target = null;
     G.pending = null;
     G.near = null;
@@ -47,7 +47,12 @@ export function continueJourney() {
     C.focus();
     radio(
       "RHEA",
-      ch.hook +
+      "Still in prod-east. After " +
+        previous.title +
+        ": " +
+        previous.outcome +
+        " " +
+        ch.hook +
         " Meet " +
         ch.witnesses
           .map((w) => w.who.toUpperCase() + " in " + w.scene)
@@ -64,7 +69,17 @@ export function attachJourneyButton() {
   button.className = "btnquiet";
   button.id = "continueJourney";
   button.textContent = "Continue journey → Chapter " + chapters[1].id;
-  button.addEventListener("click", continueJourney);
+  button.addEventListener("click", () => {
+    if (S.incident.explained) continueJourney();
+    else {
+      G.endOpen = false;
+      document.getElementById("ending")!.hidden = true;
+      C.focus();
+      toast(
+        "This older save needs a cause review. Read the linked audit/release/permissions at the bastion and use case explain release-import.",
+      );
+    }
+  });
   target.prepend(button);
 }
 export function showCampaignEnding() {
@@ -87,7 +102,7 @@ export function showCampaignEnding() {
     "</p><p>" +
     esc(
       completed
-        ? "Rhea keeps the observations. Mira owns the controls. Kai owns the secure release. Vale preserves evidence and exception reviews. Your handover says what was tested, what remains a fixture, and who responds next."
+        ? "The first change is explained: release-184 imported unreviewed settings through build-bot. Its write grant is withdrawn, the import is disabled, and reviewed releases have a scan-before-sign gate. Every earlier control was checked again before this handover. Rhea keeps observations; Mira owns controls; Kai owns releases; Vale preserves evidence and exception reviews. No human attacker was established."
         : chapters[S.campaign.active + 1].hook,
     ) +
     "</p>" +
@@ -122,7 +137,7 @@ export function showJourney() {
   closeTerminal();
   const ch = currentChapter();
   openDetail(
-    '<div class="eyebrow">ROADSHOW · SEVEN ACTS</div><h2>The long road home</h2><p>' +
+    '<div class="eyebrow">THE JOURNEY · SEVEN ACTS</div><h2>The long road home</h2><p>' +
       esc(ch.hook) +
       "</p><p><strong>" +
       S.campaign.completed.length +
@@ -252,4 +267,71 @@ export function discoverCampaignArtifact() {
   );
   updateHUD();
   scheduleSave();
+}
+
+export function showCampaignContext(who: string) {
+  const ch = currentChapter(),
+    health = projectHealth(S);
+  const previous = chapters[Math.max(0, S.campaign.active - 1)];
+  if (who === "register") {
+    const pods = S.cluster.resources.filter(
+      (p) => p.kind === "Pod" && p.spec?.nodeName === S.world.scene,
+    );
+    openDetail(
+      '<div class="eyebrow">PROD-EAST · WORKER REGISTER</div><h2>' +
+        esc(S.world.scene) +
+        "</h2><p>Current tenant: " +
+        esc(ch.namespace) +
+        ". Earlier workloads remain in this cluster. Floor space shows a sample; this register lists every stored Pod scheduled here.</p><ul>" +
+        pods
+          .map(
+            (p) =>
+              "<li>" +
+              esc(p.metadata.namespace) +
+              " / " +
+              esc(p.metadata.name) +
+              " · " +
+              esc(p.status?.phase) +
+              "</li>",
+          )
+          .join("") +
+        "</ul><p>Payments workloads also remain scheduled across both workers. Inspect all tenants from the bastion with <code>oc get pods -A</code>.</p>",
+    );
+    return;
+  }
+  const lines: Record<string, string> = {
+    rhea:
+      "Payments checkout is " +
+      health.checkout.toLowerCase() +
+      ". We are still observing prod-east. The next lead is " +
+      ch.title +
+      "; use the current case checklist, and preserve the earlier reports.",
+    mira:
+      "Same building, same workers. Tenant " +
+      ch.namespace +
+      " belongs to " +
+      ch.district +
+      ". The earlier boundaries and grants remain active. Physical room access does not grant API access.",
+    kai:
+      "We kept the workloads from the earlier investigation. The current tenant is " +
+      ch.namespace +
+      ". Read its briefing before changing an image or asking for an exception.",
+    vale:
+      "The last closed case was " +
+      previous.title +
+      ". Its report remains in Journal. The current archive dossier belongs to " +
+      ch.title +
+      "; do not substitute an older incident’s evidence.",
+  };
+  openDetail(
+    '<div class="eyebrow">' +
+      esc(who.toUpperCase()) +
+      " · PROD-EAST</div><h2>The investigation continues.</h2><p>" +
+      esc(lines[who] ?? ch.hook) +
+      "</p><p>Current business area: " +
+      esc(ch.district) +
+      ". Current tenant: " +
+      esc(ch.namespace) +
+      ".</p>",
+  );
 }

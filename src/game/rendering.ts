@@ -7,6 +7,7 @@ import miraAtlas from "../../public/art/mira-run.json";
 import { reactionObjects, updateReaction } from "../world/reactions.js";
 import walkAtlas from "../../public/art/operator-walk.json";
 import { update } from "../game/movement.js";
+import { placeWorldLabels } from "../world/label-layout.js";
 import type { WorldObject } from "../world/locations.js";
 
 export function drawRounded(
@@ -122,7 +123,13 @@ export function drawStation(o: WorldObject, _t: number) {
 }
 export function drawNPC(o: WorldObject, _t: number) {
   const actor = G.miraReaction;
-  if (o.id === "mira-reaction" && actor && !actor.arrived && !reduced) {
+  if (
+    o.id === "mira" &&
+    S.world.scene === "soc" &&
+    actor &&
+    !actor.arrived &&
+    !reduced
+  ) {
     const frame = miraAtlas.frames[Math.floor(actor.step * 4) % 4],
       rect = frame.sourceRect,
       scale = miraAtlas.scaleRecommendation;
@@ -139,7 +146,6 @@ export function drawNPC(o: WorldObject, _t: number) {
     );
   } else
     sprite(o.art ?? (o.id === "rhea" ? "rhea" : "mira"), o.x, o.y + 23, 66, 99);
-  drawText(o.label, o.x, o.y - 78, "#d9e8f5", "bold 11px system-ui", "center");
 }
 export function drawAvatar(_t: number) {
   // Ground stays fixed: articulated sprite cells move the boots, never the whole body.
@@ -253,47 +259,109 @@ export function drawFlows(t: number) {
 }
 
 export function drawLabels(t: number) {
-  for (const o of worldObjects()) {
-    if (o.kind === "npc") continue;
-    if (Math.hypot(S.x - o.x, S.y - o.y) < 90) continue;
-    if (o.kind === "portal") {
-      drawText(
-        o.label,
-        o.x,
-        o.y + 42,
-        "#e2f2ff",
-        "bold 13px system-ui",
-        "center",
-      );
-      drawText(
-        o.sub,
-        o.x,
-        o.y + 59,
-        "#9fcbdf",
-        "11px ui-monospace,monospace",
-        "center",
-      );
-      continue;
-    }
-    const label = o.label.length > 23 ? o.label.slice(0, 21) + "…" : o.label;
-    drawRounded(o.x - 110, o.y + 34, 220, 45, 4, "#05111beb", "#355268");
-    drawText(
-      label,
-      o.x,
-      o.y + 50,
-      "#e1edf7",
-      "bold 11px ui-monospace,monospace",
-      "center",
+  const objects = worldObjects();
+  const scale = Math.max(
+    1,
+    Math.min(2, C.width / Math.max(1, C.getBoundingClientRect().width)),
+  );
+  const titleSize = 12 * scale,
+    subSize = 10 * scale;
+  const requests = objects
+    .map((o) => {
+      ctx.font = `600 ${titleSize}px Inter,system-ui`;
+      const titleWidth = ctx.measureText(o.label).width;
+      ctx.font = `${subSize}px Inter,system-ui`;
+      const subWidth = ctx.measureText(o.sub).width;
+      return {
+        object: o,
+        width: Math.min(
+          280 * scale,
+          Math.max(
+            88 * scale,
+            titleWidth + 24 * scale,
+            Math.min(250 * scale, subWidth + 24 * scale),
+          ),
+        ),
+        height: 44 * scale,
+        compactHeight: 26 * scale,
+      };
+    })
+    .sort(
+      (a, b) =>
+        Math.hypot(S.x - a.object.x, S.y - a.object.y) -
+        Math.hypot(S.x - b.object.x, S.y - b.object.y),
     );
-    drawText(
-      o.sub,
-      o.x,
-      o.y + 69,
-      "#8fb8ce",
-      "11px ui-monospace,monospace",
-      "center",
-    );
+  const blockers = objects
+    .filter((o) => o.kind !== "portal")
+    .map((o) => ({
+      x: o.x - (o.kind === "npc" ? 28 : 65),
+      y: o.y - (o.kind === "prop" ? 38 : 120),
+      width: o.kind === "npc" ? 56 : 130,
+      height: o.kind === "prop" ? 62 : 145,
+    }));
+  blockers.push({ x: S.x - 26, y: S.y - 78, width: 52, height: 105 });
+  const canvasBounds = C.getBoundingClientRect();
+  for (const selector of ["#casehud", ".hudright"]) {
+    const element = document.querySelector(selector);
+    if (!element) continue;
+    const r = element.getBoundingClientRect();
+    if (r.bottom <= canvasBounds.top || r.top >= canvasBounds.bottom) continue;
+    blockers.push({
+      x:
+        G.cameraX +
+        ((r.left - canvasBounds.left) * C.width) / canvasBounds.width,
+      y:
+        G.cameraY +
+        ((r.top - canvasBounds.top) * C.height) / canvasBounds.height,
+      width: (r.width * C.width) / canvasBounds.width,
+      height: (r.height * C.height) / canvasBounds.height,
+    });
   }
+  const labels = placeWorldLabels(
+    requests,
+    { x: G.cameraX, y: G.cameraY, width: C.width, height: C.height },
+    blockers,
+  );
+  const fit = (text: string, width: number, font: string) => {
+    ctx.font = font;
+    if (ctx.measureText(text).width <= width) return text;
+    while (text.length && ctx.measureText(text + "…").width > width)
+      text = text.slice(0, -1);
+    return text + "…";
+  };
+  for (const label of labels) {
+    const { object: o, x, y, width, height, compact } = label;
+    const nearestX = Math.max(x + 8, Math.min(x + width - 8, o.x));
+    line(o.x, o.y + 25, nearestX, y, "#799aab80", 1);
+    drawRounded(
+      x,
+      y,
+      width,
+      height,
+      5,
+      "#06121ff0",
+      G.near?.id === o.id ? "#a5d7ec" : "#40596e",
+    );
+    const font = `600 ${titleSize}px Inter,system-ui`;
+    drawText(
+      fit(o.label, width - 20 * scale, font),
+      x + 10 * scale,
+      y + 17 * scale,
+      "#eef6fb",
+      font,
+    );
+    if (!compact) {
+      const subFont = `${subSize}px Inter,system-ui`;
+      drawText(
+        fit(o.sub, width - 20 * scale, subFont),
+        x + 10 * scale,
+        y + 34 * scale,
+        "#b6cbd8",
+        subFont,
+      );
+    }
+  }
+  C.dataset.visibleLabels = String(labels.length);
   if (G.near && !G.detailOpen && !G.radioOpen && !G.caseOpen) {
     ctx.strokeStyle = "#a5d7ec";
     ctx.lineWidth = 1.4;

@@ -1,4 +1,4 @@
-# ROADSHOW — The Ghost Route
+# The Ghost Route
 
 ## Prologue: all the lights are green
 
@@ -113,8 +113,8 @@ She cares about what customers experience, rather than a green Pod count alone.
 
 **Kai, the release engineer**, remembers signing off the image. He did not review
 the final Deployment environment. His release note contains no approved external
-telemetry destination. In worker-01 he directs the investigator toward logs and
-configuration; in operations he explains why an owned image should support an
+telemetry destination. His retained handover in worker-01 directs the investigator toward logs and
+configuration; he is physically in operations, where he explains why an owned image should support an
 arbitrary UID. His account is useful, but it still needs corroboration.
 
 **Vale, the archive custodian**, provides the retained API trail. The keycard
@@ -125,7 +125,11 @@ account at 02:13:40 UTC; the request body added the telemetry endpoint.
 
 The record identifies an API credential. It does not prove who controlled it.
 The player must correlate the retained request, current configuration and
-application logs at the bastion.
+application logs at the bastion. The delivery record `case/release-job.json`
+links run `release-184` and its unreviewed `support.env` import to the same auditID.
+`case/permission-review.yaml` records the bot’s broad Deployment write grant.
+`case explain release-import` requires all three source reads before closure.
+The delivery defect is established; no human attacker is attributed.
 
 ## Investigation: collect, connect, return
 
@@ -183,3 +187,27 @@ The chapter closes the Ghost Route incident. It does not invent an identified
 attacker. Continue journey now opens the remaining 26 chapters across Foundry,
 Market, Records, Harbor, Build yard, Watch district and Council. This document
 retains the first chapter script; CAMPAIGN.md describes the connected journey.
+
+## One city, an evolving response
+
+The original payment service and workers remain in prod-east through all 27
+chapters. Foundry, Harbor, Build yard and Council are business areas in that
+cluster; chapter tenants accumulate in the same API state. Advancement keeps
+the investigator in place. Worker rooms keep the original application and
+show scheduled tenant Pods; a register lists the rest.
+
+Mira has one persisted physical location. Her worker-room dependency board is
+a document, not another Mira. The outage moves her from the lobby to the
+operations hub; after recovery she returns to the lobby when the investigator
+leaves that hub. Rhea occupies RHACS Central, Kai Operations and Vale the archive.
+
+The access handover withdraws build-bot’s original write grant. The release
+chapter disables the original unreviewed support import and requires reviewed
+versioned configuration alongside its recorded scan-before-sign gate. In the
+final chapter, every earlier resource goal and fixture probe is evaluated
+again. Deleting a repaired Role or reopening a required boundary prevents
+closure. Completed checkboxes cannot stand in for controls that still work.
+
+Kai’s runtime case preserves the observed admission and crash diagnosis, then
+requires removal of the failed Pod. The repaired application survives in the
+cluster; the failure survives in the case record.

@@ -23,15 +23,20 @@ export function closeDetail() {
 
 export function showCase() {
   if (!S.started || G.terminalOpen || G.detailOpen || G.endOpen) return;
-  if (S.campaign.active) { showCampaignCase(); return; }
+  if (S.campaign.active) {
+    showCampaignCase();
+    return;
+  }
   G.caseOpen = !G.caseOpen;
   $("casepanel").hidden = !G.caseOpen;
   if (G.caseOpen) {
-    $("evidenceList").innerHTML = Object.entries(clues)
-      .map(
-        ([k, v]) =>
-          `<div class="evidence"><b>${S.evidence.has(k as ClueId) ? "✓" : "◇"} ${esc(v.name)}</b>${S.evidence.has(k as ClueId) ? `<p>${esc(v.text)}</p>` : '<p class="lock">Not discovered yet — explore or investigate with oc.</p>'}</div>`,
-      )
-      .join("");
+    $("evidenceList").innerHTML =
+      Object.entries(clues)
+        .map(
+          ([k, v]) =>
+            `<div class="evidence"><b>${S.evidence.has(k as ClueId) ? "✓" : "◇"} ${esc(v.name)}</b>${S.evidence.has(k as ClueId) ? `<p>${esc(v.text)}</p>` : '<p class="lock">Not discovered yet — explore or investigate with oc.</p>'}</div>`,
+        )
+        .join("") +
+      `<h3>Who changed it, and how?</h3><p>${S.incident.auditSeen ? "✓" : "○"} Build-bot audit request · ${S.incident.releaseSeen ? "✓" : "○"} Matching release run · ${S.incident.accessSeen ? "✓" : "○"} Permission review · ${S.incident.explained ? "✓ Cause explained" : "○ Cause not explained"}</p><p>At the bastion: <code>case hint</code>.</p>`;
   }
 }

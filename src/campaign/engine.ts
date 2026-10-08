@@ -33,6 +33,11 @@ export function registerCampaignFiles() {
         ch.act,
         ch.title,
         ch.hook,
+        "CLUSTER: prod-east · same workers, tenants and controls throughout the journey.",
+        "PREVIOUS CASE: " +
+          chapters[Number(ch.id) - 2].title +
+          " · " +
+          chapters[Number(ch.id) - 2].outcome,
         "TENANT: " + ch.namespace,
         "Meet: " +
           ch.witnesses
@@ -89,12 +94,16 @@ export function registerCampaignFiles() {
           : stringify(scopeResource(value, ch.namespace));
   }
   files["campaign/README.md"] =
-    "ROADSHOW — 27 connected chapters. Finish Ghost Route, then continue at its debrief. Cases unlock sequentially.\nEach new case needs two field interviews, an archive discovery, three retained records, resource goals and fresh positive/negative proof.\nCommands: case status; case hint; case test <id>; case conclude <finding>; case next.\nProgress, resources, notes and reports survive offline reload.\n";
+    "27 connected chapters. Finish Ghost Route, then continue at its debrief. Cases unlock sequentially.\nEach new case needs two field interviews, an archive discovery, three retained records, resource goals and fresh positive/negative proof.\nCommands: case status; case hint; case test <id>; case conclude <finding>; case next.\nProgress, resources, notes and reports survive offline reload.\n";
   registerDocuments(files);
 }
 /** Scenario setup is explicitly authored; all player changes still use the API's RBAC/admission. */
 export function advanceCampaign() {
   const previous = S.campaign.active;
+  if (previous === 0 && S.done && !S.incident.explained)
+    throw new Error(
+      "Review the original cause at the bastion before continuing: case explain release-import.",
+    );
   if (previous === 0 && S.done && !S.campaign.completed.includes(0))
     S.campaign.completed.push(0);
   if (!S.campaign.completed.includes(previous))
@@ -206,7 +215,10 @@ export function campaignChecks() {
       label: g.label,
       passed:
         JSON.stringify(
-          valueAt(resource(g.kind, g.name, ch.namespace), g.path),
+          valueAt(
+            resource(g.kind, g.name, g.namespace ?? ch.namespace),
+            g.path,
+          ),
         ) === JSON.stringify(g.value),
     })),
     ...ch.probes.map((p) => ({
@@ -226,6 +238,10 @@ export function runCampaignProbe(id: string) {
     );
   reconcileFixtureControllers();
   const result = evaluateProbe(p.model, ch.namespace);
+  if (p.model === "runtime-distinction" && result.passed) {
+    const failed = resource("Pod", "broken", ch.namespace);
+    if (failed) S.campaign.diagnostics[ch.namespace] = structuredClone(failed);
+  }
   S.campaign.proofs[id] = { ...result, fingerprint: fingerprint() };
   return (
     (result.passed ? "PASS" : "FAIL") +
@@ -271,7 +287,7 @@ export function campaignStatus() {
     return (
       "Chapter 01 / " +
       chapters.length +
-      " · The Ghost Route\nClose the original incident, then choose Continue journey in its debrief."
+      " · The Ghost Route\nIdentify the build-bot patch, linked release run and permissions. Read audit/kube-apiserver.log, case/release-job.json and case/permission-review.yaml; use case explain release-import. Then contain and verify checkout before continuing."
     );
   return (
     "Chapter " +
