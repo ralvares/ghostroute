@@ -211,7 +211,7 @@ const fixedScc = object(
     allowHostIPC: false,
     allowPrivilegedContainer: false,
     allowPrivilegeEscalation: false,
-    runAsUser: { type: "MustRunAs", uid: 1001 },
+    runAsUser: { type: "MustRunAs", uid: 100 },
     requiredDropCapabilities: ["ALL"],
     allowedCapabilities: [],
     userNamespaceLevel: "RequirePodLevel",
@@ -232,7 +232,7 @@ const vendor = object(
             {
               name: "vendor",
               image: "registry.example.test/vendor:fixed-uid",
-              securityContext: { ...security, runAsUser: 1001 },
+              securityContext: { ...security, runAsUser: 100 },
             },
           ],
         },
@@ -430,7 +430,7 @@ const drafts: Draft[] = [
     act: "I · The district wakes",
     district: "Foundry",
     sources: ["labs/basic/b3.adoc", "labs/intermediate/i3.adoc"],
-    hook: "A third-party gateway is essential tonight. Its source is unavailable and it requires UID 1001. Mira refuses to turn every tenant into an exception.",
+    hook: "A third-party gateway is essential tonight. Its source is unavailable and it requires UID 100. Mira refuses to turn every tenant into an exception.",
     reveal:
       "A dedicated vendor identity and a fixed-UID custom SCC contain this exception. Its owner and expiry must survive the incident.",
     voices: [
@@ -446,7 +446,7 @@ const drafts: Draft[] = [
       "scc.yaml": fixedScc,
       "exception.yaml": cm("exception", {
         owner: "Mira",
-        reason: "Immutable vendor UID 1001",
+        reason: "Immutable vendor UID 100",
         expires: "2026-10-15",
         scope: "vendor-only",
       }),
@@ -469,7 +469,7 @@ const drafts: Draft[] = [
       ),
     ],
     probes: [
-      probe("run", "Vendor runs as UID 1001", "vendor-ready"),
+      probe("run", "Vendor runs as UID 100", "vendor-ready"),
       probe(
         "other",
         "Default identity cannot use the exception",

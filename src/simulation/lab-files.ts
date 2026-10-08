@@ -30,7 +30,7 @@ const vendor: Resource = {
       spec: {
         serviceAccountName: "vendor",
         containers: [
-          container("vendor", "registry.example.test/vendor:fixed-uid", 1001),
+          container("vendor", "registry.example.test/vendor:fixed-uid", 100),
         ],
       },
     },
@@ -48,7 +48,7 @@ const custom: Scc = {
   allowPrivilegedContainer: false,
   allowPrivilegeEscalation: false,
   readOnlyRootFilesystem: false,
-  runAsUser: { type: "MustRunAs", uid: 1001 },
+  runAsUser: { type: "MustRunAs", uid: 100 },
   seLinuxContext: { type: "MustRunAs" },
   fsGroup: { type: "MustRunAs" },
   supplementalGroups: { type: "RunAsAny" },
@@ -74,5 +74,5 @@ export const labFiles: Record<string, string> = {
   ),
   "workloads/vendor.yaml": stringify(vendor),
   "scc/vendor-fixed-uid.yaml": stringify(custom),
-  "lab.txt": `OpenShift 4.22 local training cluster. All commands are simulated.\nOperator owns payments and namespaces created during this session.\nLocal identities: operator and platform-admin; password: training.\n\nOwned app: compare workloads/owned-root.yaml and workloads/owned-secure.yaml.\nThe secure image supports arbitrary UIDs, a writable data directory and unprivileged ports.\nVendor app: fixed UID 1001; its source cannot be changed. Use a dedicated vendor ServiceAccount.\nInspect SCC failure via oc describe deployment vendor and oc get events.\nAn SCC grant needs platform-admin. Compare anyuid with the narrower vendor-fixed-uid SCC.\nDefault OpenShift SCCs are preserved. restricted-v3 defaults hostUsers:false.\nAudit evidence: cat audit/kube-apiserver.log | jq 'select(.responseStatus.code == 403)'\n\nUse echo '<JSON manifest>' > workloads/custom.json to submit your own resources.\nUse oc apply -f workloads/custom.json -n your-project.\nSupported commands/resources: oc api-resources; oc --help.\n`,
+  "lab.txt": `OpenShift 4.22 local training cluster. All commands are simulated.\nOperator owns payments and namespaces created during this session.\nLocal identities: operator and platform-admin; password: training.\n\nOwned app: compare workloads/owned-root.yaml and workloads/owned-secure.yaml.\nThe secure image supports arbitrary UIDs, a writable data directory and unprivileged ports.\nVendor app: fixed UID 100; its source cannot be changed. Use a dedicated vendor ServiceAccount.\nInspect SCC failure via oc describe deployment vendor and oc get events.\nAn SCC grant needs platform-admin. Compare anyuid with the narrower vendor-fixed-uid SCC.\nDefault OpenShift SCCs are preserved. restricted-v3 defaults hostUsers:false.\nAudit evidence: cat audit/kube-apiserver.log | jq 'select(.responseStatus.code == 403)'\n\nUse echo '<JSON manifest>' > workloads/custom.json to submit your own resources.\nUse oc apply -f workloads/custom.json -n your-project.\nSupported commands/resources: oc api-resources; oc --help.\n`,
 };

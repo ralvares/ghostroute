@@ -116,3 +116,11 @@ After rebuilding an installed preview, close its existing game tabs so the new
 offline worker can activate. Local progress remains in IndexedDB. Use `game export`
 to move a save to another browser or origin; changing a localhost port creates a
 separate browser origin.
+
+
+Resource output now uses an offline Kubernetes Table API, with Pod readiness,
+status/restart/age and wide columns; all thirteen pinned OpenShift 4.22 SCC
+objects and their real columns; operator-defined CRD columns; and saved custom
+CRD discovery/CRUD. Kubernetes JSONPath runs in local WASM. See
+[CLUSTER_GUIDE.md](CLUSTER_GUIDE.md#resource-printing-and-custom-resources) for
+commands, independent conformance checks and the remaining compatibility limits.

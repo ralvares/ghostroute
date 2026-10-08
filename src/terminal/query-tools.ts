@@ -1,13 +1,14 @@
 type QueryResult = { stdout: string; stderr: string; exitCode: number };
 type Slot = { worker?: Worker; queue: Promise<unknown> };
-const engines: Record<"jq" | "template", Slot> = {
+const engines: Record<"jq" | "template" | "jsonpath", Slot> = {
   jq: { queue: Promise.resolve() },
   template: { queue: Promise.resolve() },
+  jsonpath: { queue: Promise.resolve() },
 };
 
 /** Keep compiled WASM warm off the main thread; replace a worker after timeout. */
 export function runQuery(
-  tool: "jq" | "template",
+  tool: "jq" | "template" | "jsonpath",
   input: string,
   query: string,
   flags: string[] = [],

@@ -35,7 +35,7 @@ with sync_playwright() as p:
     command('oc apply -f workloads/vendor.yaml', 'deployment.apps/vendor created')
     command('oc rollout status deployment/vendor', '0 of 1')
     command('oc get events', 'FailedCreate')
-    command('oc describe deployment vendor', 'runAsUser: Invalid value: 1001')
+    command('oc describe deployment vendor', 'runAsUser: Invalid value: 100')
     command('oc adm policy add-scc-to-user anyuid -z vendor', 'cannot create resource "rolebindings"')
     command("cat audit/kube-apiserver.log | jq -r 'select(.responseStatus.code == 403) | .user.username' | sort", 'operator')
     command('oc login -u platform-admin -p training', 'Logged into simulated')

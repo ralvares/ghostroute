@@ -1,3 +1,5 @@
+import { defaultSccs } from "./default-sccs.js";
+import { installedCrds } from "./installed-crds.js";
 export interface SecurityContext {
   runAsUser?: number;
   privileged?: boolean;
@@ -40,6 +42,8 @@ export interface Resource {
   metadata: {
     name: string;
     namespace?: string;
+    creationTimestamp?: string;
+    deletionTimestamp?: string;
     annotations?: Record<string, string>;
     labels?: Record<string, string>;
   };
@@ -58,13 +62,15 @@ export interface Scc extends Resource {
   runAsUser: {
     type: "MustRunAsRange" | "RunAsAny" | "MustRunAs" | "MustRunAsNonRoot";
     uid?: number;
+    uidRangeMin?: number;
+    uidRangeMax?: number;
   };
   allowPrivilegedContainer: boolean;
   allowPrivilegeEscalation?: boolean;
-  requiredDropCapabilities?: string[];
-  allowedCapabilities?: string[];
+  requiredDropCapabilities?: string[] | null;
+  allowedCapabilities?: string[] | null;
   userNamespaceLevel?: string;
-  priority?: number;
+  priority?: number | null;
 }
 export interface ApiAuditEvent {
   kind: "Event";
@@ -100,8 +106,34 @@ export function createCluster() {
     resources.push({
       apiVersion: "v1",
       kind: "Node",
-      metadata: { name },
-      status: { conditions: [{ type: "Ready", status: "True" }] },
+      metadata: {
+        name,
+        creationTimestamp: "2026-10-01T02:14:00Z",
+        labels: {
+          ["node-role.kubernetes.io/" +
+          (name === "control-01" ? "control-plane" : "worker")]: "",
+        },
+      },
+      status: {
+        conditions: [{ type: "Ready", status: "True" }],
+        nodeInfo: {
+          kubeletVersion: "v1.35.2",
+          osImage: "Red Hat Enterprise Linux CoreOS (offline fixture)",
+          kernelVersion: "6.12.0",
+          containerRuntimeVersion: "cri-o://1.35.2",
+        },
+        addresses: [
+          {
+            type: "InternalIP",
+            address:
+              name === "control-01"
+                ? "10.0.0.10"
+                : name === "worker-01"
+                  ? "10.0.0.11"
+                  : "10.0.0.12",
+          },
+        ],
+      },
     });
   for (const namespace of ["default", "payments"])
     resources.push({
@@ -114,64 +146,10 @@ export function createCluster() {
     kind: "ServiceAccount",
     metadata: { name: "payment-app", namespace: "payments" },
   });
-  const restricted: Scc = {
-    apiVersion: "security.openshift.io/v1",
-    kind: "SecurityContextConstraints",
-    metadata: { name: "restricted-v3" },
-    runAsUser: { type: "MustRunAsRange" },
-    allowPrivilegedContainer: false,
-    allowPrivilegeEscalation: false,
-    requiredDropCapabilities: ["ALL"],
-    allowedCapabilities: ["NET_BIND_SERVICE"],
-    userNamespaceLevel: "RequirePodLevel",
-    allowHostDirVolumePlugin: false,
-    allowHostNetwork: false,
-    allowHostPID: false,
-    allowHostIPC: false,
-    allowHostPorts: false,
-    readOnlyRootFilesystem: false,
-    seLinuxContext: { type: "MustRunAs" },
-    fsGroup: { type: "MustRunAs" },
-    supplementalGroups: { type: "RunAsAny" },
-    seccompProfiles: ["runtime/default"],
-    volumes: [
-      "configMap",
-      "downwardAPI",
-      "emptyDir",
-      "persistentVolumeClaim",
-      "projected",
-      "secret",
-    ],
-  };
-  const sccs: Scc[] = [
-    restricted,
-    {
-      ...structuredClone(restricted),
-      metadata: { name: "restricted-v2" },
-      userNamespaceLevel: "AllowHostLevel",
-    },
-    {
-      ...structuredClone(restricted),
-      metadata: { name: "nonroot-v2" },
-      runAsUser: { type: "MustRunAsNonRoot" },
-      fsGroup: { type: "RunAsAny" },
-      userNamespaceLevel: "AllowHostLevel",
-    },
-    {
-      ...structuredClone(restricted),
-      metadata: { name: "anyuid" },
-      runAsUser: { type: "RunAsAny" },
-      fsGroup: { type: "RunAsAny" },
-      priority: 10,
-      allowPrivilegeEscalation: true,
-      requiredDropCapabilities: [],
-      allowedCapabilities: [],
-      userNamespaceLevel: "AllowHostLevel",
-      seccompProfiles: ["*"],
-    },
-  ];
+  const sccs = structuredClone(defaultSccs);
   return {
     version: "4.22",
+    policyRevision: "4.22-a18571de",
     user: "operator",
     namespace: "default",
     cwd: "/home/operator",
@@ -179,6 +157,7 @@ export function createCluster() {
     directories: [] as string[],
     resources: [
       ...resources,
+      ...structuredClone(installedCrds),
       {
         apiVersion: "v1",
         kind: "ServiceAccount",

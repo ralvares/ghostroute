@@ -57,7 +57,7 @@ test("owned root Pod fails SCC, secure app runs with default restricted-v3 and a
   const pod = getResources("pods", "lab", "owned-secure")[0];
   assert.equal(pod.metadata.annotations["openshift.io/scc"], "restricted-v3");
   assert.equal(pod.spec.hostUsers, false);
-  assert.equal(pod.spec.containers[0].securityContext.runAsUser, 1000780000);
+  assert.equal(pod.spec.containers[0].securityContext.runAsUser, 1000);
   assert.equal(pod.status.containerStatuses[0].ready, true);
 });
 
@@ -96,7 +96,7 @@ test("Deployment API succeeds while controller Pods fail SCC; a scoped custom ex
     pod.metadata.annotations["openshift.io/scc"],
     "vendor-fixed-uid",
   );
-  assert.equal(pod.spec.containers[0].securityContext.runAsUser, 1001);
+  assert.equal(pod.spec.containers[0].securityContext.runAsUser, 100);
   S.cluster.user = "operator";
   assert.throws(
     () => applyResource(parse(labFiles["workloads/owned-root.yaml"]), "lab"),

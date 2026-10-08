@@ -1,12 +1,12 @@
 {
-  "target": "27-chapter evolving prod-east journey; shared offline Kubernetes API, bastion tools and pager",
+  "target": "27-chapter evolving prod-east journey; upstream resource printers, SCC defaults, installed/custom CRDs and offline bastion",
   "date": "2026-10-08",
-  "unit_tests": 51,
+  "unit_tests": 130,
   "unit_result": "passed",
   "production_build": "passed",
   "framework_revision": "e48d32014657e162d04ab1f7a07d4891d0abac03",
   "original_gameplay": {
-    "url": "http://127.0.0.1:4184/ghostroute/",
+    "url": "http://127.0.0.1:4186/ghostroute/",
     "flows": [
       "WASD movement, Trace Vision, nearby interaction, modal escape",
       "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
@@ -17,7 +17,7 @@
     "browser_errors": []
   },
   "campaign_browser": {
-    "url": "http://127.0.0.1:4184/ghostroute/",
+    "url": "http://127.0.0.1:4186/ghostroute/",
     "chapters": [
       "02 The Borrowed Image",
       "03 The Door That Opens Twice",
@@ -55,7 +55,8 @@
   "limits": [
     "Bounded offline API and fixture evaluators; no live cluster, Vault, registry, pipeline, kernel or compliance execution",
     "Local progress per browser/origin; export/import for transfer",
-    "Existing room art reused for changing districts and tenants"
+    "Existing room art reused for changing districts and tenants",
+    "No complete upstream oc, live control plane, container runtime, streaming, arbitrary operator execution, complex CRD schema or webhook/conversion admission"
   ],
   "command_semantics": {
     "checks": [
@@ -387,79 +388,79 @@
       "Invalid import preserves live progress"
     ],
     "timings_include_dom_input_and_autosave": {
-      "offline_navigation_and_restore_ms": 394.0,
-      "cold_offline_jq_command_ms": 111.7,
+      "offline_navigation_and_restore_ms": 400.9,
+      "cold_offline_jq_command_ms": 142.5,
       "warm_jq_command_ms": [
-        115.1,
-        15.2,
-        110.4,
-        11.1,
-        114.0
+        147.0,
+        171.6,
+        141.3,
+        135.5,
+        38.1
       ],
-      "cold_offline_go_command_ms": 118.0,
+      "cold_offline_go_command_ms": 145.1,
       "warm_go_command_ms": [
-        117.1,
-        117.2,
-        112.6,
-        111.2,
-        110.0
+        154.2,
+        145.3,
+        49.9,
+        153.5,
+        37.0
       ],
       "worker_roundtrip_ms": [
         {
           "tool": "jq",
-          "ms": 35.7
+          "ms": 29.9
         },
         {
           "tool": "jq",
-          "ms": 14.1
+          "ms": 23.2
         },
         {
           "tool": "jq",
-          "ms": 5.5
+          "ms": 18
         },
         {
           "tool": "jq",
-          "ms": 25.7
+          "ms": 32.1
         },
         {
           "tool": "jq",
-          "ms": 3.2
+          "ms": 13.7
         },
         {
           "tool": "jq",
-          "ms": 8.8
+          "ms": 8.3
         },
         {
           "tool": "template",
-          "ms": 36
+          "ms": 50.9
         },
         {
           "tool": "template",
-          "ms": 7.5
+          "ms": 20.4
         },
         {
           "tool": "template",
-          "ms": 11.3
+          "ms": 11.9
         },
         {
           "tool": "template",
-          "ms": 20.9
+          "ms": 14.3
         },
         {
           "tool": "template",
-          "ms": 28
+          "ms": 38
         },
         {
           "tool": "template",
-          "ms": 7.8
+          "ms": 8.7
         }
       ]
     },
     "browser_errors": [],
-    "url": "http://127.0.0.1:4184/ghostroute/"
+    "url": "http://127.0.0.1:4174/"
   },
   "bastion_tools": {
-    "url": "http://127.0.0.1:4184/ghostroute/",
+    "url": "http://127.0.0.1:4186/ghostroute/",
     "commands": [
       "jq 'select(.verb == \"patch\" and .objectRef.name == \"payment-api\") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log",
       "jq",
@@ -527,11 +528,167 @@
     "jq_after_update": true,
     "browser_errors": []
   },
-  "production_asset": "index-BlKBdDF2.js",
+  "production_asset": "index-CkWIOxmB.js",
   "api_contract": {
-    "resource_reads": "offline REST paths, API discovery and Status responses",
+    "resource_reads": "offline REST paths, discovery, Status, negotiated Tables and paginated collections",
     "resource_crud": "shared RBAC/SCC/controller model",
     "preserved_adapters": "original incident mutations and domain-specific SCC/controller operations",
-    "fidelity": "bounded, not full OpenShift/Linux compatibility"
+    "fidelity": "100% OpenShift parity remains unmet; pinned printer contracts and sixteen native-client outputs verified, not live cluster acceptance"
+  },
+  "resource_printer_browser": {
+    "url": "http://127.0.0.1:4186/ghostroute/",
+    "commands": [
+      {
+        "command": "oc get pods -A",
+        "seconds": 0.122
+      },
+      {
+        "command": "oc get pods -A -o wide",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc get pods -n payments --no-headers",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc get pods -A --show-labels -L app",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc get pods -A -l 'app in (payment-api)' --field-selector=spec.nodeName=worker-01",
+        "seconds": 0.113
+      },
+      {
+        "command": "oc get pods -A -o 'custom-columns=Name:.metadata.name,scc:.metadata.annotations.openshift\\.io/scc'",
+        "seconds": 0.115
+      },
+      {
+        "command": "oc get scc",
+        "seconds": 0.012
+      },
+      {
+        "command": "oc get scc restricted-v3 -o jsonpath='{.runAsUser.uidRangeMin} {.runAsUser.uidRangeMax}'",
+        "seconds": 0.112
+      },
+      {
+        "command": "oc get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"/\"}{.metadata.name}{\"\\n\"}{end}'",
+        "seconds": 0.111
+      },
+      {
+        "command": "oc get pods -A -o jsonpath-as-json='{.items[*].metadata.name}'",
+        "seconds": 0.109
+      },
+      {
+        "command": "oc get pods -A -o jsonpath='{.items[*].metadata.name}' | wc -l",
+        "seconds": 0.012
+      },
+      {
+        "command": "oc get pods -A -o jsonpath='{broken('",
+        "seconds": 0.11
+      },
+      {
+        "command": "oc get crd",
+        "seconds": 0.123
+      },
+      {
+        "command": "oc get crd compliancescans.compliance.openshift.io -o json | jq -r '.spec.versions[0].additionalPrinterColumns[].name'",
+        "seconds": 0.111
+      },
+      {
+        "command": "oc login -u platform-admin -p training",
+        "seconds": 0.112
+      },
+      {
+        "command": "echo '{\"apiVersion\": \"apiextensions.k8s.io/v1\", \"kind\": \"CustomResourceDefinition\", \"metadata\": {\"name\": \"signals.security.example.test\"}, \"spec\": {\"group\": \"security.example.test\", \"scope\": \"Namespaced\", \"names\": {\"kind\": \"Signal\", \"plural\": \"signals\", \"singular\": \"signal\", \"shortNames\": [\"sig\"]}, \"versions\": [{\"name\": \"v1\", \"served\": true, \"storage\": true, \"schema\": {\"openAPIV3Schema\": {\"type\": \"object\", \"properties\": {\"spec\": {\"type\": \"object\", \"required\": [\"severity\"], \"properties\": {\"severity\": {\"type\": \"integer\", \"minimum\": 0, \"maximum\": 10}, \"owner\": {\"type\": \"string\"}}}}}}, \"additionalPrinterColumns\": [{\"name\": \"Severity\", \"type\": \"integer\", \"jsonPath\": \".spec.severity\"}, {\"name\": \"Owner\", \"type\": \"string\", \"priority\": 1, \"jsonPath\": \".spec.owner\"}]}]}}' > signal-crd.json",
+        "seconds": 0.112
+      },
+      {
+        "command": "oc apply -f signal-crd.json",
+        "seconds": 0.119
+      },
+      {
+        "command": "echo '{\"apiVersion\": \"security.example.test/v1\", \"kind\": \"Signal\", \"metadata\": {\"name\": \"suspicious\", \"namespace\": \"payments\"}, \"spec\": {\"severity\": 9, \"owner\": \"mira\"}}' > signal.json",
+        "seconds": 0.111
+      },
+      {
+        "command": "oc apply -f signal.json",
+        "seconds": 0.012
+      },
+      {
+        "command": "oc get sig -A -o wide",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc api-resources --api-group=security.example.test",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc get sig -A | less",
+        "seconds": 0.012
+      },
+      {
+        "command": "game save",
+        "seconds": 0.112
+      },
+      {
+        "command": "oc get sig -A -o wide",
+        "seconds": 0.114
+      },
+      {
+        "command": "cat signal-crd.json",
+        "seconds": 0.114
+      },
+      {
+        "command": "oc get pods -A -o jsonpath='{.items[0].metadata.namespace}'",
+        "seconds": 0.109
+      },
+      {
+        "command": "oc get scc anyuid",
+        "seconds": 0.112
+      },
+      {
+        "command": "oc get pods -A",
+        "seconds": 0.114
+      }
+    ],
+    "pods_default_columns": true,
+    "scc_13_actual_defaults": true,
+    "kubernetes_jsonpath_wasm": true,
+    "custom_crd_offline_resume": true,
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "native_client_conformance": {
+    "client": "Client Version: 4.20.6\nKustomize Version: v5.6.0",
+    "server": "offline mock API; not a live OpenShift acceptance test",
+    "commands": [
+      "oc get pods -A",
+      "oc get pods -A -o json",
+      "oc get scc restricted-v3 -o json",
+      "oc get --raw /api/v1/pods",
+      "oc get pods -A -o wide",
+      "oc get pods -n payments --no-headers",
+      "oc get pods -A --show-labels -L app",
+      "oc get pods -A -l 'app in (payment-api)'",
+      "oc get pods -A --field-selector=spec.nodeName=worker-01",
+      "oc get deployments -A",
+      "oc get nodes -o wide",
+      "oc get scc",
+      "oc get scc anyuid",
+      "oc get crd",
+      "oc get projects",
+      "oc get pods -A -o 'custom-columns=Name:.metadata.name,scc:.metadata.annotations.openshift\\.io/scc'"
+    ],
+    "byte_exact": true,
+    "pinned422PrinterFixtures": "tests/fixtures/upstream-printers.json"
+  },
+  "upstream_printer_fixtures": {
+    "pod_scc_route_cases": 47,
+    "byte_exact_table_cases": 18,
+    "byte_exact_json_cases": 2,
+    "fixture": "tests/fixtures/upstream-printers.json",
+    "kubernetes_client": "v0.35.2",
+    "openshift_api": "v0.0.0-20261007145850-7e4a91f5566b",
+    "live_cluster_acceptance": false
   }
 }

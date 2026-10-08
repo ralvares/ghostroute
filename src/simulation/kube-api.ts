@@ -3,16 +3,21 @@ import {
   deleteResource,
   getResources,
   resourceTypes,
+  clusterTime,
 } from "./cluster-api.js";
 import type { Resource } from "./cluster-model.js";
-import type { ResourceType } from "./resource-types.js";
+import { refreshResourceTypes, type ResourceType } from "./resource-types.js";
 import { S } from "./state.js";
+import { resourceTable, type ResourceTable } from "./resource-table.js";
+import { crdPrinters } from "./crd-printers.js";
+import { labelPredicate, fieldPredicate } from "./selectors.js";
 
 export interface ApiRequest {
   method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   body?: Resource;
   contentType?: string;
+  accept?: string;
 }
 export interface ApiResponse {
   code: number;
@@ -54,6 +59,7 @@ function status(code: number, reason: string, message: string): ApiResponse {
 /** Offline REST boundary. The CLI is a client; RBAC, SCC/controllers and audit remain server-owned. */
 export function kubeRequest(request: ApiRequest): ApiResponse {
   try {
+    refreshResourceTypes();
     const url = new URL(request.path, "https://prod-east.invalid");
     if (url.origin !== "https://prod-east.invalid")
       return status(
@@ -106,10 +112,17 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
               .filter(([, definition]) => definition.apiVersion === version)
               .map(([name, definition]) => ({
                 name,
-                singularName: definition.aliases[0],
+                singularName: definition.kind.toLowerCase(),
+                shortNames: definition.aliases.filter(
+                  (name) =>
+                    name.length <= 4 && name !== definition.kind.toLowerCase(),
+                ),
                 namespaced: definition.namespaced,
                 kind: definition.kind,
-                verbs: ["get", "list", "create", "patch", "delete"],
+                verbs:
+                  name === "projects"
+                    ? ["get", "list"]
+                    : ["get", "list", "create", "patch", "delete"],
               })),
           },
         };
@@ -145,7 +158,15 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
       objectName = name ? decodeURIComponent(name) : undefined;
     if (request.method === "GET") {
       const unknownQuery = [...url.searchParams.keys()].find(
-        (key) => key !== "labelSelector",
+        (key) =>
+          ![
+            "labelSelector",
+            "fieldSelector",
+            "includeObject",
+            "limit",
+            "continue",
+            "timeout",
+          ].includes(key),
       );
       if (unknownQuery)
         return status(
@@ -156,13 +177,82 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
       const items = getResources(type, ns, objectName);
       let selected = items;
       const label = url.searchParams.get("labelSelector");
-      if (label)
-        selected = selected.filter((item) =>
-          label.split(",").every((pair) => {
-            const [key, value] = pair.split("=");
-            return value !== undefined && item.metadata.labels?.[key] === value;
-          }),
+      if (label) selected = selected.filter(labelPredicate(label));
+      const fields = url.searchParams.get("fieldSelector");
+      if (fields)
+        selected = selected.filter(fieldPredicate(fields, definition.kind));
+      const limitText = url.searchParams.get("limit"),
+        limit = limitText === null ? 0 : Number(limitText);
+      if (!Number.isSafeInteger(limit) || limit < 0)
+        return status(400, "BadRequest", "limit must be a nonnegative integer");
+      const encoded = JSON.stringify(selected);
+      let hash = 2166136261;
+      for (let i = 0; i < encoded.length; i++)
+        hash = Math.imul(hash ^ encoded.charCodeAt(i), 16777619);
+      const resourceVersion = (hash >>> 0).toString(16);
+      let offset = 0;
+      if (url.searchParams.get("continue")) {
+        let cursor;
+        try {
+          cursor = JSON.parse(atob(url.searchParams.get("continue")!));
+        } catch {
+          return status(400, "BadRequest", "invalid continue token");
+        }
+        if (
+          cursor.resourceVersion !== resourceVersion ||
+          cursor.path !== url.pathname
+        )
+          return status(
+            410,
+            "Expired",
+            "continue token expired after the resource collection changed",
+          );
+        if (
+          !Number.isSafeInteger(cursor.offset) ||
+          cursor.offset < 0 ||
+          cursor.offset > selected.length
+        )
+          return status(400, "BadRequest", "invalid continue token");
+        offset = cursor.offset;
+      }
+      const end = limit
+        ? Math.min(offset + limit, selected.length)
+        : selected.length;
+      const metadata = {
+        resourceVersion,
+        continue:
+          end < selected.length
+            ? btoa(
+                JSON.stringify({
+                  resourceVersion,
+                  offset: end,
+                  path: url.pathname,
+                }),
+              )
+            : "",
+        ...(limit ? { remainingItemCount: selected.length - end } : {}),
+      };
+      selected = selected.slice(offset, end);
+      if (request.accept?.split(",").some((value) => /as=Table/.test(value))) {
+        const customDefinition = S.cluster.resources.find(
+          (r) =>
+            r.kind === "CustomResourceDefinition" &&
+            r.spec?.names?.plural === type,
         );
+        const customColumns = customDefinition?.spec?.versions?.find(
+          (v: any) => v.served && definition.apiVersion.endsWith("/" + v.name),
+        )?.additionalPrinterColumns;
+        const table = resourceTable(
+          selected,
+          definition.kind,
+          clusterTime(),
+          customDefinition
+            ? (customColumns ?? [])
+            : crdPrinters[definition.kind]?.columns,
+        );
+        table.metadata = metadata;
+        return { code: 200, body: table };
+      }
       return {
         code: 200,
         body: structuredClone(
@@ -171,12 +261,18 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
             : {
                 apiVersion: definition.apiVersion,
                 kind: definition.kind + "List",
-                metadata: {},
+                metadata,
                 items: selected,
               },
         ),
       };
     }
+    if (type === "projects")
+      return status(
+        501,
+        "NotImplemented",
+        "simulation: Project writes are not implemented; use namespace operations or oc new-project",
+      );
     if (definition.namespaced && !ns)
       return status(
         400,
@@ -239,7 +335,9 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
     const stored = (
       type === "securitycontextconstraints"
         ? S.cluster.sccs
-        : S.cluster.resources
+        : type === "events"
+          ? S.cluster.events
+          : S.cluster.resources
     ).find(
       (item) =>
         item.kind === object.kind &&
@@ -288,20 +386,42 @@ export function readApiResources(
   type: ResourceType,
   namespace?: string,
   name?: string,
+  selectors?: { label?: string; field?: string },
 ): Resource[] {
   const body = apiBody(
     kubeRequest({
       method: "GET",
-      path: apiResourcePath(type, namespace, name),
+      path: apiResourcePath(type, namespace, name) + selectorQuery(selectors),
     }),
   );
   return name ? [body as Resource] : (body as { items: Resource[] }).items;
+}
+function selectorQuery(selectors?: { label?: string; field?: string }) {
+  const query = new URLSearchParams();
+  if (selectors?.label) query.set("labelSelector", selectors.label);
+  if (selectors?.field) query.set("fieldSelector", selectors.field);
+  return query.size ? "?" + query : "";
+}
+export function readApiTable(
+  type: ResourceType,
+  namespace?: string,
+  name?: string,
+  selectors?: { label?: string; field?: string },
+): ResourceTable {
+  return apiBody(
+    kubeRequest({
+      method: "GET",
+      path: apiResourcePath(type, namespace, name) + selectorQuery(selectors),
+      accept: "application/json;as=Table;g=meta.k8s.io;v=v1,application/json",
+    }),
+  ) as ResourceTable;
 }
 export function applyApiResource(
   object: Resource,
   namespace: string,
   createOnly = false,
 ) {
+  refreshResourceTypes();
   const entry = Object.entries(resourceTypes).find(
     ([, definition]) =>
       definition.kind === object?.kind &&

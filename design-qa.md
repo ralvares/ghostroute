@@ -200,3 +200,19 @@ SCC/RBAC browser checks, exact jq bytes and offline cold restart pass. The updat
 regression also checks that a new cached build activates with an old tab open,
 retaining notes/files and working offline. The shared REST API is documented as
 bounded; no full OpenShift/Linux compatibility or zero-bug claim is made.
+
+## Upstream resource printer pass — 2026-10-08
+
+Status: passed in reviewed desktop and 390px mobile captures. Pod tables show
+namespace, readiness, status, restarts and age; SCC tables retain the upstream
+ten-column output with horizontal terminal scrolling. The terminal and notes
+stay inside the viewport. Reviewed captures are native-pod-table.png,
+native-scc-table.png and native-pod-table-mobile.png under artifacts/campaign.
+
+All 130 unit checks pass, including independent upstream printer fixtures.
+Sixteen commands match the installed native oc client byte for byte against
+the mock API. The final production build passes the full 27-chapter automated
+browser playthrough, bastion tools, offline custom-CRD resume, native JSONPath
+and cache-update checks. The native client is 4.20.6; pinned printer dependencies
+match the 4.22 source line. These checks establish the recorded contracts and
+preserve the story, without establishing full OpenShift cluster compatibility.

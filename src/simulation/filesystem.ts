@@ -9,7 +9,7 @@ const documents: Record<string, string> = {
   "workloads/Dockerfile.secure":
     '# Illustrative owned-app rebuild, not executed by this simulator.\nFROM registry.access.redhat.com/ubi9/ubi-minimal\nWORKDIR /opt/app\nCOPY app /opt/app/app\nRUN mkdir -p /var/lib/app/data && chgrp -R 0 /var/lib/app/data && chmod -R g=u /var/lib/app/data\nUSER 1001\nEXPOSE 8080\nCMD ["/opt/app/app"]\n',
   "workloads/vendor-README.md":
-    "Vendor application: fixed UID 1001, listening on port 8080.\nIts source/image cannot be rebuilt in this exercise.\nUse the dedicated vendor ServiceAccount and compare anyuid with vendor-fixed-uid.\nSCC exceptions should have an owner, justification and expiry.\n",
+    "Vendor application: fixed UID 100, listening on port 8080.\nIts source/image cannot be rebuilt in this exercise.\nUse the dedicated vendor ServiceAccount and compare anyuid with vendor-fixed-uid.\nSCC exceptions should have an owner, justification and expiry.\n",
 };
 
 export function registerDocuments(files: Record<string, string>) {

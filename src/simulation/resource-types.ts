@@ -1,4 +1,11 @@
-export const resourceTypes = {
+import { S } from "./state.js";
+const builtinResourceTypes = {
+  customresourcedefinitions: {
+    kind: "CustomResourceDefinition",
+    apiVersion: "apiextensions.k8s.io/v1",
+    namespaced: false,
+    aliases: ["customresourcedefinition", "crd", "crds"],
+  },
   nodes: {
     kind: "Node",
     apiVersion: "v1",
@@ -9,7 +16,13 @@ export const resourceTypes = {
     kind: "Namespace",
     apiVersion: "v1",
     namespaced: false,
-    aliases: ["namespace", "ns", "project", "projects"],
+    aliases: ["namespace", "ns"],
+  },
+  projects: {
+    kind: "Project",
+    apiVersion: "project.openshift.io/v1",
+    namespaced: false,
+    aliases: ["project"],
   },
   pods: {
     kind: "Pod",
@@ -205,11 +218,53 @@ export const resourceTypes = {
     aliases: ["requiredlabels"],
   },
 } as const;
-export type ResourceType = keyof typeof resourceTypes;
+export interface ResourceDefinition {
+  kind: string;
+  apiVersion: string;
+  namespaced: boolean;
+  aliases: readonly string[];
+}
+export type ResourceType = string;
+export const resourceTypes: Record<ResourceType, ResourceDefinition> = {
+  ...builtinResourceTypes,
+};
+/** Restore discovery directly from saved CRDs; reset/import cannot leave stale global types. */
+export function refreshResourceTypes() {
+  for (const type of Object.keys(resourceTypes))
+    if (!(type in builtinResourceTypes)) delete resourceTypes[type];
+  for (const crd of S.cluster.resources.filter(
+    (r) => r.kind === "CustomResourceDefinition",
+  )) {
+    const spec = crd.spec ?? {},
+      version = spec.versions?.find((v: any) => v.served && v.storage);
+    if (
+      version &&
+      spec.names?.plural &&
+      !(spec.names.plural in builtinResourceTypes)
+    )
+      resourceTypes[spec.names.plural] = {
+        kind: spec.names.kind,
+        apiVersion: spec.group + "/" + version.name,
+        namespaced: spec.scope === "Namespaced",
+        aliases: [spec.names.singular, ...(spec.names.shortNames ?? [])].filter(
+          Boolean,
+        ),
+      };
+  }
+}
 export function resolveResource(name: string): ResourceType | undefined {
-  return (Object.keys(resourceTypes) as ResourceType[]).find(
-    (type) =>
-      type === name ||
-      (resourceTypes[type].aliases as readonly string[]).includes(name),
+  refreshResourceTypes();
+  const requested = name.toLowerCase();
+  return (Object.keys(resourceTypes) as ResourceType[]).find((type) =>
+    [
+      type,
+      resourceTypes[type].kind.toLowerCase(),
+      ...resourceTypes[type].aliases,
+    ].some(
+      (alias) =>
+        requested === alias ||
+        requested ===
+          alias + "." + resourceTypes[type].apiVersion.split("/")[0],
+    ),
   );
 }

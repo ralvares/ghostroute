@@ -44,12 +44,13 @@ test("default-deny degrades checkout without inventing Pod/node failures; policy
 test("archive key unlocks story access only; discoveries and key survive checkpoints and older saves", () => {
   const state = makeState();
   const user = state.cluster.user;
+  const sccCount = state.cluster.sccs.length;
   assert.equal(canEnterArchive(state), false);
   assert.equal(discover(state, "keycard"), true);
   assert.equal(discover(state, "keycard"), false);
   assert.equal(canEnterArchive(state), true);
   assert.equal(state.cluster.user, user);
-  assert.equal(state.cluster.sccs.length, 4);
+  assert.equal(state.cluster.sccs.length, sccCount);
   discover(state, "audit");
   const restored = decodeProgress(encodeProgress(state));
   assert.deepEqual(restored.story, state.story);

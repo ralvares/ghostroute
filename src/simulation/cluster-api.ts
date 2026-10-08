@@ -1,4 +1,13 @@
 import { S } from "./state.js";
+import { defaultSccs } from "./default-sccs.js";
+import { installedCrds } from "./installed-crds.js";
+import {
+  validateCustomResource,
+  validateCustomSchema,
+} from "./custom-resource.js";
+import { jsonPathValues, simulationEpoch } from "./resource-table.js";
+export const clusterTime = () =>
+  simulationEpoch + S.cluster.audit.length * 1000;
 import type { Resource, PodSpec, ApiAuditEvent, Scc } from "./cluster-model.js";
 import { authorized, forbidden, roleAllows } from "../security/rbac.js";
 import { admitPod } from "../security/scc.js";
@@ -15,11 +24,13 @@ import {
 import {
   resourceTypes,
   resolveResource,
+  refreshResourceTypes,
   type ResourceType,
 } from "./resource-types.js";
 export {
   resourceTypes,
   resolveResource,
+  refreshResourceTypes,
   type ResourceType,
 } from "./resource-types.js";
 
@@ -107,9 +118,15 @@ function coreResources(): Resource[] {
     {
       apiVersion: "apps/v1",
       kind: "Deployment",
-      metadata: { name: "payment-api", namespace: "payments" },
+      metadata: {
+        name: "payment-api",
+        namespace: "payments",
+        creationTimestamp: "2026-10-08T00:14:00Z",
+        labels: { app: "payment-api" },
+      },
       spec: {
         replicas: 2,
+        selector: { matchLabels: { app: "payment-api" } },
         template: {
           spec: {
             serviceAccountName: "payment-app",
@@ -127,7 +144,12 @@ function coreResources(): Resource[] {
           },
         },
       },
-      status: { readyReplicas: S.deployment.readyReplicas },
+      status: {
+        replicas: 2,
+        updatedReplicas: 2,
+        readyReplicas: S.deployment.readyReplicas,
+        availableReplicas: S.deployment.readyReplicas,
+      },
     },
     ...S.pods.map((pod) => ({
       apiVersion: "v1",
@@ -135,6 +157,8 @@ function coreResources(): Resource[] {
       metadata: {
         name: pod.name,
         namespace: "payments",
+        creationTimestamp: "2026-10-08T00:14:00Z",
+        labels: { app: "payment-api" },
         annotations: { "openshift.io/scc": "restricted-v3" },
       },
       spec: {
@@ -148,19 +172,50 @@ function coreResources(): Resource[] {
           },
         ],
       },
-      status: { phase: "Running" },
+      status: {
+        phase: "Running",
+        podIPs: [
+          { ip: pod.node === "worker-01" ? "10.128.0.21" : "10.129.0.22" },
+        ],
+        conditions: [{ type: "Ready", status: pod.ready ? "True" : "False" }],
+        containerStatuses: [
+          {
+            name: "payment-api",
+            ready: pod.ready,
+            restartCount: 0,
+            state: { running: { startedAt: "2026-10-08T00:14:00Z" } },
+          },
+        ],
+      },
     })),
     {
       apiVersion: "v1",
       kind: "Pod",
-      metadata: { name: "ledger-86bbb-zyx12", namespace: "payments" },
+      metadata: {
+        name: "ledger-86bbb-zyx12",
+        namespace: "payments",
+        creationTimestamp: "2026-10-08T00:14:00Z",
+        annotations: { "openshift.io/scc": "restricted-v3" },
+      },
       spec: {
         nodeName: "worker-02",
         containers: [
           { name: "ledger", image: "registry.example.test/ledger:v1" },
         ],
       },
-      status: { phase: "Running" },
+      status: {
+        phase: "Running",
+        podIPs: [{ ip: "10.129.0.23" }],
+        conditions: [{ type: "Ready", status: "True" }],
+        containerStatuses: [
+          {
+            name: "ledger",
+            ready: true,
+            restartCount: 0,
+            state: { running: { startedAt: "2026-10-08T00:14:00Z" } },
+          },
+        ],
+      },
     },
   ];
 }
@@ -181,7 +236,15 @@ export function getResources(
       ? S.cluster.sccs
       : type === "events"
         ? S.cluster.events
-        : [...S.cluster.resources, ...coreResources()];
+        : type === "projects"
+          ? S.cluster.resources
+              .filter((r) => r.kind === "Namespace")
+              .map((r) => ({
+                ...r,
+                apiVersion: "project.openshift.io/v1",
+                kind: "Project",
+              }))
+          : [...S.cluster.resources, ...coreResources()];
   const resources = all.filter(
     (resource) =>
       resource.kind === resourceTypes[type].kind &&
@@ -195,8 +258,22 @@ export function getResources(
     auditRequest(verb, type, namespace, name, 404, message);
     throw new Error(message);
   }
+  resources.sort((a, b) => {
+    const left = `${a.metadata.namespace ?? ""}/${a.metadata.name}`,
+      right = `${b.metadata.namespace ?? ""}/${b.metadata.name}`;
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
   auditRequest(verb, type, namespace, name, 200);
-  return structuredClone(resources);
+  return structuredClone(
+    resources.map((resource) => ({
+      ...resource,
+      metadata: {
+        ...resource.metadata,
+        creationTimestamp:
+          resource.metadata.creationTimestamp ?? "2026-10-01T02:14:00Z",
+      },
+    })),
+  );
 }
 
 function namespaceRange(namespace: string): [number, number] {
@@ -278,42 +355,63 @@ function admitResource(resource: Resource, directRequest = true) {
     ...resource.metadata.annotations,
     "openshift.io/scc": admission.scc,
   };
-  const image = admission.spec.containers[0]?.image.split("@")[0];
-  const uid = admission.spec.containers[0]?.securityContext?.runAsUser;
-  const fails =
-    (image === "registry.example.test/owned:root" && uid !== 0) ||
-    (image === "registry.example.test/vendor:fixed-uid" && uid !== 1001);
-  const known = [
-    "registry.example.test/owned:root",
-    "registry.example.test/owned:arbitrary-uid",
-    "registry.example.test/vendor:fixed-uid",
-    "busybox",
-    "busybox:latest",
-    "registry.example.test/payments:v1.8.2",
-  ].includes(image);
-  resource.status = {
-    phase: known ? "Running" : "Pending",
-    containerStatuses: [
-      {
-        name: admission.spec.containers[0].name,
-        ready: known && !fails,
-        restartCount: fails ? 1 : 0,
-        state: !known
+  const containerStatuses = admission.spec.containers.map((container) => {
+    const image = container.image.split("@")[0],
+      uid = container.securityContext?.runAsUser;
+    const fails =
+      (image === "registry.example.test/owned:root" && uid !== 0) ||
+      (image === "registry.example.test/vendor:fixed-uid" && uid !== 100);
+    const known = [
+      "registry.example.test/owned:root",
+      "registry.example.test/owned:arbitrary-uid",
+      "registry.example.test/vendor:fixed-uid",
+      "busybox",
+      "busybox:latest",
+      "registry.example.test/payments:v1.8.2",
+    ].includes(image);
+    return {
+      name: container.name,
+      ready: known && !fails,
+      restartCount: fails ? 1 : 0,
+      state: !known
+        ? {
+            waiting: {
+              reason: "ImagePullBackOff",
+              message: "Image is absent from the offline registry",
+            },
+          }
+        : fails
           ? {
               waiting: {
-                reason: "ImagePullBackOff",
-                message: "Image is absent from the offline registry",
+                reason: "CrashLoopBackOff",
+                message:
+                  "Application cannot write its data directory: permission denied",
               },
             }
-          : fails
-            ? {
-                waiting: {
-                  reason: "CrashLoopBackOff",
-                  message:
-                    "Application cannot write its data directory: permission denied",
-                },
-              }
-            : { running: { startedAt: "2026-10-08T02:14:00Z" } },
+          : { running: { startedAt: new Date(clusterTime()).toISOString() } },
+    };
+  });
+  const running = containerStatuses.every(
+    (c) => c.state.waiting?.reason !== "ImagePullBackOff",
+  );
+  resource.status = {
+    phase: running ? "Running" : "Pending",
+    containerStatuses,
+    podIP: running
+      ? `10.128.1.${20 + S.cluster.resources.filter((r) => r.kind === "Pod").length}`
+      : "",
+    podIPs: running
+      ? [
+          {
+            ip: `10.128.1.${20 + S.cluster.resources.filter((r) => r.kind === "Pod").length}`,
+          },
+        ]
+      : [],
+    conditions: [
+      { type: "Initialized", status: "True" },
+      {
+        type: "Ready",
+        status: containerStatuses.every((c) => c.ready) ? "True" : "False",
       },
     ],
   };
@@ -331,6 +429,7 @@ function admitResource(resource: Resource, directRequest = true) {
         {
           name: admission.spec.containers[0].name,
           ready: false,
+          restartCount: 0,
           state: {
             waiting: {
               reason: scheduling
@@ -375,7 +474,11 @@ function reconcileDeployment(deployment: Resource) {
     const pod: Resource = {
       apiVersion: "v1",
       kind: "Pod",
-      metadata: { name: prefix + index, namespace },
+      metadata: {
+        name: prefix + index,
+        namespace,
+        creationTimestamp: new Date(clusterTime()).toISOString(),
+      },
       spec: structuredClone(template.spec),
     };
     try {
@@ -413,7 +516,12 @@ function reconcileDeployment(deployment: Resource) {
         metadata: {
           name: `${deployment.metadata.name}.${S.cluster.events.length + 1}`,
           namespace,
+          creationTimestamp: new Date(clusterTime()).toISOString(),
         },
+        firstTimestamp: new Date(clusterTime()).toISOString(),
+        lastTimestamp: new Date(clusterTime()).toISOString(),
+        count: 1,
+        source: { component: "replicaset-controller" },
         reason: "FailedCreate",
         message: "Error creating: " + message,
         involvedObject: {
@@ -426,6 +534,12 @@ function reconcileDeployment(deployment: Resource) {
   }
   deployment.status = {
     replicas,
+    updatedReplicas: S.cluster.resources.filter(
+      (p) =>
+        p.kind === "Pod" &&
+        p.metadata.namespace === namespace &&
+        p.metadata.name.startsWith(prefix),
+    ).length,
     readyReplicas: available,
     availableReplicas: available,
     conditions:
@@ -448,6 +562,7 @@ export function applyResource(
   namespace: string,
   createOnly = false,
 ) {
+  refreshResourceTypes();
   const resource = structuredClone(input);
   const type = (Object.keys(resourceTypes) as ResourceType[]).find(
     (type) => resourceTypes[type].kind === resource.kind,
@@ -483,13 +598,17 @@ export function applyResource(
   const pool =
     type === "securitycontextconstraints"
       ? S.cluster.sccs
-      : S.cluster.resources;
+      : type === "events"
+        ? S.cluster.events
+        : S.cluster.resources;
   const old = pool.find(
     (item) =>
       item.kind === resource.kind &&
       item.metadata.name === resource.metadata.name &&
       item.metadata.namespace === ns,
   );
+  resource.metadata.creationTimestamp =
+    old?.metadata.creationTimestamp ?? new Date(clusterTime()).toISOString();
   const verb = old ? "patch" : "create";
   if (!authorized(verb, type, ns)) {
     const message = forbidden(verb, type, ns);
@@ -528,12 +647,76 @@ export function applyResource(
     throw new Error(
       "simulation: Deployment requires a Pod template and 0–10 replicas",
     );
-  if (resource.kind === "SecurityContextConstraints") {
+  if (resource.kind === "CustomResourceDefinition") {
+    const spec = resource.spec ?? {},
+      versions: any[] = spec.versions ?? [];
     if (
-      ["restricted-v3", "restricted-v2", "anyuid", "nonroot-v2"].includes(
-        resource.metadata.name,
-      )
+      !spec.group ||
+      !spec.names?.plural ||
+      !spec.names.kind ||
+      !["Namespaced", "Cluster"].includes(spec.scope) ||
+      resource.metadata.name !== `${spec.names.plural}.${spec.group}`
     )
+      throw new Error(
+        "Error from server (Invalid): CustomResourceDefinition requires matching metadata.name, group, names and scope",
+      );
+    if (Object.hasOwn(resourceTypes, spec.names.plural) && !old)
+      throw new Error(
+        "Error from server (Invalid): resource name is already registered",
+      );
+    if (
+      !old &&
+      Object.values(resourceTypes).some((d) => d.kind === spec.names.kind)
+    )
+      throw new Error(
+        "simulation: custom CRDs with a kind already used by another API group are not implemented",
+      );
+    if (
+      versions.length !== 1 ||
+      !versions[0].served ||
+      !versions[0].storage ||
+      !versions[0].schema?.openAPIV3Schema
+    )
+      throw new Error(
+        "simulation: custom CRDs currently require one served storage version with an OpenAPI schema",
+      );
+    validateCustomSchema(versions[0].schema.openAPIV3Schema);
+    for (const column of versions[0].additionalPrinterColumns ?? []) {
+      if (
+        !column.name ||
+        !column.jsonPath ||
+        !["string", "integer", "number", "boolean", "date"].includes(
+          column.type,
+        )
+      )
+        throw new Error(
+          "Error from server (Invalid): invalid additionalPrinterColumns",
+        );
+      jsonPathValues({}, column.jsonPath);
+    }
+    resource.status = {
+      acceptedNames: spec.names,
+      storedVersions: [versions[0].name],
+      conditions: [
+        { type: "NamesAccepted", status: "True" },
+        { type: "Established", status: "True" },
+      ],
+    };
+  }
+  const definition = S.cluster.resources.find(
+    (r) =>
+      r.kind === "CustomResourceDefinition" && r.spec?.names?.plural === type,
+  );
+  if (
+    definition &&
+    !installedCrds.some((crd) => crd.metadata.name === definition.metadata.name)
+  )
+    validateCustomResource(
+      resource,
+      definition.spec!.versions[0].schema.openAPIV3Schema,
+    );
+  if (resource.kind === "SecurityContextConstraints") {
+    if (defaultSccs.some((scc) => scc.metadata.name === resource.metadata.name))
       throw new Error(
         "simulation: default SCC modification is protected; apply a custom SCC",
       );
@@ -593,6 +776,19 @@ export function applyResource(
       throw error;
     }
   }
+  if (resource.kind === "Service") {
+    resource.spec ??= {};
+    resource.spec.type ??= "ClusterIP";
+    if (resource.spec.type !== "ExternalName") {
+      resource.spec.clusterIP ??=
+        old?.spec?.clusterIP ??
+        `172.30.0.${20 + S.cluster.resources.filter((r) => r.kind === "Service").length}`;
+      resource.spec.clusterIPs ??= [resource.spec.clusterIP];
+    }
+    for (const port of resource.spec.ports ?? []) port.protocol ??= "TCP";
+  }
+  if (resource.kind === "Secret") resource.type ??= "Opaque";
+  if (resource.kind === "Route") resource.spec!.wildcardPolicy ??= "None";
   if (resource.kind === "Namespace" && !old) {
     const base = 1000780000 + S.cluster.generation++ * 10000;
     resource.metadata.annotations = {
@@ -611,6 +807,7 @@ export function applyResource(
   else pool.push(resource as Scc);
   auditRequest(verb, type, ns, resource.metadata.name, old ? 200 : 201);
   if (resource.kind === "Deployment") reconcileDeployment(old ?? resource);
+  refreshResourceTypes();
   reconcileFixtureControllers();
   return `${resource.kind.toLowerCase()}${resource.kind === "Deployment" ? ".apps" : resource.kind === "SecurityContextConstraints" ? ".security.openshift.io" : ""}/${resource.metadata.name} ${old ? "configured" : "created"}`;
 }
@@ -633,6 +830,13 @@ export function grantScc(
     );
     throw new Error(message);
   }
+  if (
+    defaultSccs.some((scc) => scc.metadata.name === name) &&
+    !["restricted-v3", "restricted-v2", "nonroot-v2", "anyuid"].includes(name)
+  )
+    throw new Error(
+      `simulation: admission using the ${name} SCC is not implemented`,
+    );
   if (!S.cluster.sccs.some((scc) => scc.metadata.name === name))
     throw new Error(
       `Error from server (NotFound): securitycontextconstraints.security.openshift.io "${name}" not found`,
@@ -701,6 +905,7 @@ export function deleteResource(
   const ns = resourceTypes[type].namespaced ? namespace : undefined;
   if (!authorized("delete", type, ns))
     throw new Error(forbidden("delete", type, ns));
+  refreshResourceTypes();
   const target = [
     ...coreResources(),
     ...S.cluster.resources,
@@ -731,7 +936,7 @@ export function deleteResource(
     );
   if (
     type === "securitycontextconstraints" &&
-    ["anyuid", "restricted-v3", "restricted-v2", "nonroot-v2"].includes(name)
+    defaultSccs.some((scc) => scc.metadata.name === name)
   )
     throw new Error("simulation: deleting default SCCs is protected");
   S.cluster.resources = S.cluster.resources.filter(
@@ -744,10 +949,23 @@ export function deleteResource(
             r.metadata.namespace === ns,
         ) && !(type === "namespaces" && item.metadata.namespace === name),
   );
+  if (type === "events" || type === "namespaces")
+    S.cluster.events = S.cluster.events.filter((event) =>
+      type === "namespaces"
+        ? event.metadata.namespace !== name
+        : !(event.metadata.name === name && event.metadata.namespace === ns),
+    );
   if (type === "securitycontextconstraints")
     S.cluster.sccs = S.cluster.sccs.filter(
       (item) => item.metadata.name !== name,
     );
+  if (type === "customresourcedefinitions")
+    S.cluster.resources = S.cluster.resources.filter(
+      (r) =>
+        r.kind !== target.spec?.names?.kind ||
+        r.apiVersion.split("/")[0] !== target.spec?.group,
+    );
+  refreshResourceTypes();
   reconcileFixtureControllers();
   auditRequest("delete", type, ns, name, 200);
   return `${target.kind.toLowerCase()} "${name}" deleted`;

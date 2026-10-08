@@ -1,5 +1,6 @@
 import {
   readApiResources as getResources,
+  readApiTable,
   applyApiResource as applyResource,
   deleteApiResource as deleteResource,
   kubeRequest,
@@ -11,6 +12,7 @@ import type { Resource, Scc } from "../simulation/cluster-model.js";
 import {
   resourceTypes,
   resolveResource,
+  refreshResourceTypes,
   grantScc,
   restartDeployment,
   auditRequest,
@@ -30,6 +32,9 @@ import { runQuery } from "./query-tools.js";
 import { validOcCommand } from "./syntax.js";
 import { textCommand, textTools, toolHelp } from "./text-tools.js";
 import type { ToolResult } from "./text-tools.js";
+import { printResourceJson } from "./json-printer.js";
+import { printResourceTable } from "./table-printer.js";
+import { jsonPathValues } from "../simulation/resource-table.js";
 
 interface Result extends ToolResult {
   legacyCommand?: string;
@@ -43,14 +48,29 @@ function options(words: string[]) {
   const args: string[] = [],
     flags: Record<string, string[]> = {};
   for (let i = 0; i < words.length; i++) {
-    const token = words[i];
+    let token = words[i];
+    if (/^-[noflL].+/.test(token) && token[2] !== "=") {
+      words = [
+        ...words.slice(0, i),
+        token.slice(0, 2),
+        token.slice(2),
+        ...words.slice(i + 1),
+      ];
+      token = words[i];
+    }
     if (!token.startsWith("-")) {
       args.push(token);
       continue;
     }
     const equals = token.indexOf("=");
     const key = equals < 0 ? token : token.slice(0, equals);
-    const boolean = ["-A", "--all-namespaces"].includes(key);
+    const boolean = [
+      "-A",
+      "--all-namespaces",
+      "--no-headers",
+      "--show-labels",
+      "--namespaced",
+    ].includes(key);
     const value =
       equals < 0 ? (boolean ? "true" : words[++i]) : token.slice(equals + 1);
     if (value === undefined)
@@ -70,24 +90,12 @@ function auditText() {
 }
 const readFile = readVirtualFile;
 
-function field(value: unknown, path: string): unknown {
-  return path
-    .replace(/^\./, "")
-    .split(".")
-    .reduce<unknown>(
-      (entry, key) =>
-        entry && typeof entry === "object"
-          ? (entry as Record<string, unknown>)[key]
-          : undefined,
-      value,
-    );
-}
-
 async function oc(words: string[], raw: string): Promise<Result | null> {
   if (words.length === 1 || words[1] === "--help")
     return result(
       `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, delete, patch, scale, run\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
     );
+  refreshResourceTypes();
   const { args, flags, flag } = options(words.slice(1));
   const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
   const manifest = flag("-f") ?? flag("--filename");
@@ -111,13 +119,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     rejectFlags(flags, ["--raw"]);
     if (args.length !== 1)
       throw new Error("error: oc get --raw PATH accepts no resource arguments");
-    return result(
-      JSON.stringify(
+    return {
+      stdout: JSON.stringify(
         apiBody(kubeRequest({ method: "GET", path: flag("--raw")! })),
-        null,
-        2,
       ),
-    );
+      error: false,
+    };
   }
   if (verb === "version")
     return result(
@@ -145,16 +152,92 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     S.cluster.namespace = args[1];
     return result(`Now using project "${args[1]}".`);
   }
-  if (verb === "api-resources")
+  if (verb === "api-versions") {
+    rejectFlags(flags, []);
     return result(
-      "NAME  APIVERSION  NAMESPACED  KIND\n" +
-        Object.entries(resourceTypes)
+      [...new Set(Object.values(resourceTypes).map((d) => d.apiVersion))]
+        .sort()
+        .join("\n"),
+    );
+  }
+  if (verb === "api-resources") {
+    rejectFlags(flags, [
+      "--no-headers",
+      "--api-group",
+      "--namespaced",
+      "-o",
+      "--output",
+    ]);
+    const output = flag("-o") ?? flag("--output");
+    if (output && output !== "name" && output !== "wide")
+      throw new Error(
+        `simulation: api-resources output ${output} is not implemented`,
+      );
+    const entries = Object.entries(resourceTypes)
+      .filter(
+        ([, d]) =>
+          (!flag("--api-group") ||
+            (d.apiVersion.includes("/") ? d.apiVersion.split("/")[0] : "") ===
+              flag("--api-group")) &&
+          (flag("--namespaced") === undefined ||
+            d.namespaced === (flag("--namespaced") === "true")),
+      )
+      .sort(([a], [b]) => a.localeCompare(b));
+    if (output === "name")
+      return result(
+        entries
           .map(
-            ([name, definition]) =>
-              `${name}  ${definition.apiVersion}  ${definition.namespaced}  ${definition.kind}`,
+            ([name, d]) =>
+              name +
+              (d.apiVersion.includes("/")
+                ? "." + d.apiVersion.split("/")[0]
+                : ""),
           )
           .join("\n"),
+      );
+    return result(
+      printResourceTable(
+        {
+          apiVersion: "meta.k8s.io/v1",
+          kind: "Table",
+          metadata: {},
+          columnDefinitions: [
+            "Name",
+            "Shortnames",
+            "APIVersion",
+            "Namespaced",
+            "Kind",
+            ...(output === "wide" ? ["Verbs", "Categories"] : []),
+          ].map((name) => ({ name, type: "string", description: "" })),
+          rows: entries.map(([name, d]) => ({
+            object: {
+              apiVersion: d.apiVersion,
+              kind: d.kind,
+              metadata: { name },
+            },
+            cells: [
+              name,
+              d.aliases
+                .filter(
+                  (alias) =>
+                    alias.length <= 4 &&
+                    alias !== name &&
+                    alias !== d.kind.toLowerCase(),
+                )
+                .join(","),
+              d.apiVersion,
+              d.namespaced,
+              d.kind,
+              ...(output === "wide"
+                ? ["delete,get,list,patch,create", ""]
+                : []),
+            ],
+          })),
+        },
+        { noHeaders: flag("--no-headers") === "true" },
+      ),
     );
+  }
   if (verb === "auth" && args[1] === "can-i") {
     rejectFlags(flags, ["-n", "--namespace", "--as"]);
     const [resource, resourceName] = (args[3] ?? "").split("/");
@@ -271,6 +354,11 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--selector",
       "--sort-by",
       "--template",
+      "--no-headers",
+      "--show-labels",
+      "-L",
+      "--label-columns",
+      "--field-selector",
     ]);
     const [resourceName, embeddedName] = (args[1] ?? "").split("/");
     const type = resolveResource(resourceName);
@@ -278,32 +366,51 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       throw new Error(
         `simulation: resource ${resourceName || "(missing)"} is not implemented`,
       );
-    const name = args[2] ?? embeddedName;
-    let items = getResources(
-      type,
-      resourceTypes[type].namespaced && !flag("-A") && !flag("--all-namespaces")
-        ? namespace
-        : undefined,
-      name,
-    );
-    const selector = flag("-l") ?? flag("--selector");
-    if (selector)
-      items = items.filter((item) =>
-        selector.split(",").every((part) => {
-          const [key, value] = part.split("=");
-          return value !== undefined && item.metadata.labels?.[key] === value;
-        }),
+    if (args.length > 3)
+      throw new Error(
+        "simulation: get/describe of multiple named objects is not implemented",
       );
+    const name = args[2] ?? embeddedName;
+    const allNamespaces =
+      flag("-A") === "true" || flag("--all-namespaces") === "true";
+    const resourceNamespace =
+      resourceTypes[type].namespaced && !allNamespaces ? namespace : undefined;
+    const output = flag("-o") ?? flag("--output");
+    const selectors = {
+      label: flag("-l") ?? flag("--selector"),
+      field: flag("--field-selector"),
+    };
+    const table =
+      verb === "get" && (!output || output === "wide")
+        ? readApiTable(type, resourceNamespace, name, selectors)
+        : undefined;
+    let items = table
+      ? table.rows.map((row) => row.object)
+      : getResources(type, resourceNamespace, name, selectors);
     const sort = flag("--sort-by");
     if (sort)
-      items.sort((a, b) =>
-        String(field(a, sort) ?? "").localeCompare(
-          String(field(b, sort) ?? ""),
-        ),
-      );
-    const object = name ? items[0] : { apiVersion: "v1", kind: "List", items };
-    const output = flag("-o") ?? flag("--output");
-    if (output === "json") return result(JSON.stringify(object, null, 2));
+      items.sort((a, b) => {
+        const left = jsonPathValues(a, sort)[0],
+          right = jsonPathValues(b, sort)[0];
+        if (left == null || right == null)
+          return left == null ? (right == null ? 0 : -1) : 1;
+        if (typeof left === "number" && typeof right === "number")
+          return left - right;
+        if (typeof left === "string" && typeof right === "string")
+          return left < right ? -1 : left > right ? 1 : 0;
+        throw new Error(
+          "error: --sort-by requires a comparable string or numeric field",
+        );
+      });
+    const object = name
+      ? items[0]
+      : {
+          apiVersion: "v1",
+          kind: "List",
+          items,
+          metadata: { resourceVersion: "" },
+        };
+    if (output === "json") return result(printResourceJson(object));
     if (output === "yaml") return result(stringify(object));
     if (output?.startsWith("go-template")) {
       const template = output.startsWith("go-template=")
@@ -320,6 +427,71 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         stdout: response.exitCode ? response.stderr : response.stdout,
         error: response.exitCode !== 0,
       };
+    }
+    if (
+      output?.startsWith("jsonpath=") ||
+      output?.startsWith("jsonpath-as-json=")
+    ) {
+      const response = await runQuery(
+        "jsonpath",
+        JSON.stringify(object),
+        output.slice(output.indexOf("=") + 1),
+        output.startsWith("jsonpath-as-json=") ? ["as-json"] : [],
+      );
+      return {
+        stdout: response.exitCode ? response.stderr : response.stdout,
+        error: response.exitCode !== 0,
+      };
+    }
+    if (output === "name")
+      return result(
+        items
+          .map(
+            (r) =>
+              `${resourceTypes[type].kind.toLowerCase()}${resourceTypes[type].apiVersion.includes("/") ? "." + resourceTypes[type].apiVersion.split("/")[0] : ""}/${r.metadata.name}`,
+          )
+          .join("\n"),
+      );
+    if (output?.startsWith("custom-columns=")) {
+      const expressions = output
+        .slice("custom-columns=".length)
+        .split(",")
+        .map((column) => {
+          const i = column.indexOf(":");
+          if (i < 1)
+            throw new Error(
+              "error: custom-columns requires HEADER:JSONPATH pairs",
+            );
+          return { name: column.slice(0, i), path: column.slice(i + 1) };
+        });
+      const custom = {
+        apiVersion: "meta.k8s.io/v1" as const,
+        kind: "Table" as const,
+        metadata: {},
+        columnDefinitions: expressions.map((e) => ({
+          name: e.name,
+          type: "string",
+          description: "",
+        })),
+        rows: items.map((r) => ({
+          object: r,
+          cells: expressions.map(
+            (e) =>
+              jsonPathValues(r, e.path)
+                .map((v) =>
+                  typeof v === "object" ? JSON.stringify(v) : String(v),
+                )
+                .join(",") || "<none>",
+          ),
+        })),
+      };
+      return result(
+        printResourceTable(custom, {
+          noHeaders: flag("--no-headers") === "true",
+          preserveHeaders: true,
+          minWidth: 0,
+        }),
+      );
     }
     if (output && output !== "wide")
       throw new Error(`simulation: output format ${output} is not implemented`);
@@ -343,40 +515,24 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     }
     if (!items.length)
       return result(
-        namespace === "payments" && type === "networkpolicies"
-          ? "No resources found in payments namespace. payment-api egress is not restricted by a NetworkPolicy."
-          : `No resources found in ${namespace} namespace.`,
+        resourceNamespace
+          ? `No resources found in ${resourceNamespace} namespace.`
+          : "No resources found.",
       );
-    if (type === "events")
-      return result(
-        "TYPE  REASON  MESSAGE\n" +
-          items
-            .map((item) => `${item.type}  ${item.reason}  ${item.message}`)
-            .join("\n"),
-      );
-    if (type === "deployments")
-      return result(
-        "NAME  READY  AVAILABLE\n" +
-          items
-            .map(
-              (item) =>
-                `${item.metadata.name}  ${item.status?.readyReplicas ?? 0}/${item.spec?.replicas ?? 1}  ${item.status?.availableReplicas ?? item.status?.readyReplicas ?? 0}`,
-            )
-            .join("\n"),
-      );
-    if (type === "pods")
-      return result(
-        "NAME  STATUS  SCC\n" +
-          items
-            .map((item) => {
-              const statuses = item.status?.containerStatuses as
-                { state?: { waiting?: { reason?: string } } }[] | undefined;
-              return `${item.metadata.name}  ${statuses?.[0]?.state?.waiting?.reason ?? item.status?.phase ?? "Pending"}  ${item.metadata.annotations?.["openshift.io/scc"] ?? "<none>"}`;
-            })
-            .join("\n"),
-      );
+    table!.rows.sort(
+      (a, b) => items.indexOf(a.object) - items.indexOf(b.object),
+    );
     return result(
-      "NAME\n" + items.map((item) => item.metadata.name).join("\n"),
+      printResourceTable(table!, {
+        wide: output === "wide",
+        namespace: allNamespaces && resourceTypes[type].namespaced,
+        noHeaders: flag("--no-headers") === "true",
+        showLabels: flag("--show-labels") === "true",
+        labelColumns: [
+          ...(flags["-L"] ?? []),
+          ...(flags["--label-columns"] ?? []),
+        ].flatMap((value) => value.split(",")),
+      }),
     );
   }
   if (verb === "create" || verb === "apply" || verb === "new-project") {

@@ -129,7 +129,9 @@ oc get pod owned-secure -o yaml
 
 The first Pod requests UID 0 and is rejected by its available SCCs. The second
 uses an image designed for an arbitrary UID and the existing default constraint.
-Its admitted object shows the allocated UID and `openshift.io/scc: restricted-v3`.
+Its admitted object shows UID 1000 and `openshift.io/scc: restricted-v3`.
+The pinned 4.22 `restricted-v3` profile permits UID 1000–65534 inside a Pod
+user namespace; `restricted-v2` retains the namespace allocation behavior.
 It also shows `hostUsers: false`, capability drops and the generated security
 context.
 
@@ -150,7 +152,7 @@ oc get events
 ```
 
 The Deployment is created, but its controller cannot create the Pods because
-the vendor image requires UID 1001. The failure appears in `FailedCreate` events,
+the vendor image requires UID 100. The failure appears in `FailedCreate` events,
 Deployment conditions and API audit records. This preserves the real distinction
 between permission to create a Deployment and SCC admission of its child Pods.
 
@@ -184,7 +186,7 @@ oc auth can-i use scc/vendor-fixed-uid --as=system:serviceaccount:lab:vendor
 oc auth can-i use scc/anyuid --as=system:serviceaccount:lab:default
 ```
 
-The custom SCC permits UID 1001 for the dedicated vendor service account while
+The custom SCC permits UID 100 for the dedicated vendor service account while
 retaining host/privilege restrictions. Unrelated service accounts receive no
 exception. Grants are stored RoleBindings, and admission reads those bindings.
 Revocation affects subsequent Pod admission; it does not revoke an existing
@@ -277,7 +279,8 @@ admission checks execute real state transitions. Unsupported subcommands,
 options, output formats or protected core mutations report a simulator limit;
 they are not disguised as RBAC or admission failures.
 
-The current SCC engine models `restricted-v3`, `restricted-v2`, `nonroot-v2`,
+The inventory contains all thirteen default SCC manifests from the pinned 4.22
+operator. Admission remains bounded to `restricted-v3`, `restricted-v2`, `nonroot-v2`,
 `anyuid`, and limited custom UID constraints. It evaluates UID, privilege,
 capability, seccomp, host namespace/hostPath and read-only-root requirements.
 It is not the full OpenShift admission implementation: complete SELinux, fsGroup,
@@ -304,3 +307,62 @@ Primary references: [OpenShift 4.22 SCCs](https://docs.redhat.com/en/documentati
 [OpenShift 4.22 image design](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/images/creating-images),
 [jq WebAssembly engine](https://github.com/owenthereal/jq-wasm), and
 [Go text/template](https://pkg.go.dev/text/template).
+
+
+## Resource printing and custom resources
+
+`oc get pods -A` uses `NAMESPACE NAME READY STATUS RESTARTS AGE`. SCC is an
+annotation, accessible with JSON, JSONPath or an explicit custom column. `wide`
+adds IP, node, nominated node and readiness gates. Container and init-container
+states determine readiness, status and restarts, including termination and
+restartable sidecars. Resource ages come from creation timestamps on the
+deterministic cluster clock; the upstream duration formatter prints two hours
+as `120m`. Empty queries use the CLI's ordinary empty-resource message.
+
+`oc get scc` uses the ten columns from the OpenShift 4.22 server printer. The
+thirteen default objects are imported from
+[the pinned kube-apiserver operator manifests](https://github.com/openshift/cluster-kube-apiserver-operator/tree/a18571de7438badd6206ba84f40a17160f524e94/bindata/bootkube/scc-manifests),
+including their actual capabilities, UID strategies and volume lists. Unsupported
+host/privileged profile admission remains an explicit simulator limitation.
+
+Installed operator CRD schemas declare the displayed columns. The simulator also
+supports applying a new single-version namespaced or cluster-scoped CRD,
+discovery through `oc api-resources`, alias resolution, custom-resource CRUD and
+`additionalPrinterColumns` with priority for wide output. User-created definitions
+and instances survive offline reload and export/import. Structural admission
+implements the documented simple types, required fields, bounds, enums, defaults
+and unknown-field pruning. Complex schemas, CEL, conversion webhooks,
+multi-version conversion and arbitrary operator execution remain unimplemented.
+
+Useful investigation commands:
+
+```sh
+oc get pods -A -o wide
+oc get pods -n payments --no-headers
+oc get pods -A --show-labels -L app
+oc get pods -A -l 'app in (payment-api)'
+oc get pods -A --field-selector=spec.nodeName=worker-01
+oc get pods -A -o 'custom-columns=Name:.metadata.name,SCC:.metadata.annotations.openshift\.io/scc'
+oc get scc restricted-v3 -o jsonpath='{.runAsUser.uidRangeMin} {.runAsUser.uidRangeMax}'
+oc get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"/"}{.metadata.name}{"\n"}{end}'
+oc get crd
+oc api-resources --api-group=security.openshift.io
+```
+
+JSONPath and `jsonpath-as-json` execute the upstream Kubernetes client-go v0.35.2
+implementation compiled into local WebAssembly, preserving stdout newlines in
+pipelines. JSON, YAML, templates and custom-column queries read the same objects
+used by tables. `--sort-by` compares numeric values numerically. Label selectors
+support equality, inequality, sets, presence and absence. Implemented field
+selectors filter on actual Pod fields. The mock API offers Table negotiation and
+paginated collections with invalid/expired cursor errors.
+
+Independent conformance is reproducible: build `tools/conformance` with Go, run
+`npm test`, then `node tools/record-printer-fixtures.mjs /path/to/oracle`.
+The committed fixture suite contains 47 upstream Pod/SCC/Route cases and eighteen
+byte-exact pinned client formatter cases, plus two JSONPrinter fixtures. `node tools/check-native-oc.mjs` directs
+the installed real client at the local API and compares sixteen actual commands.
+Its receipt records the installed client version (currently 4.20.6); the separate
+pinned printer oracle uses the 4.22 API/client dependencies. Neither test is a
+live OpenShift 4.22 cluster acceptance test, and this milestone does not establish
+100% cluster or CLI compatibility.

@@ -7,6 +7,11 @@ declare global {
     importObject: WebAssembly.Imports;
     run(instance: WebAssembly.Instance): Promise<void>;
   };
+  var renderKubeJsonPath: (
+    template: string,
+    json: string,
+    asJson: boolean,
+  ) => string;
   var renderGoTemplate: (template: string, json: string) => string;
 }
 let jq: Awaited<ReturnType<typeof loadJq>> | undefined;
@@ -14,7 +19,7 @@ let templateReady = false;
 
 self.onmessage = async (
   event: MessageEvent<{
-    tool: "jq" | "template";
+    tool: "jq" | "template" | "jsonpath";
     input: string;
     query: string;
     flags: string[];
@@ -40,7 +45,15 @@ self.onmessage = async (
         void go.run(instance.instance);
         templateReady = true;
       }
-      const result = JSON.parse(globalThis.renderGoTemplate(query, input)) as {
+      const result = JSON.parse(
+        tool === "jsonpath"
+          ? globalThis.renderKubeJsonPath(
+              query,
+              input,
+              flags.includes("as-json"),
+            )
+          : globalThis.renderGoTemplate(query, input),
+      ) as {
         output?: string;
         error?: string;
       };

@@ -29,6 +29,10 @@ export function admitPod(
       );
       continue;
     }
+    const range: [number, number] = [
+      scc.runAsUser.uidRangeMin ?? uidRange[0],
+      scc.runAsUser.uidRangeMax ?? uidRange[1],
+    ];
     const errors: string[] = [];
     if (input.hostNetwork || input.hostPID || input.hostIPC)
       errors.push("host namespaces are not allowed");
@@ -50,10 +54,10 @@ export function admitPod(
       if (
         uid !== undefined &&
         scc.runAsUser.type === "MustRunAsRange" &&
-        (uid < uidRange[0] || uid > uidRange[1])
+        (uid < range[0] || uid > range[1])
       )
         errors.push(
-          `${path}.runAsUser: Invalid value: ${uid}: must be in the ranges: [${uidRange[0]}, ${uidRange[1]}]`,
+          `${path}.runAsUser: Invalid value: ${uid}: must be in the ranges: [${range[0]}, ${range[1]}]`,
         );
       if (
         scc.runAsUser.type === "MustRunAs" &&
@@ -131,7 +135,7 @@ export function admitPod(
           (scc.runAsUser.type === "MustRunAs"
             ? scc.runAsUser.uid
             : scc.runAsUser.type === "MustRunAsRange"
-              ? uidRange[0]
+              ? range[0]
               : undefined),
       };
       if (scc.allowPrivilegeEscalation === false)

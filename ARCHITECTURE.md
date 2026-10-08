@@ -361,3 +361,40 @@ available to old lazy workers; older caches are cleaned. IndexedDB/local progres
 is independent and never cleared by activation. `tests/update_browser.py`
 verifies an open-tab update, offline navigation into the new build, retained
 notes/files and working jq after activation.
+
+
+## Upstream resource tables and CRD discovery — 2026-10-08
+
+`simulation/resource-table.ts` owns server Table column definitions and row cells.
+`kube-api.ts` negotiates `meta.k8s.io/v1` Table responses, selectors and collection
+pagination. `terminal/table-printer.ts` owns client namespace/wide/label/header
+decoration and alignment. The terminal no longer invents a separate Pod status or
+SCC column. JSON and table rows originate in the same admitted resource objects.
+
+`default-sccs.ts` imports all thirteen pinned 4.22 default manifests. The v3
+admission strategy honors its explicit UID 1000–65534 bounds instead of imposing
+the namespace range. The fictional locked vendor now requires UID 100, preserving
+the exception lesson under those bounds. Save migration upgrades the default
+policy fixture and authored vendor resources while retaining player notes,
+files, campaign reports and custom CRDs. Existing non-vendor admitted Pods remain
+historical objects rather than being retroactively re-admitted.
+
+`installed-crds.ts` retains full pinned operator definitions; `crd-printers.ts`
+records source provenance and columns. `resource-types.ts` rebuilds dynamic
+single-version discovery from saved CRD objects on reset/import/request, avoiding
+stale global registrations. `custom-resource.ts` validates the bounded structural
+schema subset for user-installed definitions and prunes/defaults their instances.
+Deleting a custom CRD removes its instances and discovery entry. Installed
+operator controllers retain the authored campaign models; storing their schema
+alone does not assert complete controller/admission implementation.
+
+The existing Go WASM tool now also exposes upstream client-go JSONPath. Query
+workers execute JSONPath and JSONPath-as-JSON without shell interpretation or
+host filesystem access. `tools/conformance` is an independent native oracle,
+using upstream printer functions with external API types and a fixed clock,
+plus the actual pinned cli-runtime formatter. `tests/fixtures/upstream-printers.json`
+retains oracle output so normal Node CI runs need no Go installation. Native oc
+checks, dedicated browser resource queries and the complete campaign replay
+complement these fixture checks. Complete oc, admission, OpenShift controllers,
+OCI execution, webhooks, streaming/watch and live-cluster parity remain outside
+this implemented contract.

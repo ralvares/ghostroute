@@ -478,7 +478,7 @@ export function evaluateProbe(
       passed =
         ready(get("Pod", "vendor-sim-0")) &&
         get("Pod", "vendor-sim-0")?.spec?.containers?.[0]?.securityContext
-          ?.runAsUser === 1001;
+          ?.runAsUser === 100;
       detail = "Vendor controller replica is Ready at its required UID.";
       break;
     case "vendor-isolated":

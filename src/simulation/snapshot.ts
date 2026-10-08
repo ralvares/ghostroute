@@ -1,3 +1,4 @@
+import { defaultSccs } from "./default-sccs.js";
 import { makeState, type SimulationState } from "./state.js";
 import { isScene } from "../world/scene-model.js";
 import { evaluateFindings } from "../security/findings.js";
@@ -90,6 +91,54 @@ export function decodeProgress(text: string): SimulationState {
             r.kind === fixture.kind &&
             r.metadata.name === fixture.metadata.name &&
             r.metadata.namespace === fixture.metadata.namespace,
+        )
+      )
+        saved.data.cluster.resources.push(fixture);
+    }
+  if (saved.data.cluster && !saved.data.cluster.policyRevision) {
+    saved.data.cluster.policyRevision = "4.22-a18571de";
+    const defaults = new Set(defaultSccs.map((scc) => scc.metadata.name));
+    saved.data.cluster.sccs = [
+      ...structuredClone(defaultSccs),
+      ...(saved.data.cluster.sccs ?? []).filter(
+        (scc: any) => !defaults.has(scc.metadata.name),
+      ),
+    ];
+    // Preserve the authored vendor exception scenario when upgrading the 4.22 policy fixture.
+    for (const r of [
+      ...(saved.data.cluster.resources ?? []),
+      ...saved.data.cluster.sccs,
+    ]) {
+      if (
+        r.kind === "SecurityContextConstraints" &&
+        ["rs-vendor", "vendor-fixed-uid"].includes(r.metadata.name) &&
+        r.runAsUser?.uid === 1001
+      )
+        r.runAsUser.uid = 100;
+      const containers =
+        r.kind === "Pod"
+          ? r.spec?.containers
+          : r.kind === "Deployment"
+            ? r.spec?.template?.spec?.containers
+            : [];
+      for (const c of containers ?? [])
+        if (
+          c.image === "registry.example.test/vendor:fixed-uid" &&
+          c.securityContext?.runAsUser === 1001
+        )
+          c.securityContext.runAsUser = 100;
+    }
+  }
+  // Earlier saves retain their journey while acquiring the installed-operator discovery schemas.
+  if (saved.data.cluster?.resources)
+    for (const fixture of makeState().cluster.resources.filter(
+      (r) => r.kind === "CustomResourceDefinition",
+    )) {
+      if (
+        !saved.data.cluster.resources.some(
+          (r: any) =>
+            r.kind === fixture.kind &&
+            r.metadata.name === fixture.metadata.name,
         )
       )
         saved.data.cluster.resources.push(fixture);

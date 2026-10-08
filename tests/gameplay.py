@@ -99,7 +99,7 @@ def run(url, output):
         command("oc imaginary", "unsupported oc syntax")
         command("oc logs deployment/payment-api -n payments --tail=25", "WARN telemetry")
         command("oc get deployment payment-api -n payments -o yaml", "TELEMETRY_ENDPOINT")
-        command("oc get networkpolicies -n payments", "not restricted")
+        command("oc get networkpolicies -n payments", "No resources found in payments namespace.")
         expect(page.locator("#evidenceCount")).to_have_text("5 / 5")
         page.evaluate("document.querySelector('#toast').classList.remove('show')")
         page.evaluate("flushPaint()")
@@ -145,7 +145,7 @@ def run(url, output):
         open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         command("oc logs deployment/payment-api -n payments", "WARN telemetry")
         command("oc get deployment payment-api -n payments -o yaml", "TELEMETRY_ENDPOINT")
-        command("oc get networkpolicies -n payments", "not restricted")
+        command("oc get networkpolicies -n payments", "No resources found in payments namespace.")
         field.press("Escape")
         page.locator("#radioClose").click() if page.locator("#radio").is_visible() else None
         if rpg: walk(160,535);walk(820,295);walk(895,465);page.locator("#radioClose").click();walk(405,245);walk(490,330)
