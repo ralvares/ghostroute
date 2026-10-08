@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
+from browser_helpers import open_bastion
 
 CLOCK = """
 const nativeFrame = window.requestAnimationFrame.bind(window);
@@ -29,7 +30,8 @@ def run(url, output):
     errors, receipts = [], []
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 1440, "height": 1000}, device_scale_factor=1)
+        context = browser.new_context(viewport={"width": 1440, "height": 1000}, device_scale_factor=1)
+        page = context.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.add_init_script(CLOCK)
         page.goto(url)
@@ -39,37 +41,45 @@ def run(url, output):
         page.screenshot(animations="disabled", path=str(output / "opening.png"))
         page.locator("#startBtn").click()
         page.locator("#radioClose").click()
-        # The avatar starts near the Ops station. Moving north reveals payment-api.
-        page.locator("#world").focus()
-        page.keyboard.down("w")
-        page.evaluate("stepGame(45)")
-        page.keyboard.up("w")
+        rpg = page.locator("#sceneTitle").count() > 0
+        def walk(x, y):
+            box = page.locator("#world").bounding_box()
+            view=page.locator("#world").evaluate("c=>({width:c.width,height:c.height,x:Number(c.dataset.cameraX||0),y:Number(c.dataset.cameraY||0)})")
+            page.locator("#world").click(position={"x": (x-view["x"]) / view["width"] * box["width"], "y": (y-view["y"]) / view["height"] * box["height"]})
+            page.evaluate("stepGame(180)")
+        if rpg:
+            walk(210,340);walk(480,410);expect(page.locator("#radioName")).to_have_text("RHEA");page.locator("#radioClose").click();walk(160,535)
+            walk(820,295)
+            expect(page.locator("#sceneTitle")).to_contain_text("cluster lobby")
+            walk(895,465);page.locator("#radioClose").click();walk(405,245)
+            expect(page.locator("#sceneTitle")).to_contain_text("worker-01")
+            page.locator("#world").focus()
+            page.keyboard.down("d"); page.evaluate("stepGame(18)"); page.keyboard.up("d")
+            page.keyboard.down("w"); page.evaluate("stepGame(24)"); page.keyboard.up("w")
+        else:
+            page.locator("#world").focus()
+            page.keyboard.down("w"); page.evaluate("stepGame(45)"); page.keyboard.up("w")
         expect(page.locator("#nearbyText")).to_contain_text("payment-api")
-        page.keyboard.press("Space")
-        page.evaluate("stepGame()")
-        expect(page.locator("#evidenceCount")).to_have_text("1 / 5")
+        page.keyboard.press("Space"); page.evaluate("stepGame()")
+        expect(page.locator("#evidenceCount")).to_have_text("2 / 5" if rpg else "1 / 5")
         page.keyboard.press("e")
         expect(page.locator("#detailsBody")).to_contain_text("worker-01")
         page.keyboard.press("Escape")
         receipts.append("WASD movement, Trace Vision, nearby interaction, modal escape")
-
-        def walk(x, y):
-            box = page.locator("#world").bounding_box()
-            page.locator("#world").click(position={"x": x / 1180 * box["width"], "y": y / 650 * box["height"]})
-            page.evaluate("stepGame(150)")
-
-        walk(291, 470)
+        if rpg:
+            walk(160,535); walk(175,535); walk(210,340)
+            expect(page.locator("#sceneTitle")).to_contain_text("security operations")
+            walk(480,410)
+        else: walk(291,470)
         expect(page.locator("#radioName")).to_have_text("RHEA")
         page.locator("#radioClose").click()
-        walk(220, 310)
-        expect(page.locator("#detailsBody")).to_contain_text("An unexpected route.")
-        page.locator("#detailDone").click()
-        page.locator("#radioClose").click() if page.locator("#radio").is_visible() else None
+        if not rpg:
+            walk(220,310);expect(page.locator("#detailsBody")).to_contain_text("203.0.113.77:443");page.locator("#detailDone").click()
         page.locator("#caseBtn").click()
         expect(page.locator("#evidenceList")).to_contain_text("203.0.113.77:443")
         page.locator("#closeCase").click()
         receipts.append("Click-to-walk, NPC dialogue, RHACS investigation and caseboard")
-        page.locator("#terminalBtn").click()
+        open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         field = page.locator("#termInput")
         field.fill("oc who")
         field.press("Tab")
@@ -98,6 +108,8 @@ def run(url, output):
         command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
         command("oc apply -f policies/deny-all.yaml", "default-deny-egress configured")
         expect(page.locator("#health")).to_have_text("DEGRADED")
+        if rpg:
+            expect(page.locator("#shellshade")).to_be_hidden();page.evaluate("stepGame(180)");expect(page.locator("#radioText")).to_contain_text("What did you do?");open_bastion(page)
         command("oc rsh -n payments deployment/payment-api", "Connected to payment-api")
         command("nslookup ledger.payments.svc.cluster.local", "DNS blocked")
         command("curl -I https://ledger.payments.svc.cluster.local:8443/health", "cannot reach")
@@ -123,19 +135,20 @@ def run(url, output):
         # Replay safely to confirm the top incident grade is still achievable.
         page.locator("#startBtn").click()
         page.locator("#radioClose").click()
-        walk(220, 310)
-        page.locator("#detailDone").click()
-        page.locator("#terminalBtn").click()
+        if rpg: walk(210,340);walk(480,410);page.locator("#radioClose").click()
+        else: walk(220,310);page.locator("#detailDone").click()
+        open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         command("oc logs deployment/payment-api -n payments", "WARN telemetry")
         command("oc get deployment payment-api -n payments -o yaml", "TELEMETRY_ENDPOINT")
         command("oc get networkpolicies -n payments", "not restricted")
         field.press("Escape")
         page.locator("#radioClose").click() if page.locator("#radio").is_visible() else None
-        walk(468, 312)
+        if rpg: walk(160,535);walk(820,295);walk(895,465);page.locator("#radioClose").click();walk(405,245);walk(490,330)
+        else: walk(468,312)
         page.locator("#detailDone").click()
         page.keyboard.press("Space")
         expect(page.locator("#evidenceCount")).to_have_text("5 / 5")
-        page.locator("#terminalBtn").click()
+        open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
         command("oc apply -f policies/payments-egress.yaml", "Selected Pods may reach")
         command("oc rollout status deployment/payment-api -n payments", "2 of 2")
@@ -143,6 +156,16 @@ def run(url, output):
         command("curl -I https://ledger.payments.svc.cluster.local:8443/health", "200 OK")
         command("curl -I https://203.0.113.77", "Expected negative test")
         expect(page.locator(".grade")).to_have_text("S")
+        if page.evaluate("document.documentElement.dataset.progress !== undefined"):
+            page.wait_for_function("document.documentElement.dataset.progress === 'saved'", polling=50)
+            restored = page.context.new_page()
+            restored.goto(url)
+            expect(restored.locator("#ending")).to_be_visible()
+            expect(restored.locator(".grade")).to_have_text("S")
+            expect(restored.locator("#evidenceCount")).to_have_text("5 / 5")
+            restored.close()
+            page.bring_to_front()
+            receipts.append("Completed case and incident grade restore in a fresh page")
         page.locator("#restartTop").click()
         expect(page.locator("#opening")).to_be_visible()
         page.set_viewport_size({"width": 390, "height": 844})

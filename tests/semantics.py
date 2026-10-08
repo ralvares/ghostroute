@@ -1,3 +1,4 @@
+from browser_helpers import open_bastion
 """Production-browser checks for corrected simulation semantics."""
 import json
 import sys
@@ -11,7 +12,7 @@ with sync_playwright() as p:
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto(sys.argv[1])
     page.locator("#startBtn").click()
-    page.locator("#terminalBtn").click()
+    open_bastion(page)
     field = page.locator("#termInput")
 
     def command(text, contains):
@@ -21,13 +22,13 @@ with sync_playwright() as p:
         expect(result).to_contain_text(contains)
         return result.inner_text()
 
-    for invalid in [
-        "oc get deployment unknown -n payments",
-        "oc get pods -n payments --invented",
-        "oc auth can-i delete secrets -n payments",
-        "oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-=bad",
+    for invalid, expected in [
+        ("oc get deployment unknown -n payments", "NotFound"),
+        ("oc get pods -n payments --invented", "error:"),
+        ("oc auth can-i delete secrets -n default", "no"),
+        ("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-=bad", "simulation:"),
     ]:
-        command(invalid, "unsupported oc syntax")
+        command(invalid, expected)
     config = json.loads(command("oc get deployment payment-api -n payments -o json", '"kind": "Deployment"'))
     assert config["spec"]["template"]["spec"]["containers"][0]["env"][0]["name"] == "TELEMETRY_ENDPOINT"
     command("oc apply -f policies/payments-egress.yaml", "Selected Pods may reach")

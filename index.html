@@ -1,31 +1,288 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b0d17">
-<title>NEXUS // Ghost Route — OpenShift Security RPG</title>
-
-</head>
-<body>
-<header class="top"><div class="brand"><div class="hatmark" aria-hidden="true"><svg viewBox="0 0 64 44"><path d="M17 20c-2-7 0-13 7-15 5 3 12 3 16 0 6 3 9 9 7 15l7 7c4 5-5 9-18 10-15 1-31-3-30-10 1-3 6-5 11-7Zm1 3c5 3 23 7 29-1l-2-6c-4 5-19 5-26 0l-1 7Z"/></svg></div><div><div class="bname">NEXUS <span style="font-size:11px;font-weight:500;letter-spacing:.01em;color:#d07e7e">/ GHOST ROUTE</span></div><div class="bsub">AN OPENSHIFT SECURITY ADVENTURE · EPISODE 01</div></div></div><div class="topright"><span class="tag em">● INCIDENT ACTIVE</span><span class="tag">OFFLINE SIMULATION</span><button class="textbtn" id="restartTop" type="button">↺ Restart</button></div></header>
-<main class="page">
-<div class="frame" id="frame">
-<canvas id="world" width="1180" height="650" tabindex="0" aria-label="Interactive map of an OpenShift cluster containing two worker nodes, payment API Pods, the RHACS station, and an operator avatar. Click a destination to walk. Use WASD or arrows to move."></canvas>
-<div class="overlay casehud" id="casehud"><div class="eyebrow" id="phase">CASE 018 · DETECT</div><div class="casetitle" id="objectiveTitle">Something is leaving the cluster.</div><div class="casehint" id="objective">Follow the red network signal. Trace Vision reveals where it starts.</div></div>
-<div class="overlay hudright"><div class="stat"><div class="name">Customer service</div><b class="good" id="health">HEALTHY</b><small id="healthDetail">2 / 2 replicas ready</small></div><div class="stat"><div class="name">Exposure</div><b class="bad" id="exposure">UNCONTROLLED</b><small id="exposureDetail">Unapproved egress path</small></div></div>
-<div class="overlay ticker"><span>MOVE <strong>WASD</strong></span><span>TRACE <strong>SPACE</strong></span><span>INTERACT <strong>E</strong></span><span>TERMINAL <strong>T</strong></span></div>
-<div class="overlay prompt" id="nearby" hidden><strong>E</strong><span id="nearbyText">Interact</span></div>
-<div class="overlay radio" id="radio" hidden><div class="portrait" id="radioPortrait">👤</div><div style="min-width:0"><div class="radioname" id="radioName">RHEA</div><div class="radiotext" id="radioText"></div></div><button id="radioClose" type="button">Got it ↵</button></div>
-<div class="overlay toast" id="toast" role="status" aria-live="polite"></div>
-<section class="sheet" id="opening" aria-label="Incident briefing"><div class="modal"><div class="eyebrow">02:14 UTC · PAYMENTS DISTRICT · OPENSHIFT CLUSTER</div><h2>The service is healthy.<br><span style="color:#ff7067">The traffic isn't.</span></h2><p class="bigquote">“RHACS learned our normal network traffic. Five minutes ago, <strong>payment-api</strong> started talking to a destination nobody recognizes. I need to know whether we're compromised—before we start breaking things.”</p><div class="row"><span class="pill">● Real investigation</span><span class="pill">● Realistic oc commands</span><span class="pill">● Decisions have consequences</span></div><div class="modal-foot"><span class="hint">No timer. Think before you act. Your changes affect a live-looking simulation.</span><button class="btnred" id="startBtn" type="button">Enter the cluster →</button></div></div></section>
-<section class="sheet" id="details" hidden aria-label="Investigation details"><div class="modal" id="detailsBody"></div></section>
-<section id="casepanel" hidden aria-label="Evidence case board"><div class="panelhead"><h2>Caseboard</h2><button class="cross" id="closeCase" type="button" aria-label="Close caseboard">×</button></div><div class="panelmeta">INCIDENT 018 · RHACS NETWORK ANOMALY</div><div id="evidenceList"></div><p style="font-size:11px;color:#8e9bb3;margin-top:14px">Evidence is collected from exploration and commands. A deviation is a lead—not proof of compromise.</p></section>
-<div id="shellshade" hidden><section class="terminal" role="dialog" aria-label="OpenShift command terminal"><div class="termbar"><div class="termtabs"><span class="led"></span><strong id="termTitle">operator@bastion — bash-like shell</strong></div><button class="termclose" id="closeTerm" type="button">✕ Close <span style="font-size:10px">Esc</span></button></div><div class="termoutput" id="termOutput" aria-live="polite"></div><form class="termform" id="termform"><label class="termprompt" for="termInput" id="termPrompt">operator@bastion:~$</label><div class="termcmd"><div class="ghost"><span id="ghostLead"></span><span id="ghostTail"></span></div><input id="termInput" type="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Enter shell command" /></div></form><div class="termhelp"><span><b>TAB</b> complete</span><span><b>↑↓</b> history</span><span><b>→</b> accept suggestion</span><span><b>Ctrl+L</b> clear</span><span><b>help</b> supported commands</span></div></section></div>
-<section class="sheet" id="ending" hidden aria-label="Mission debrief"><div class="modal" id="endBody"></div></section>
-</div>
-<div class="below"><div class="control"><button class="actionbtn primary" id="terminalBtn" type="button">⌘ Open terminal <span class="key">T</span></button><button class="actionbtn" id="traceBtn" type="button">◎ Trace Vision <span class="key">SPACE</span></button><button class="actionbtn" id="caseBtn" type="button">◇ Caseboard <span class="key" id="evidenceCount">0 / 5</span></button></div><div class="tinyhelp">Walk with <span class="key">W A S D</span> or click any location · Click characters and stations to interact.</div></div>
-<p class="copyright">An independent OpenShift-inspired learning prototype. Simulated infrastructure, no real network access. OpenShift, RHACS, and Red Hat names belong to their respective owners.</p>
-</main>
-<script type="module" src="/src/main.ts"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#050c13" />
+    <title>ROADSHOW / Ghost Route — OpenShift Security Adventure</title>
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="#map" aria-label="ROADSHOW Ghost Route map"
+        ><img class="hatmark" src="%BASE_URL%art/hat.webp" alt="" />
+        <div>
+          <div class="bname">ROADSHOW <span>/ GHOST ROUTE</span></div>
+          <div class="bsub">AN OPENSHIFT SECURITY ADVENTURE</div>
+        </div></a
+      >
+      <nav class="navigation" aria-label="Game navigation">
+        <button class="navtab selected" data-nav="map">Map</button
+        ><button class="navtab" data-nav="inventory">Inventory</button
+        ><button class="navtab" data-nav="journal">Journal</button>
+      </nav>
+      <div class="topright">
+        <div class="episode">EPISODE 01<span>THE FIRST BREACH</span></div>
+        <div class="progress">
+          <b id="missionProgress">0%</b><span>MISSION PROGRESS</span>
+        </div>
+        <button class="textbtn" id="restartTop" type="button">Restart</button>
+      </div>
+    </header>
+    <main class="page" id="map">
+      <div class="frame" id="frame">
+        <div class="sceneBar">
+          <div>
+            <strong id="sceneTitle">Security district</strong
+            ><span id="sceneDescription"
+              >RHACS Central · cluster fleet investigation</span
+            >
+          </div>
+          <span id="zoneBadge" class="zoneBadge neutral">PUBLIC TRANSIT</span
+          ><button id="sceneBack" class="btnquiet compact" hidden>
+            Leave this room
+          </button>
+        </div>
+        <div
+          id="changeNotice"
+          class="changeNotice"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
+        <div id="impactFlag" class="impactFlag" role="status" hidden></div>
+        <div class="mapstage">
+          <canvas
+            id="world"
+            width="1180"
+            height="650"
+            tabindex="0"
+            aria-label="Interactive map of an OpenShift cluster containing two worker nodes, payment API Pods, the RHACS station, and an operator avatar. Click a destination to walk. Use WASD or arrows to move."
+          ></canvas>
+          <div class="overlay casehud" id="casehud">
+            <div class="eyebrow" id="phase">CASE 018 · INVESTIGATE</div>
+            <div class="casetitle" id="objectiveTitle">Find the cause.</div>
+            <div class="casehint" id="objective">
+              Something in payment-api changed. Read its logs and Deployment
+              config.
+            </div>
+            <ol class="missionsteps" id="missionSteps">
+              <li>Investigate payment-api</li>
+              <li>Identify the configuration change</li>
+              <li>Apply a containment control</li>
+              <li>Verify customer service</li>
+            </ol>
+          </div>
+          <div class="overlay hudright">
+            <div class="eyebrow">ANOMALY DETECTED</div>
+            <p id="anomalyText">
+              Unusual egress connection<br />from payment-api
+            </p>
+            <button class="btnquiet compact" id="anomalyDetails" type="button">
+              View details
+            </button>
+            <div class="serviceSummary">
+              <div class="stat">
+                <div class="name">Customer service</div>
+                <b class="good" id="health">HEALTHY</b
+                ><small id="healthDetail">2 / 2 replicas ready</small>
+              </div>
+              <div class="stat">
+                <div class="name">Exposure</div>
+                <b class="bad" id="exposure">UNCONTROLLED</b
+                ><small id="exposureDetail">Unapproved egress path</small>
+              </div>
+            </div>
+          </div>
+          <div class="overlay prompt" id="nearby" hidden>
+            <kbd>E</kbd><span id="nearbyText">Interact</span
+            ><button id="terminalBtn" class="btnquiet compact" hidden>
+              Use bastion
+            </button>
+          </div>
+          <div class="overlay radio" id="radio" hidden>
+            <div class="portrait" id="radioPortrait"></div>
+            <div class="radioContent">
+              <div class="radioname" id="radioName">RHEA</div>
+              <div class="radiotext" id="radioText"></div>
+            </div>
+            <button id="radioClose" type="button">Got it ↵</button>
+          </div>
+          <div
+            class="overlay toast"
+            id="toast"
+            role="status"
+            aria-live="polite"
+          ></div>
+        </div>
+        <div class="workbench">
+          <section class="notesDock" aria-label="Investigator notebook">
+            <div class="notesHeading">
+              <label for="caseNotes">Case notebook</label
+              ><span id="localStatus">Local autosave enabled</span>
+            </div>
+            <textarea
+              id="caseNotes"
+              maxlength="50000"
+              placeholder="Write leads, evidence, and commands here. Your notes follow you to the bastion…"
+            ></textarea>
+            <p>Talk to witnesses → gather evidence → return to the bastion.</p>
+          </section>
+          <section class="intelDock" aria-label="Live investigation health">
+            <section
+              class="healthPanel"
+              aria-label="Live cluster and application health"
+            >
+              <div class="healthHeading">
+                <strong>Live health map</strong>
+                <div class="mapSwitch">
+                  <button
+                    class="selected"
+                    data-health-view="application"
+                    aria-pressed="true"
+                  >
+                    App</button
+                  ><button data-health-view="cluster" aria-pressed="false">
+                    Cluster
+                  </button>
+                </div>
+              </div>
+              <div id="healthSummary" class="good"></div>
+              <div id="healthMap"></div>
+            </section>
+          </section>
+        </div>
+        <section
+          class="sheet"
+          id="shellshade"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-label="Training bastion terminal"
+        >
+          <div class="bastionPanel">
+            <div id="bastionHealth" class="bastionHealth"></div>
+            <section
+              class="terminal"
+              role="region"
+              aria-label="OpenShift command terminal"
+            >
+              <div class="termbar">
+                <strong id="termTitle">operator@bastion — shell</strong
+                ><button class="termclose" id="closeTerm" type="button">
+                  Leave bastion <kbd>Esc</kbd>
+                </button>
+              </div>
+              <div class="termoutput" id="termOutput" aria-live="polite"></div>
+              <form class="termform" id="termform">
+                <label class="termprompt" for="termInput" id="termPrompt"
+                  >operator@bastion:~$</label
+                >
+                <div class="termcmd">
+                  <div class="ghost">
+                    <span id="ghostLead"></span><span id="ghostTail"></span>
+                  </div>
+                  <input
+                    id="termInput"
+                    type="text"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    aria-label="Enter shell command"
+                  />
+                </div>
+              </form>
+              <div class="termhelp">
+                <span><b>TAB</b> complete</span><span><b>↑↓</b> history</span
+                ><span><b>help</b> commands</span
+                ><span><b>cat README.md</b> lab guide</span>
+              </div>
+            </section>
+            <aside class="bastionNotes">
+              <label for="bastionNotes">Case notes</label>
+              <p>Keep your findings beside the console. Saved locally.</p>
+              <textarea
+                id="bastionNotes"
+                maxlength="50000"
+                placeholder="Evidence, commands to try, and questions for witnesses…"
+              ></textarea>
+            </aside>
+          </div>
+        </section>
+        <section class="sheet" id="opening" aria-label="Incident briefing">
+          <div class="modal">
+            <div class="eyebrow">
+              02:14 UTC · PAYMENTS DISTRICT · OPENSHIFT CLUSTER
+            </div>
+            <h2>
+              A signal that should<br /><span class="danger"
+                >never have left.</span
+              >
+            </h2>
+            <p class="bigquote">
+              “Every checkout still succeeds. But now every success is followed
+              by a signal to an address outside our baseline. Nobody can explain
+              it. Find what changed—before someone decides that switching
+              everything off is the answer.”
+            </p>
+            <p>
+              Rhea has the first report. Mira guards the worker rooms. Kai
+              handled the release. Vale keeps the audit trail behind a locked
+              archive door. Each knows only part of what happened.
+            </p>
+            <div class="modal-foot">
+              <span class="hint"
+                >Meet Rhea. Obtain access. Gather evidence. Work at the
+                bastion.</span
+              ><button class="btnred" id="startBtn" type="button" disabled>
+                Enter the district →
+              </button>
+            </div>
+          </div>
+        </section>
+        <section
+          class="sheet"
+          id="details"
+          hidden
+          aria-label="Investigation details"
+        >
+          <div class="modal" id="detailsBody"></div>
+        </section>
+        <section id="casepanel" hidden aria-label="Evidence case board">
+          <div class="panelhead">
+            <h2>Caseboard</h2>
+            <button
+              class="cross"
+              id="closeCase"
+              type="button"
+              aria-label="Close caseboard"
+            >
+              Close
+            </button>
+          </div>
+          <div class="panelmeta">INCIDENT 018 · RHACS NETWORK ANOMALY</div>
+          <div id="evidenceList"></div>
+          <p class="hint">A deviation is a lead—not proof of compromise.</p>
+        </section>
+        <section class="sheet" id="ending" hidden aria-label="Mission debrief">
+          <div class="modal" id="endBody"></div>
+        </section>
+      </div>
+      <footer class="below">
+        <div class="control">
+          <button class="actionbtn" id="traceBtn" type="button">
+            Trace Vision <kbd>SPACE</kbd></button
+          ><button class="actionbtn" id="caseBtn" type="button">
+            Caseboard <span class="key" id="evidenceCount">0 / 5</span>
+          </button>
+        </div>
+        <div class="tinyhelp">
+          <kbd>W A S D</kbd> move <span>·</span> <kbd>E</kbd> interact
+          <span>·</span> <kbd>T</kbd> use bastion nearby
+        </div>
+        <p class="copyright">OFFLINE TRAINING · OPENSHIFT 4.22</p>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

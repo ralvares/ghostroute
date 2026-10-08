@@ -6,6 +6,7 @@ import {
   testConnection,
 } from "../simulation/operations.js";
 import { validOcCommand, validPodCommand } from "./syntax.js";
+import { clusterCommand } from "./cluster-shell.js";
 import { S } from "../simulation/state.js";
 import {
   print,
@@ -22,14 +23,19 @@ import { toast } from "../ui/notifications.js";
 import { updateHUD } from "../ui/hud.js";
 import { radio } from "../characters/dialogue.js";
 import { maybeWin } from "../missions/progression.js";
+import { progressCommand } from "./progress-commands.js";
 
-export function exec(cmd: string) {
-  const raw = cmd.trim(),
-    low = raw.toLowerCase();
+export async function exec(cmd: string) {
+  const incident = S;
+  let raw = cmd.trim();
+  const low = raw.toLowerCase();
   if (!raw) return;
   S.history.push(raw);
   S.commands++;
-  print((G.podShell ? "sh-5.1$ " : "operator@bastion:~$ ") + raw, "command");
+  print(
+    (G.podShell ? "sh-5.1$ " : $("termPrompt").textContent + " ") + raw,
+    "command",
+  );
   if (raw === "clear") {
     $("termOutput").innerHTML = "";
     return;
@@ -38,7 +44,7 @@ export function exec(cmd: string) {
     print(
       G.podShell
         ? `Inside the payment-api Pod (SIMULATED):\n  env                 inspect process environment\n  curl -I URL         test an HTTP destination\n  nslookup NAME       test DNS\n  ip route            view route\n  exit                return to bastion`
-        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cat / pwd\n\nExplore the resources and policies. TAB completes supported commands.`,
+        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cd / cat / pwd / mkdir\n\nExplore the resources and policies. TAB completes supported commands.\nFor cluster labs, type oc --help, cat lab.txt, or ls workloads.\nLocal progress/offline: game status, game save, game export, game import.`,
       "meta",
     );
     return;
@@ -54,6 +60,22 @@ export function exec(cmd: string) {
   }
   if (G.podShell) {
     podCmd(raw);
+    return;
+  }
+  if (await progressCommand(raw)) return;
+  try {
+    const handled = await clusterCommand(raw);
+    if (S !== incident) return;
+    if (handled?.legacyCommand) raw = handled.legacyCommand;
+    else if (handled) {
+      if (raw.startsWith("oc login") || raw.startsWith("cd")) switchPrompt();
+      updateHUD();
+      if (handled.stdout)
+        print(handled.stdout.trimEnd(), handled.error ? "error" : "reply");
+      return;
+    }
+  } catch (error) {
+    printError((error as Error).message);
     return;
   }
   if (raw.startsWith("oc ") && !validOcCommand(raw)) {

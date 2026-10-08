@@ -6,7 +6,8 @@ export type EventType =
   | "connectivity.tested"
   | "evidence.collected"
   | "security.reevaluated"
-  | "simulation.reset";
+  | "simulation.reset"
+  | "cluster.request";
 
 export interface DomainEvent {
   readonly sequence: number;

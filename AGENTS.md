@@ -1,10 +1,10 @@
-# NEXUS project rules
+# ROADSHOW project rules
 
 This repository lives in `security-game`. The original playable game is
 `legacy/nexus_ghost_route_game.html`. Preserve that file as the baseline.
 
 1. Never remove existing functionality without explicit user approval.
-2. Preserve working gameplay and its visual presentation; do not redesign it.
+2. Preserve working gameplay. The user approved a new visual presentation based on the supplied isometric screenshot and ROADSHOW branding.
 3. Keep the graphical world; do not replace it with a dashboard.
 4. Maintain a working build throughout incremental migration.
 5. Commit each completed, verified migration milestone.

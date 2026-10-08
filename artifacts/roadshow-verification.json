@@ -1,0 +1,238 @@
+{
+  "target": "ROADSHOW offline OpenShift laboratory and investigation RPG",
+  "date": "2026-10-08",
+  "production_build": "passed",
+  "typecheck": "passed",
+  "unit_tests": 23,
+  "unit_result": "passed",
+  "gameplay": {
+    "url": "http://127.0.0.1:4174/",
+    "flows": [
+      "WASD movement, Trace Vision, nearby interaction, modal escape",
+      "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
+      "Autocomplete/history, evidence, rollout, deny-all outage, recovery, DNS, positive/negative tests, B-grade completion",
+      "Completed case and incident grade restore in a fresh page",
+      "Restart, S-grade safe completion and mobile canvas"
+    ],
+    "browser_errors": []
+  },
+  "semantics": {
+    "checks": [
+      "Unsupported commands reject",
+      "JSON/YAML representations",
+      "Only applied policies listed",
+      "Additive policy order preserves service",
+      "Exact Pod destinations",
+      "Deployment/Pod coherence"
+    ],
+    "browser_errors": []
+  },
+  "cluster": {
+    "checks": [
+      "Namespace/context persistence",
+      "SCC admission and owned-app repair",
+      "Real jq filters and malformed-query recovery",
+      "Real Go range/index templates",
+      "Deployment/controller failure distinction",
+      "RBAC denies escalation",
+      "anyuid grant/revoke",
+      "Scoped custom SCC",
+      "Audit investigation",
+      "User manifest CRUD"
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "story_world_and_layout": {
+    "url": "http://127.0.0.1:4174/",
+    "flows": [
+      "Rhea incident report -> Mira physical access pass -> worker interviews -> maintenance keycard -> Vale audit trail; doors enforce story access without granting API permissions",
+      "Single physical bastion opens modal terminal; T elsewhere is rejected; logs/config shortcuts removed; leaving console hides terminal; notebooks mirror and save leads",
+      "Default-deny interrupts console and animates Mira approaching; dialogue challenges outage; checkout degrades while Pods/nodes remain Ready; targeted recovery clears flag and raises recovery notice",
+      "Visited worker, access passes, discoveries, personal notes and outage acknowledgement survive a fresh page"
+    ],
+    "layout": [
+      {
+        "width": 1536,
+        "scrollWidth": 1536,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1536,
+          "h": 569
+        },
+        "notes": {
+          "x": 16,
+          "y": 752.5,
+          "w": 1120,
+          "h": 205
+        },
+        "intel": {
+          "x": 1150,
+          "y": 752.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 1024,
+        "scrollWidth": 1024,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1024,
+          "h": 470
+        },
+        "notes": {
+          "x": 16,
+          "y": 653.5,
+          "w": 608,
+          "h": 205
+        },
+        "intel": {
+          "x": 638,
+          "y": 653.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 390,
+        "scrollWidth": 390,
+        "world": {
+          "x": 0,
+          "y": 440.875,
+          "w": 390,
+          "h": 333.546875
+        },
+        "notes": {
+          "x": 10,
+          "y": 787.421875,
+          "w": 370,
+          "h": 210
+        },
+        "intel": {
+          "x": 10,
+          "y": 1009.421875,
+          "w": 370,
+          "h": 220
+        }
+      }
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "offline_subpath": {
+    "checks": [
+      "All build/WASM assets available after offline browser restart",
+      "Incident/evidence/cluster/files/SCC grants survive restart",
+      "Real jq and Go templates first used offline",
+      "Warm workers reused",
+      "Hung jq worker replaced",
+      "Portable export/import",
+      "Invalid import preserves live progress"
+    ],
+    "timings_include_dom_input_and_autosave": {
+      "offline_navigation_and_restore_ms": 400.9,
+      "cold_offline_jq_command_ms": 142.5,
+      "warm_jq_command_ms": [
+        147.0,
+        171.6,
+        141.3,
+        135.5,
+        38.1
+      ],
+      "cold_offline_go_command_ms": 145.1,
+      "warm_go_command_ms": [
+        154.2,
+        145.3,
+        49.9,
+        153.5,
+        37.0
+      ],
+      "worker_roundtrip_ms": [
+        {
+          "tool": "jq",
+          "ms": 29.9
+        },
+        {
+          "tool": "jq",
+          "ms": 23.2
+        },
+        {
+          "tool": "jq",
+          "ms": 18
+        },
+        {
+          "tool": "jq",
+          "ms": 32.1
+        },
+        {
+          "tool": "jq",
+          "ms": 13.7
+        },
+        {
+          "tool": "jq",
+          "ms": 8.3
+        },
+        {
+          "tool": "template",
+          "ms": 50.9
+        },
+        {
+          "tool": "template",
+          "ms": 20.4
+        },
+        {
+          "tool": "template",
+          "ms": 11.9
+        },
+        {
+          "tool": "template",
+          "ms": 14.3
+        },
+        {
+          "tool": "template",
+          "ms": 38
+        },
+        {
+          "tool": "template",
+          "ms": 8.7
+        }
+      ]
+    },
+    "browser_errors": [],
+    "url": "http://127.0.0.1:4174/"
+  },
+  "manual_browser": {
+    "url": "http://127.0.0.1:4178/",
+    "viewports": [
+      "1536x1024",
+      "390x844"
+    ],
+    "console_errors": [],
+    "checks": [
+      "Rhea incident report",
+      "Physical bastion opens and closes terminal",
+      "Personal notebook mirrors into console",
+      "Default-deny triggers approaching Mira and degraded checkout",
+      "Required egress restores checkout while external route stays blocked"
+    ],
+    "screenshots": [
+      "artifacts/roadshow/iab-story-desktop.png",
+      "artifacts/roadshow/iab-mira-final.png",
+      "artifacts/roadshow/iab-bastion-final.png",
+      "artifacts/roadshow/iab-bastion-mobile-final.png",
+      "artifacts/roadshow/iab-world-mobile-final.png"
+    ]
+  },
+  "design_qa": "design-qa.md",
+  "limits": [
+    "Bounded supported oc grammar; no complete client or live cluster parity",
+    "Single implemented chapter; future campaign not implemented",
+    "Offline requires first successful asset installation and retained browser storage",
+    "One local save per origin; concurrent tabs do not coordinate writes",
+    "Generated character animation approximates a walk/run cycle; no rigged skeleton",
+    "OpenShift 4.22 admission messages modeled from documented patterns; not live-cluster validated"
+  ]
+}

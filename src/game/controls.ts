@@ -1,3 +1,4 @@
+import { reactionObjects, startMiraReaction } from "../world/reactions.js";
 import { $ } from "../ui/dom.js";
 import { closeRadio, radio } from "../characters/dialogue.js";
 import { G, C, keys } from "../game/runtime.js";
@@ -8,7 +9,8 @@ import { S } from "../simulation/state.js";
 import { updateHUD } from "../ui/hud.js";
 import { restart } from "../missions/progression.js";
 import { blocked, worldPos } from "../game/movement.js";
-import { objects } from "../world/locations.js";
+import { floorPoint } from "../world/walkable.js";
+import { worldObjects } from "../world/locations.js";
 import {
   suggest,
   candidates,
@@ -17,6 +19,9 @@ import {
 import { exec } from "../terminal/commands.js";
 import { toast } from "../ui/notifications.js";
 import type { WorldObject } from "../world/locations.js";
+import { saveProgress, scheduleSave } from "../simulation/persistence.js";
+let commandQueue = Promise.resolve();
+let queuedCommands = 0;
 
 export function registerControls() {
   $("radioClose").addEventListener("click", closeRadio);
@@ -29,18 +34,23 @@ export function registerControls() {
   $("traceBtn").addEventListener("click", toggleTrace);
   $("terminalBtn").addEventListener("click", openTerminal);
   $("startBtn").addEventListener("click", () => {
+    const resuming = S.started;
     S.started = true;
     G.active = true;
     $("opening").hidden = true;
     C.focus();
-    radio(
-      "RHEA",
-      "Both payment Pods report Ready. That makes this harder: the system looks healthy. Press Space to trace traffic, and come see me or the RHACS station.",
-    );
+    if (!resuming)
+      radio(
+        "RHEA",
+        "Both payment Pods report Ready, but RHACS flagged a new connection. Meet me at the RHACS Central computer in the district. Then enter prod-east and inspect its worker rooms.",
+      );
+    if (S.policy === "deny" && !S.story.outageSeen) startMiraReaction();
     updateHUD();
+    scheduleSave();
   });
   $("restartTop").addEventListener("click", restart);
   C.addEventListener("click", (e) => {
+    C.focus();
     if (!S.started || blocked()) {
       return;
     }
@@ -48,7 +58,7 @@ export function registerControls() {
     const p = worldPos(e);
     let hit: WorldObject | null = null,
       dist = 85;
-    for (const o of objects) {
+    for (const o of [...worldObjects(), ...reactionObjects()]) {
       const d = Math.hypot(p.x - o.x, p.y - o.y);
       if (d < dist) {
         hit = o;
@@ -58,25 +68,26 @@ export function registerControls() {
     if (hit) {
       G.pending = hit;
       const a = Math.atan2(S.y - hit.y, S.x - hit.x);
-      G.target = {
-        x: Math.max(55, Math.min(1118, hit.x + Math.cos(a) * 34)),
-        y: Math.max(110, Math.min(594, hit.y + Math.sin(a) * 34)),
-      };
+      G.target = floorPoint(
+        { x: hit.x + Math.cos(a) * 34, y: hit.y + Math.sin(a) * 34 },
+        S.world.scene,
+      );
       if (Math.hypot(S.x - hit.x, S.y - hit.y) < 70) {
         G.target = null;
         G.pending = null;
         interact(hit);
       }
     } else {
-      G.target = {
-        x: Math.max(55, Math.min(1118, p.x)),
-        y: Math.max(110, Math.min(594, p.y)),
-      };
+      G.target = floorPoint(p, S.world.scene);
       G.pending = null;
     }
   });
   document.addEventListener("keydown", (e) => {
-    if (e.target === $("termInput")) return;
+    if (
+      e.target instanceof HTMLElement &&
+      e.target.closest("input, textarea, [contenteditable]")
+    )
+      return;
     if (G.detailOpen) {
       if (e.key === "Escape" || e.key === "Enter") {
         e.preventDefault();
@@ -142,7 +153,22 @@ export function registerControls() {
     G.tabIndex = 0;
     $("termInput").value = "";
     suggest();
-    exec(v);
+    const incident = S;
+    queuedCommands++;
+    $("termform").setAttribute("aria-busy", "true");
+    commandQueue = commandQueue
+      .then(async () => {
+        try {
+          if (S === incident) {
+            await exec(v);
+            await saveProgress();
+          }
+        } finally {
+          queuedCommands--;
+          $("termform").setAttribute("aria-busy", String(queuedCommands > 0));
+        }
+      })
+      .catch((error) => toast((error as Error).message));
   });
   $("termInput").addEventListener("input", () => {
     G.histPointer = -1;
@@ -221,7 +247,6 @@ export function registerControls() {
       } else toast("No matching command in history");
     }
   });
-  $("closeTerm").addEventListener("click", closeTerminal);
   // modal click outside and escape
   $("details").addEventListener("click", (e) => {
     if (e.target === $("details")) closeDetail();

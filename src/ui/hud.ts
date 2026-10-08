@@ -1,13 +1,21 @@
 import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
-import { radio } from "../characters/dialogue.js";
+import { updateHealthMap } from "./health-map.js";
+import { updateWorkbench } from "./workbench.js";
 
 export function updateHUD() {
+  updateWorkbench();
+  updateHealthMap();
   let title, txt, phase;
   if (S.done) {
     phase = "CASE 018 · RESOLVED";
     title = "Route secured. District restored.";
     txt = "The payment service survived. The case is closed.";
+  } else if (S.policy === "deny") {
+    phase = "CASE 018 · CUSTOMER IMPACT";
+    title = "Checkout is degraded.";
+    txt =
+      "Both Pods are Ready, but DNS and ledger are blocked. Restore only the required egress.";
   } else if (S.env && S.evidence.size < 2) {
     phase = "CASE 018 · INVESTIGATE";
     title = "Where is the red traffic coming from?";
@@ -23,11 +31,6 @@ export function updateHUD() {
     title = "The suspicious setting is gone.";
     txt =
       "An open network path remains. Apply least-privilege egress controls.";
-  } else if (S.policy === "deny") {
-    phase = "CASE 018 · CUSTOMER IMPACT";
-    title = "Checkout is failing!";
-    txt =
-      "Default-deny also blocked DNS and ledger. Restore required egress, not all egress.";
   } else if (!(
     (S.evidence.has("rhacs") || S.evidence.has("trace")) &&
     S.evidence.size >= 3
@@ -42,6 +45,30 @@ export function updateHUD() {
     txt =
       "From a Pod, test ledger access and external blocking. Check the Deployment rollout.";
   }
+  if (S.env && S.evidence.size < 2 && S.policy !== "deny") {
+    const scene = S.world.scene;
+    if (scene === "district") {
+      title = "Follow the ghost signal.";
+      txt =
+        "Meet Rhea for the RHACS incident report. Then ask Mira in the prod-east lobby for worker-room access.";
+    } else if (scene === "soc") {
+      title = "Search the operator hub.";
+      txt =
+        "Talk to Rhea. Search the maintenance locker. Use the bastion here after gathering your evidence.";
+    } else if (scene === "cluster") {
+      title = "Four doors. One changed service.";
+      txt =
+        "Show Mira the incident report to obtain worker access. Interview Kai and Vale, then return to the RHACS Central bastion.";
+    } else if (scene === "archive") {
+      title = "Trace the configuration change.";
+      txt =
+        "Interview Vale and inspect the release record. Save the leads in your notebook, then investigate at the bastion.";
+    } else if (scene === "operations") {
+      title = "Inspect the application build.";
+      txt =
+        "Ask Kai why the owned application needs root. Take his build notes back to the bastion for the SCC lab.";
+    }
+  }
   $("phase").textContent = phase;
   $("objectiveTitle").textContent = title;
   $("objective").textContent = txt;
@@ -52,11 +79,25 @@ export function updateHUD() {
     ? "Ledger requests timing out"
     : "2 / 2 replicas ready";
   $("exposure").textContent =
-    S.policy === "allow" ? "CONTAINED" : S.env ? "UNCONTROLLED" : "OPEN PATH";
+    S.policy === "allow"
+      ? "CONTAINED"
+      : S.policy === "deny"
+        ? "ISOLATED"
+        : S.env
+          ? "UNCONTROLLED"
+          : "OPEN PATH";
   $("exposure").className =
-    S.policy === "allow" ? "good" : S.env ? "bad" : "warn";
+    S.policy === "allow"
+      ? "good"
+      : S.policy === "deny"
+        ? "warn"
+        : S.env
+          ? "bad"
+          : "warn";
   $("exposureDetail").textContent =
     S.policy === "allow"
       ? "Only required Pod egress"
-      : "No enforced egress boundary";
+      : S.policy === "deny"
+        ? "All Pod egress blocked"
+        : "No enforced egress boundary";
 }

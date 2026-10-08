@@ -13,7 +13,15 @@ export const keys = new Set<string>();
 /** Presentation/input state only; infrastructure and progression live in S. */
 export const G = {
   cameraX: 0,
+  cameraY: 0,
   frame: 0,
+  walking: false,
+  miraReaction: null as {
+    x: number;
+    y: number;
+    step: number;
+    arrived: boolean;
+  } | null,
   lastTime: 0,
   active: false,
   terminalOpen: false,

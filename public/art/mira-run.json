@@ -1,0 +1,105 @@
+{
+  "image": "mira-run.webp",
+  "width": 1024,
+  "height": 1536,
+  "columns": 2,
+  "rows": 2,
+  "frameWidth": 512,
+  "frameHeight": 768,
+  "facing": "rear-three-quarter-left",
+  "scaleRecommendation": 0.17921146953405018,
+  "playback": "row-major-loop-while-running",
+  "anchorRecommendation": "Use fixed scale for every full cell. Put measured support-boot pivot at movement ground point; do not add levitation or oscillating position offset. Frames 1 and 3 show planted support boots, frames 0 and 2 extended strides. Return to mira.webp after arrival.",
+  "validation": {
+    "generatedWith": "builtin ImageGen",
+    "transparentAlpha": true,
+    "fourDistinctFrames": true,
+    "limitations": "Generated opposite-leg alternation remains approximate; four frames contain distinct extended stride and knee-raised/planted support poses."
+  },
+  "frames": [
+    {
+      "index": 0,
+      "sourceRect": {
+        "x": 0,
+        "y": 0,
+        "width": 512,
+        "height": 768
+      },
+      "visibleBounds": {
+        "x": 80,
+        "y": 146,
+        "width": 394,
+        "height": 556
+      },
+      "pivot": {
+        "x": 416.5,
+        "y": 702
+      },
+      "headCenterX": 231.0,
+      "durationMs": 100
+    },
+    {
+      "index": 1,
+      "sourceRect": {
+        "x": 512,
+        "y": 0,
+        "width": 512,
+        "height": 768
+      },
+      "visibleBounds": {
+        "x": 117,
+        "y": 146,
+        "width": 296,
+        "height": 558
+      },
+      "pivot": {
+        "x": 359.0,
+        "y": 704
+      },
+      "headCenterX": 230.0,
+      "durationMs": 100
+    },
+    {
+      "index": 2,
+      "sourceRect": {
+        "x": 0,
+        "y": 768,
+        "width": 512,
+        "height": 768
+      },
+      "visibleBounds": {
+        "x": 80,
+        "y": 143,
+        "width": 404,
+        "height": 535
+      },
+      "pivot": {
+        "x": 431.0,
+        "y": 678
+      },
+      "headCenterX": 232.5,
+      "durationMs": 100
+    },
+    {
+      "index": 3,
+      "sourceRect": {
+        "x": 512,
+        "y": 768,
+        "width": 512,
+        "height": 768
+      },
+      "visibleBounds": {
+        "x": 117,
+        "y": 143,
+        "width": 296,
+        "height": 554
+      },
+      "pivot": {
+        "x": 359.0,
+        "y": 697
+      },
+      "headCenterX": 233.0,
+      "durationMs": 100
+    }
+  ]
+}

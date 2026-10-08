@@ -1,11 +1,21 @@
 import type { ClueId } from "../security/evidence.js";
 import { evaluateFindings } from "../security/findings.js";
 import type { DomainEvent } from "./events.js";
+import { createCluster } from "./cluster-model.js";
 
+import type { SceneId } from "../world/scene-model.js";
 export function makeState() {
   return {
-    x: 423,
-    y: 512,
+    cluster: createCluster(),
+    world: { scene: "district" as SceneId, visited: ["district"] as SceneId[] },
+    story: {
+      inventory: [] as string[],
+      discoveries: [] as string[],
+      notes: "",
+      outageSeen: false,
+    },
+    x: 520,
+    y: 410,
     facing: 1,
     step: 0,
     deployment: {
@@ -66,6 +76,10 @@ export function makeState() {
   };
 }
 export let S = makeState();
+export type SimulationState = ReturnType<typeof makeState>;
+export function replaceState(state: SimulationState) {
+  S = state;
+}
 export function resetState() {
   S = makeState();
 }

@@ -1,0 +1,166 @@
+import { makeState, type SimulationState } from "./state.js";
+import { isScene } from "../world/scene-model.js";
+import { evaluateFindings } from "../security/findings.js";
+
+const derived = new Set(["env", "podRev", "policy", "findings"]);
+const clues = new Set(["rhacs", "trace", "logs", "env", "policy"]);
+const setKeys = ["policies", "evidence", "checked", "verified"] as const;
+
+/** Portable, versioned checkpoint. Computed values are rebuilt from source state. */
+export function encodeProgress(state: SimulationState) {
+  const data: Record<string, unknown> = Object.fromEntries(
+    Object.entries(state).filter(([key]) => !derived.has(key)),
+  );
+  for (const key of setKeys) data[key] = [...state[key]];
+  data.cluster = {
+    ...state.cluster,
+    ownedNamespaces: [...state.cluster.ownedNamespaces],
+  };
+  return JSON.stringify({ format: "roadshow-progress", version: 1, data });
+}
+
+function sameType(expected: unknown, value: unknown, path = ""): boolean {
+  if (path === "deployment.env")
+    return (
+      !!value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.values(value).every((entry) => typeof entry === "string")
+    );
+  if (expected instanceof Set)
+    return (
+      value instanceof Set &&
+      [...value].every((item) => typeof item === "string")
+    );
+  if (Array.isArray(expected)) return Array.isArray(value);
+  if (expected && typeof expected === "object")
+    return (
+      !!value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.entries(expected).every(([key, entry]) =>
+        sameType(
+          entry,
+          (value as Record<string, unknown>)[key],
+          `${path}.${key}`,
+        ),
+      )
+    );
+  if (typeof expected === "number")
+    return typeof value === "number" && Number.isFinite(value);
+  return typeof value === typeof expected;
+}
+
+export function decodeProgress(text: string): SimulationState {
+  if (text.length > 20_000_000)
+    throw new Error("Progress file is too large (20 MB limit).");
+  const saved = JSON.parse(text);
+  if (
+    !["roadshow-progress", "nexus-progress"].includes(saved?.format) ||
+    saved.version !== 1 ||
+    !saved.data
+  )
+    throw new Error(
+      "Unsupported progress file. Expected ROADSHOW save version 1.",
+    );
+  saved.data.story ??= { inventory: [], discoveries: [] };
+  saved.data.story.notes ??= "";
+  saved.data.story.outageSeen ??= false;
+  saved.data.world ??= { scene: "district", visited: ["district"] };
+  // Version 1 saves made before filesystem navigation retain their incident.
+  if (saved.data.cluster) {
+    saved.data.cluster.cwd ??= "/home/operator";
+    saved.data.cluster.previousCwd ??= "/home/operator";
+    saved.data.cluster.directories ??= [];
+  }
+  for (const [object, key] of [
+    ...setKeys.map((key) => [saved.data, key]),
+    [saved.data.cluster, "ownedNamespaces"],
+  ]) {
+    if (
+      !object ||
+      !Array.isArray(object[key]) ||
+      !object[key].every((item: unknown) => typeof item === "string")
+    )
+      throw new Error("Progress file contains invalid simulation data.");
+    object[key] = new Set(object[key]);
+  }
+  const state = makeState();
+  const keys = Object.keys(state).filter((key) => !derived.has(key));
+  if (
+    !keys.every((key) =>
+      sameType(state[key as keyof SimulationState], saved.data[key], key),
+    )
+  )
+    throw new Error("Progress file is incomplete or damaged.");
+  const data = saved.data as SimulationState;
+  if (
+    data.story.notes.length > 50000 ||
+    !data.story.inventory.every((item) =>
+      ["maintenance-keycard", "worker-pass"].includes(item),
+    ) ||
+    !data.story.discoveries.every((item) =>
+      ["keycard", "access", "audit", "release", "image", "boundary"].includes(
+        item,
+      ),
+    ) ||
+    !isScene(data.world.scene) ||
+    !data.world.visited.every(isScene) ||
+    data.cluster.version !== "4.22" ||
+    !["operator", "platform-admin"].includes(data.cluster.user) ||
+    [...data.evidence].some((item) => !clues.has(item)) ||
+    [...data.policies].some(
+      (item) => !["default-deny-egress", "payment-egress"].includes(item),
+    ) ||
+    !Object.values(data.deployment.env).every(
+      (value) => typeof value === "string",
+    ) ||
+    !Object.values(data.cluster.files).every(
+      (value) => typeof value === "string",
+    ) ||
+    !data.cluster.directories.every(
+      (item) => typeof item === "string" && item.startsWith("/home/operator/"),
+    ) ||
+    !data.cluster.cwd.startsWith("/") ||
+    !data.cluster.previousCwd.startsWith("/") ||
+    !data.history.every((item) => typeof item === "string") ||
+    ![
+      ...data.cluster.resources,
+      ...data.cluster.sccs,
+      ...data.cluster.events,
+    ].every(
+      (item) =>
+        item &&
+        typeof item.apiVersion === "string" &&
+        typeof item.kind === "string" &&
+        typeof item.metadata?.name === "string",
+    ) ||
+    !data.pods.every(
+      (item) =>
+        typeof item.name === "string" &&
+        typeof item.ready === "boolean" &&
+        Number.isFinite(item.revision),
+    ) ||
+    !data.audit.every(
+      (item) => typeof item.type === "string" && Number.isFinite(item.sequence),
+    ) ||
+    !data.cluster.audit.every(
+      (item) =>
+        item.kind === "Event" &&
+        typeof item.user?.username === "string" &&
+        Number.isFinite(item.responseStatus?.code),
+    )
+  )
+    throw new Error("Progress file contains invalid simulation data.");
+  for (const key of keys)
+    Object.defineProperty(state, key, {
+      value: data[key as keyof SimulationState],
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  state.x = Math.max(55, Math.min(1118, state.x));
+  state.y = Math.max(105, Math.min(594, state.y));
+  state.findings = evaluateFindings(state.env, state.policy);
+  return state;
+}

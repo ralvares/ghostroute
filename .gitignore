@@ -4,3 +4,5 @@ test-results/
 artifacts/migrated/
 __pycache__/
 .test-build/
+
+artifacts/roadshow/
