@@ -2,10 +2,25 @@ import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
 import { updateHealthMap } from "./health-map.js";
 import { updateWorkbench } from "./workbench.js";
+import { currentChapter, campaignChecks } from "../campaign/engine.js";
 
 export function updateHUD() {
   updateWorkbench();
   updateHealthMap();
+  if (S.campaign.active) {
+    const chapter = currentChapter();
+    const missing = campaignChecks().filter((g) => !g.passed);
+    $("phase").textContent = chapter.act + " · CHAPTER " + chapter.id;
+    $("objectiveTitle").textContent = chapter.title;
+    $("objective").textContent =
+      missing[0]?.label ??
+      "Conclude the case at the bastion: case conclude " + chapter.conclusion;
+    $("exposure").textContent = missing.length ? "UNVERIFIED" : "VERIFIED";
+    $("exposure").className = missing.length ? "warn" : "good";
+    $("exposureDetail").textContent =
+      chapter.namespace + " · " + missing.length + " objectives remain";
+    return;
+  }
   let title, txt, phase;
   if (S.done) {
     phase = "CASE 018 · RESOLVED";

@@ -1,4 +1,8 @@
 import { S } from "../simulation/state.js";
+import {
+  resourceTypes,
+  resolveResource,
+} from "../simulation/resource-types.js";
 
 export function roleAllows(
   username: string,
@@ -7,16 +11,9 @@ export function roleAllows(
   namespace?: string,
   name?: string,
 ) {
-  const group =
-    resource === "securitycontextconstraints"
-      ? "security.openshift.io"
-      : resource === "deployments"
-        ? "apps"
-        : resource === "networkpolicies"
-          ? "networking.k8s.io"
-          : ["roles", "rolebindings"].includes(resource)
-            ? "rbac.authorization.k8s.io"
-            : "";
+  const type = resolveResource(resource.split("/")[0]);
+  const version = type ? resourceTypes[type].apiVersion : "v1";
+  const group = version.includes("/") ? version.split("/")[0] : "";
   for (const binding of S.cluster.resources.filter(
     (item) =>
       item.kind === "RoleBinding" && item.metadata.namespace === namespace,
@@ -37,6 +34,26 @@ export function roleAllows(
       continue;
     const ref = binding.roleRef as { kind: string; name: string } | undefined;
     if (!ref) continue;
+    if (
+      ref.kind === "ClusterRole" &&
+      ["view", "edit", "admin"].includes(ref.name)
+    ) {
+      if (
+        ref.name === "view" &&
+        ["get", "list", "watch"].includes(verb) &&
+        resource !== "secrets"
+      )
+        return true;
+      if (
+        ["edit", "admin"].includes(ref.name) &&
+        !["securitycontextconstraints", "rolebindings", "roles"].includes(
+          resource,
+        )
+      )
+        return true;
+      if (ref.name === "admin" && ["roles", "rolebindings"].includes(resource))
+        return true;
+    }
     if (
       ref.kind === "ClusterRole" &&
       ref.name.startsWith("system:openshift:scc:") &&

@@ -74,6 +74,28 @@ export function admitPod(
         errors.push(
           `${path}.privileged: Invalid value: true: Privileged containers are not allowed`,
         );
+      const seccomp = requested.seccompProfile;
+      if (seccomp) {
+        const profile =
+          seccomp.type === "RuntimeDefault"
+            ? "runtime/default"
+            : seccomp.type === "Localhost"
+              ? "localhost/" + seccomp.localhostProfile
+              : "unconfined";
+        const allowed = scc.seccompProfiles as string[] | undefined;
+        if (
+          allowed &&
+          !allowed.includes("*") &&
+          !allowed.includes(profile) &&
+          !(profile.startsWith("localhost/") && allowed.includes("localhost/*"))
+        )
+          errors.push(
+            path +
+              ".seccompProfile: Forbidden: profile " +
+              profile +
+              " is not allowed",
+          );
+      }
       if (
         requested.allowPrivilegeEscalation &&
         scc.allowPrivilegeEscalation === false

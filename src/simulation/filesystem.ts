@@ -60,6 +60,23 @@ export function directories() {
   }
   return paths;
 }
+
+/** Shell completion reads the same live filesystem as ls/cat, including user files. */
+export function completePath(prefix: string, directoriesOnly = false) {
+  const slash = prefix.lastIndexOf("/");
+  const parent = slash >= 0 ? prefix.slice(0, slash + 1) : "";
+  const fragment = prefix.slice(slash + 1);
+  const absolute = resolvePath(parent || ".");
+  const base = absolute === "/" ? "/" : absolute + "/";
+  const dirs = directories();
+  const entries = [...dirs, ...Object.keys(allFiles()).map(key => HOME + "/" + key)];
+  return [...new Set(entries)].filter(path => {
+    const tail = path.slice(base.length);
+    return path.startsWith(base) && tail && !tail.includes("/") &&
+      tail.startsWith(fragment) && (!directoriesOnly || dirs.has(path));
+  }).map(path => parent + path.slice(base.length) + (dirs.has(path) ? "/" : ""))
+    .sort((a, b) => a.localeCompare(b));
+}
 export function readVirtualFile(path: string) {
   const absolute = resolvePath(path);
   if (directories().has(absolute))

@@ -1,11 +1,87 @@
 import { S } from "../simulation/state.js";
 import { projectHealth } from "../simulation/health.js";
 import { esc } from "./notifications.js";
+import { currentChapter, campaignChecks } from "../campaign/engine.js";
 let view = "application";
 let signature = "";
 const el = (id: string) => document.getElementById(id)!;
 export function updateHealthMap() {
   const health = projectHealth(S);
+  if (S.campaign.active) {
+    const ch = currentChapter(),
+      pods = S.cluster.resources.filter(
+        (r) => r.kind === "Pod" && r.metadata.namespace === ch.namespace,
+      );
+    const ready = pods.filter((r) =>
+      (r.status?.containerStatuses as { ready: boolean }[] | undefined)?.every(
+        (c) => c.ready,
+      ),
+    ).length;
+    const degraded = pods.length > ready;
+    const state = degraded
+      ? "DEGRADED"
+      : pods.length
+        ? "RUNNING"
+        : "INVESTIGATING";
+    const checklist = campaignChecks(),
+      met = checklist.filter((g) => g.passed).length;
+    el("impactFlag").hidden = !degraded;
+    el("impactFlag").textContent =
+      "WORKLOAD DEGRADED · " + ready + "/" + pods.length + " tenant Pods Ready";
+    el("health").textContent = state;
+    el("health").className = degraded ? "bad" : "good";
+    el("healthDetail").textContent = pods.length
+      ? ready + "/" + pods.length + " tenant Pods Ready"
+      : "No workload in this assessment";
+    el("healthSummary").textContent = state + " · " + ch.namespace;
+    el("healthSummary").className = degraded ? "bad" : "good";
+    el("bastionHealth").textContent =
+      ch.title +
+      " · " +
+      state +
+      " · " +
+      met +
+      "/" +
+      checklist.length +
+      " case objectives";
+    if (view === "application")
+      el("healthMap").innerHTML =
+        '<div class="chapterHealth"><strong>' +
+        esc(ch.district) +
+        "</strong><span>" +
+        esc(ch.namespace) +
+        "</span><p>" +
+        ready +
+        "/" +
+        pods.length +
+        ' workload Pods Ready</p><div class="podDots">' +
+        pods
+          .map(
+            (p) =>
+              '<i class="' +
+              ((p.status?.containerStatuses as { ready: boolean }[])?.every(
+                (c) => c.ready,
+              )
+                ? "ready"
+                : "notReady") +
+              '" title="' +
+              esc(p.metadata.name) +
+              '"></i>',
+          )
+          .join("") +
+        "</div><p>" +
+        met +
+        "/" +
+        checklist.length +
+        ' objectives supported</p></div><p class="mapLegend">Positive and negative proof required. Resource changes stale older proof.</p>';
+    else
+      el("healthMap").innerHTML =
+        `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods</small><div class="podDots">${node.pods.map((p) => `<i class="${p.ready ? "ready" : "notReady"}" title="${esc(p.namespace)}/${esc(p.name)}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">Node readiness and tenant workload health are separate.</p>`;
+    el("healthMap").dataset.view = view;
+    el("healthMap").dataset.health = state.toLowerCase();
+    signature = "";
+    return;
+  }
   el("impactFlag").hidden = health.checkout !== "DEGRADED";
   el("impactFlag").textContent =
     S.policy === "deny"

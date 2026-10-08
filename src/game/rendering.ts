@@ -95,10 +95,24 @@ export function drawBackground(_t: number) {
   ctx.drawImage(artwork[scenes[S.world.scene].art], 0, 0, W, H);
 }
 export function drawPod(o: WorldObject, _t: number) {
+  const labPod =
+    o.id.startsWith("lab-pod:") &&
+    S.cluster.resources.find(
+      (p) =>
+        p.kind === "Pod" &&
+        p.metadata.name === o.resourceName &&
+        p.metadata.namespace === o.namespace,
+    );
+  const failed =
+    labPod &&
+    !(
+      labPod.status?.containerStatuses as { ready: boolean }[] | undefined
+    )?.every((c) => c.ready);
   const name =
     o.id === "ledger"
       ? "database"
-      : (o.id === "pod1" || o.id === "pod2") && S.findings.baselineDeviation
+      : failed ||
+          ((o.id === "pod1" || o.id === "pod2") && S.findings.baselineDeviation)
         ? "pod-alert"
         : "pod-blue";
   sprite(name, o.x, o.y + 35, 160, 155);

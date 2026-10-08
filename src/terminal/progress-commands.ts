@@ -10,6 +10,7 @@ import { updateHUD } from "../ui/hud.js";
 import { showEnding } from "../missions/progression.js";
 import { closeRadio } from "../characters/dialogue.js";
 import { closeDetail } from "../ui/panels.js";
+import { showCampaignEnding } from "../ui/campaign.js";
 
 export async function progressCommand(raw: string) {
   if (!raw.startsWith("game ")) return false;
@@ -71,7 +72,9 @@ export async function progressCommand(raw: string) {
         $("evidenceCount").textContent = `${S.evidence.size} / 5`;
         updateSceneHUD();
         updateHUD();
-        if (S.done) {
+        if (S.campaign.active && S.campaign.completed.includes(S.campaign.active)) {
+          $("opening").hidden=true;G.active=true;showCampaignEnding();
+        } else if (S.done && !S.campaign.active) {
           $("opening").hidden = true;
           G.active = true;
           showEnding();

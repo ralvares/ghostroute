@@ -1,0 +1,263 @@
+{
+  "target": "ROADSHOW 27-chapter campaign and static GitHub Pages build",
+  "date": "2026-10-08",
+  "unit_tests": 32,
+  "unit_result": "passed",
+  "production_build": "passed",
+  "framework_revision": "e48d32014657e162d04ab1f7a07d4891d0abac03",
+  "original_gameplay": {
+    "url": "http://127.0.0.1:4179/",
+    "flows": [
+      "WASD movement, Trace Vision, nearby interaction, modal escape",
+      "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
+      "Autocomplete/history, evidence, rollout, deny-all outage, recovery, DNS, positive/negative tests, B-grade completion",
+      "Completed case and incident grade restore in a fresh page",
+      "Restart, S-grade safe completion and mobile canvas"
+    ],
+    "browser_errors": []
+  },
+  "campaign_browser": {
+    "url": "http://127.0.0.1:4180/ghostroute/",
+    "chapters": [
+      "02 The Borrowed Image",
+      "03 The Door That Opens Twice",
+      "04 Permission Denied",
+      "05 The Vendor's Locked Box",
+      "06 The Hungry Tenant",
+      "07 The Password in the Window",
+      "08 The Glass Front Door",
+      "09 The Familiar Tag",
+      "10 The Missing Minute",
+      "11 Draw the City Before the Fire",
+      "12 Three Watchtowers",
+      "13 Neighbors Through the Wall",
+      "14 The Rule Above the Rules",
+      "15 A Name on the Outside",
+      "16 Two Cities, One Address Book",
+      "17 The Cable Behind the Wall",
+      "18 The Assembly Line",
+      "19 Borrowed Secrets",
+      "20 The Copy That Must Change",
+      "21 One Event Is Not a Story",
+      "22 The Alarm That Cried Fire",
+      "23 The Green Report",
+      "24 A Room Inside a Room",
+      "25 The Smallest Set of Moves",
+      "26 The Front-Door Covenant",
+      "27 The City That Remembers"
+    ],
+    "browser_errors": [],
+    "failed_requests": [],
+    "offline_resume": true,
+    "reports": 26,
+    "final_completion": "27/27"
+  },
+  "limits": [
+    "Bounded offline API and fixture evaluators; no live cluster, Vault, registry, pipeline, kernel or compliance execution",
+    "Local progress per browser/origin; export/import for transfer",
+    "Existing room art reused for changing districts and tenants"
+  ],
+  "command_semantics": {
+    "checks": [
+      "Unsupported commands reject",
+      "JSON/YAML representations",
+      "Only applied policies listed",
+      "Additive policy order preserves service",
+      "Exact Pod destinations",
+      "Deployment/Pod coherence"
+    ],
+    "browser_errors": []
+  },
+  "cluster_labs": {
+    "checks": [
+      "Namespace/context persistence",
+      "SCC admission and owned-app repair",
+      "Real jq filters and malformed-query recovery",
+      "Real Go range/index templates",
+      "Deployment/controller failure distinction",
+      "RBAC denies escalation",
+      "anyuid grant/revoke",
+      "Scoped custom SCC",
+      "Audit investigation",
+      "User manifest CRUD"
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "rpg_layout": {
+    "url": "http://127.0.0.1:4179/",
+    "flows": [
+      "Rhea incident report -> Mira physical access pass -> worker interviews -> maintenance keycard -> Vale audit trail; doors enforce story access without granting API permissions",
+      "Single physical bastion opens modal terminal; T elsewhere is rejected; logs/config shortcuts removed; leaving console hides terminal; notebooks mirror and save leads",
+      "Default-deny interrupts console and animates Mira approaching; dialogue challenges outage; checkout degrades while Pods/nodes remain Ready; targeted recovery clears flag and raises recovery notice",
+      "Visited worker, access passes, discoveries, personal notes and outage acknowledgement survive a fresh page"
+    ],
+    "layout": [
+      {
+        "width": 1536,
+        "scrollWidth": 1536,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1536,
+          "h": 569
+        },
+        "notes": {
+          "x": 16,
+          "y": 752.5,
+          "w": 1120,
+          "h": 205
+        },
+        "intel": {
+          "x": 1150,
+          "y": 752.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 1024,
+        "scrollWidth": 1024,
+        "world": {
+          "x": 0,
+          "y": 170.5,
+          "w": 1024,
+          "h": 470
+        },
+        "notes": {
+          "x": 16,
+          "y": 653.5,
+          "w": 608,
+          "h": 205
+        },
+        "intel": {
+          "x": 638,
+          "y": 653.5,
+          "w": 370,
+          "h": 205
+        }
+      },
+      {
+        "width": 390,
+        "scrollWidth": 390,
+        "world": {
+          "x": 0,
+          "y": 440.875,
+          "w": 390,
+          "h": 333.546875
+        },
+        "notes": {
+          "x": 10,
+          "y": 787.421875,
+          "w": 370,
+          "h": 210
+        },
+        "intel": {
+          "x": 10,
+          "y": 1009.421875,
+          "w": 370,
+          "h": 220
+        }
+      }
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "offline_pages_path": {
+    "checks": [
+      "All build/WASM assets available after offline browser restart",
+      "Incident/evidence/cluster/files/SCC grants survive restart",
+      "Real jq and Go templates first used offline",
+      "Warm workers reused",
+      "Hung jq worker replaced",
+      "Portable export/import",
+      "Invalid import preserves live progress"
+    ],
+    "timings_include_dom_input_and_autosave": {
+      "offline_navigation_and_restore_ms": 392.8,
+      "cold_offline_jq_command_ms": 112.4,
+      "warm_jq_command_ms": [
+        110.2,
+        14.4,
+        111.3,
+        110.0,
+        111.8
+      ],
+      "cold_offline_go_command_ms": 112.3,
+      "warm_go_command_ms": [
+        112.6,
+        112.1,
+        114.2,
+        11.2,
+        112.4
+      ],
+      "worker_roundtrip_ms": [
+        {
+          "tool": "jq",
+          "ms": 39.7
+        },
+        {
+          "tool": "jq",
+          "ms": 7.5
+        },
+        {
+          "tool": "jq",
+          "ms": 3.2
+        },
+        {
+          "tool": "jq",
+          "ms": 24.7
+        },
+        {
+          "tool": "jq",
+          "ms": 23.9
+        },
+        {
+          "tool": "jq",
+          "ms": 8
+        },
+        {
+          "tool": "template",
+          "ms": 53.9
+        },
+        {
+          "tool": "template",
+          "ms": 24.7
+        },
+        {
+          "tool": "template",
+          "ms": 24
+        },
+        {
+          "tool": "template",
+          "ms": 21.1
+        },
+        {
+          "tool": "template",
+          "ms": 3.5
+        },
+        {
+          "tool": "template",
+          "ms": 8.6
+        }
+      ]
+    },
+    "browser_errors": [],
+    "url": "http://127.0.0.1:4180/ghostroute/"
+  },
+  "manual_review": {
+    "viewports": [
+      "1536x1024"
+    ],
+    "checks": [
+      "Journey navigation, all 27 entries and locked state",
+      "Compact scroll area keeps Return to world visible",
+      "World layout and physical RHACS Central entrance"
+    ],
+    "screenshots": [
+      "artifacts/campaign/iab-world-desktop.png",
+      "artifacts/campaign/iab-journey-desktop.png"
+    ],
+    "comparison": "Reference and native full-view/mobile images reviewed in the same input"
+  }
+}

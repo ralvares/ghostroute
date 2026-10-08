@@ -4,6 +4,7 @@ import { S } from "../simulation/state.js";
 import type { ClueId } from "../security/evidence.js";
 import { clues } from "../security/evidence.js";
 import { esc } from "../ui/notifications.js";
+import { showCampaignCase } from "./campaign.js";
 
 export function openDetail(html: string) {
   G.detailOpen = true;
@@ -22,6 +23,7 @@ export function closeDetail() {
 
 export function showCase() {
   if (!S.started || G.terminalOpen || G.detailOpen || G.endOpen) return;
+  if (S.campaign.active) { showCampaignCase(); return; }
   G.caseOpen = !G.caseOpen;
   $("casepanel").hidden = !G.caseOpen;
   if (G.caseOpen) {

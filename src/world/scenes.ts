@@ -9,6 +9,7 @@ import { canEnterWorker, canEnterArchive } from "./story.js";
 import { toast } from "../ui/notifications.js";
 import { updateHUD } from "../ui/hud.js";
 import { scheduleSave } from "../simulation/persistence.js";
+import { currentChapter } from "../campaign/engine.js";
 export function enterScene(scene: SceneId) {
   if (!S.started || G.endOpen || (G.miraReaction && !G.miraReaction.arrived))
     return;
@@ -65,9 +66,28 @@ export function enterScene(scene: SceneId) {
 }
 export function updateSceneHUD() {
   const scene = scenes[S.world.scene];
+  const chapter = S.campaign.active ? currentChapter() : null;
+  const title = chapter
+    ? S.world.scene === "district"
+      ? chapter.district + " · security district"
+      : scene.title.replace(
+          "prod-east",
+          chapter.district + " / " + chapter.namespace,
+        )
+    : scene.title;
+  const description = chapter
+    ? "Chapter " +
+      chapter.id +
+      " · " +
+      chapter.title +
+      " · " +
+      (S.world.scene.startsWith("worker")
+        ? "Scheduled tenant Pods and field evidence"
+        : scene.description)
+    : scene.description;
   C.dataset.scene = S.world.scene;
-  document.getElementById("sceneTitle")!.textContent = scene.title;
-  document.getElementById("sceneDescription")!.textContent = scene.description;
+  document.getElementById("sceneTitle")!.textContent = title;
+  document.getElementById("sceneDescription")!.textContent = description;
   const back = document.getElementById("sceneBack")!;
   back.hidden = !scene.parent;
   back.textContent =
@@ -92,7 +112,7 @@ export function updateSceneHUD() {
         : "neutral");
   C.setAttribute(
     "aria-label",
-    `Interactive RPG map: ${scene.title}. ${scene.description} Click a character, computer or doorway to walk and interact. WASD moves; E interacts.`,
+    `Interactive RPG map: ${title}. ${description} Click a character, computer or doorway to walk and interact. WASD moves; E interacts.`,
   );
 }
 export function registerScenes() {

@@ -128,3 +128,37 @@ passed an offline restart test.
 - [x] Full-view and focused reference comparisons complete.
 - [x] Desktop, tablet and mobile behavior checked.
 - [x] Evidence, limitations and final result recorded.
+
+## Campaign publication review — 2026-10-08
+
+final result: passed
+
+This pass covers the 27-chapter journey, chapter health, retained reports and
+GitHub Pages static-path build. Original reference and native captures were
+reviewed together: artifacts/campaign/iab-world-desktop.png and
+iab-journey-desktop.png at 1536 × 1024, plus journey-mobile.png at 390 × 844
+CSS viewport (full-page capture). No source scaling was applied. State differs
+intentionally: the reference has a permanent console; this game uses the user's
+physical bastion and changing investigation rooms.
+
+The first Journey review found its 27 rows pushed the return control off screen.
+The list now scrolls in a bounded region, keeping the return control visible on
+desktop and mobile. Typography, fonts, colors, spacing, icon artwork and live
+copy preserve the approved scene-led design. These changes need no new generated
+art. The campaign reuses existing room art for different districts/tenants;
+it does not claim 27 distinct background assets.
+
+The manual browser pass opened Journey, checked the locked/current entries,
+returned to the world and physically entered RHACS Central. Automated real-input
+browser verification completed every chapter, exercised physical witness and
+archive interactions, Tab file completion, case gates and actual bastion APIs.
+It checked degraded tenant health with the Cluster map selected, final Journal
+reports, mobile Journey/console, offline resume and export. All 32 unit checks
+and the original gameplay, command, SCC/RBAC and RPG layout regressions passed.
+The exact /ghostroute/ static path also passed offline restart and both local
+WASM query engines. Receipts are in artifacts/campaign-verification.json.
+
+No actionable P0/P1/P2 layout findings remain in reviewed states. Existing P3
+animation/art and accessibility coverage limits remain. Advanced use cases are
+explicit recorded fixture evaluations, not real provider/operator execution;
+CAMPAIGN.md maps each chapter to source labs and states the boundaries.

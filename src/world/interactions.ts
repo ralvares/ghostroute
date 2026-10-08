@@ -13,6 +13,7 @@ import { closeRadio, radio } from "../characters/dialogue.js";
 import { openTerminal } from "../terminal/shell.js";
 import { openDetail } from "../ui/panels.js";
 import type { WorldObject } from "../world/locations.js";
+import { campaignInterview, discoverCampaignArtifact } from "../ui/campaign.js";
 
 export function toggleTrace() {
   if (!S.started || G.detailOpen || G.endOpen) return;
@@ -41,6 +42,8 @@ export function toggleTrace() {
 export function interact(o: WorldObject | null = nearest()) {
   if (!o || !S.started || G.detailOpen || G.endOpen) return;
   closeRadio();
+  if (S.campaign.active && o.id==="campaign-dossier") { discoverCampaignArtifact(); return; }
+  if (S.campaign.active && o.kind==="npc" && campaignInterview(o.art ?? o.id.split("-")[0])) return;
   if (o.kind === "portal" && o.destination) {
     enterScene(o.destination);
     return;

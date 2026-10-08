@@ -2,11 +2,13 @@ import type { ClueId } from "../security/evidence.js";
 import { evaluateFindings } from "../security/findings.js";
 import type { DomainEvent } from "./events.js";
 import { createCluster } from "./cluster-model.js";
+import { makeCampaign } from "../campaign/types.js";
 
 import type { SceneId } from "../world/scene-model.js";
 export function makeState() {
   return {
     cluster: createCluster(),
+    campaign: makeCampaign(),
     world: { scene: "district" as SceneId, visited: ["district"] as SceneId[] },
     story: {
       inventory: [] as string[],

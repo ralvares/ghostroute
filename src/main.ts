@@ -22,6 +22,9 @@ import { switchPrompt } from "./terminal/shell.js";
 import { storyFiles } from "./missions/story.js";
 import clusterGuide from "../CLUSTER_GUIDE.md?raw";
 import { registerDocuments } from "./simulation/filesystem.js";
+import { registerCampaignFiles } from "./campaign/engine.js";
+import { showCampaignEnding } from "./ui/campaign.js";
+registerCampaignFiles();
 registerDocuments({
   "README.md": clusterGuide,
   "docs/cluster-guide.md": clusterGuide,
@@ -47,7 +50,11 @@ if (S.started) {
   $("startBtn").textContent = "Resume the case →";
   $("evidenceCount").textContent = `${S.evidence.size} / 5`;
 }
-if (S.done) {
+if (S.campaign.active && S.campaign.completed.includes(S.campaign.active)) {
+  $("opening").hidden = true;
+  G.active = true;
+  showCampaignEnding();
+} else if (S.done && !S.campaign.active) {
   $("opening").hidden = true;
   G.active = true;
   showEnding();

@@ -8,6 +8,9 @@ import { discoveryNames } from "../world/story.js";
 import { listDirectory } from "../simulation/filesystem.js";
 import { offlineStatus } from "../game/offline.js";
 import { progressStatus, scheduleSave } from "../simulation/persistence.js";
+import { currentChapter, campaignChecks } from "../campaign/engine.js";
+import { chapters } from "../campaign/catalog.js";
+import { showJourney } from "./campaign.js";
 const el = (id: string) => document.getElementById(id)!;
 export function syncNotebook() {
   for (const id of ["caseNotes", "bastionNotes"]) {
@@ -22,7 +25,20 @@ export function updateWorkbench() {
     Number(S.policy === "allow") +
     Math.min(3, S.checked.size);
   el("missionProgress").textContent =
-    `${S.done ? 100 : Math.min(99, completed * 10)}%`;
+    `${S.campaign.active ? Math.round((100 * campaignChecks().filter((g) => g.passed).length) / campaignChecks().length) : S.done ? 100 : Math.min(99, completed * 10)}%`;
+  el("episodeLabel").textContent =
+    "CHAPTER " + currentChapter().id + " / " + chapters.length;
+  el("episodeTitle").textContent = currentChapter().title;
+  if (S.campaign.active) {
+    el("evidenceCount").textContent =
+      S.campaign.interviews.length +
+      S.campaign.evidence.length +
+      Number(S.campaign.artifactFound) +
+      " / 6";
+    el("anomalyText").textContent = currentChapter().hook;
+    syncNotebook();
+    return;
+  }
   el("anomalyText").textContent = S.findings.baselineDeviation
     ? "Unexpected payment-api egress. Ask Rhea what RHACS observed."
     : S.env
@@ -73,13 +89,17 @@ export function registerWorkbench() {
   document.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((button) =>
     button.addEventListener("click", () => {
       const view = button.dataset.nav;
+      if (view === "journey") {
+        showJourney();
+        return;
+      }
       if (view === "map") {
         closeDetail();
         return;
       }
       if (!S.started || G.endOpen) return;
       closeTerminal();
-      const heading = `<div class="eyebrow">ROADSHOW · CASE 018</div><h2>${esc(button.textContent)}</h2>`;
+      const heading = `<div class="eyebrow">ROADSHOW · CHAPTER ${currentChapter().id}</div><h2>${esc(button.textContent)}</h2>`;
       if (view === "inventory")
         openDetail(
           heading +
@@ -88,7 +108,7 @@ export function registerWorkbench() {
       else
         openDetail(
           heading +
-            `<div class="eyebrow">DISCOVERY LOG</div><ul>${S.story.discoveries.map((id) => `<li>${esc(discoveryNames[id])}</li>`).join("") || "<li>No leads yet. Meet Rhea at RHACS Central.</li>"}</ul><p>Evidence: ${S.evidence.size}/5 · verification: ${S.checked.size}/3 · ${S.interruptions} service disruptions.</p><h3>Your notebook</h3><pre class="journal">${esc(S.story.notes || "Use the notebook below the map to record leads.")}</pre><h3>Bastion history</h3><pre class="journal">${esc(S.history.join("\n") || "No commands yet. Gather evidence, then use the bastion.")}</pre>`,
+            `<h3>Verified handovers</h3><ul>${S.campaign.reports.map((r) => `<li>Chapter ${chapters[r.chapter].id} · ${esc(chapters[r.chapter].title)} · ${esc(r.conclusion)}</li>`).join("") || "<li>No campaign reports yet.</li>"}</ul><p>Current chapter interviews: ${esc(S.campaign.interviews.join(", ") || "none")}. Retained records read: ${S.campaign.evidence.length}/3.</p><div class="eyebrow">DISCOVERY LOG</div><ul>${S.story.discoveries.map((id) => `<li>${esc(discoveryNames[id])}</li>`).join("") || "<li>No leads yet. Meet Rhea at RHACS Central.</li>"}</ul><p>Evidence: ${S.evidence.size}/5 · verification: ${S.checked.size}/3 · ${S.interruptions} service disruptions.</p><h3>Your notebook</h3><pre class="journal">${esc(S.story.notes || "Use the notebook below the map to record leads.")}</pre><h3>Bastion history</h3><pre class="journal">${esc(S.history.join("\n") || "No commands yet. Gather evidence, then use the bastion.")}</pre>`,
         );
     }),
   );

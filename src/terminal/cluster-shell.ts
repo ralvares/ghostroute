@@ -173,6 +173,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
             ));
       return result(usable ? "yes" : "no");
     }
+    if (identity) return result(roleAllows(identity,args[2],type,namespace,resourceName) ? "yes" : "no");
     return result(
       authorized(
         args[2],

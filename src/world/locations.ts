@@ -1,5 +1,6 @@
 import { S, type SimulationState } from "../simulation/state.js";
 import type { SceneId } from "./scene-model.js";
+import { chapters } from "../campaign/catalog.js";
 export interface WorldObject {
   id: string;
   x: number;
@@ -50,7 +51,9 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
         "cluster-entry",
         820,
         295,
-        "prod-east",
+        state.campaign.active
+          ? chapters[state.campaign.active].district
+          : "prod-east",
         "Enter cluster building",
         "portal",
         { destination: "cluster", r: 70 },
@@ -185,11 +188,15 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
               { action: "audit", art: "vale" },
             ),
             object(
-              "release-record",
+              state.campaign.active ? "campaign-dossier" : "release-record",
               760,
               350,
-              "Release records",
-              "Read the telemetry change notes",
+              state.campaign.active
+                ? chapters[state.campaign.active].artifact.title
+                : "Release records",
+              state.campaign.active
+                ? "Inspect this case's retained dossier"
+                : "Read the telemetry change notes",
               "prop",
               { action: "release" },
             ),
@@ -241,17 +248,21 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       "portal",
       { destination: "cluster" },
     ),
-    object(
-      worker === "worker-01" ? "pod1" : "pod2",
-      490,
-      330,
-      "payment-api",
-      `payments · Pod · ${worker}`,
-      "pod",
-      { namespace: "payments", resourceName: payment.name },
-    ),
+    ...(!state.campaign.active
+      ? [
+          object(
+            worker === "worker-01" ? "pod1" : "pod2",
+            490,
+            330,
+            "payment-api",
+            `payments · Pod · ${worker}`,
+            "pod",
+            { namespace: "payments", resourceName: payment.name },
+          ),
+        ]
+      : []),
   ];
-  if (worker === "worker-02")
+  if (worker === "worker-02" && !state.campaign.active)
     objects.push(
       object(
         "ledger",
@@ -264,25 +275,27 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       ),
     );
   const labPods = state.cluster.resources.filter(
-    (item) => item.kind === "Pod" && item.spec?.nodeName === worker,
+    (item) =>
+      item.kind === "Pod" &&
+      item.spec?.nodeName === worker &&
+      (!state.campaign.active ||
+        item.metadata.namespace === chapters[state.campaign.active].namespace),
   );
-  labPods
-    .slice(0, 4)
-    .forEach((pod, index) =>
-      objects.push(
-        object(
-          `lab-pod:${pod.metadata.namespace}/${pod.metadata.name}`,
-          730 + (index % 2) * 165,
-          435 + Math.floor(index / 2) * 95,
-          pod.metadata.name,
-          `${pod.metadata.namespace} · Pod · ${worker}`,
-          "pod",
-          {
-            namespace: pod.metadata.namespace,
-            resourceName: pod.metadata.name,
-          },
-        ),
+  labPods.slice(0, 4).forEach((pod, index) =>
+    objects.push(
+      object(
+        `lab-pod:${pod.metadata.namespace}/${pod.metadata.name}`,
+        730 + (index % 2) * 165,
+        435 + Math.floor(index / 2) * 95,
+        pod.metadata.name,
+        `${pod.metadata.namespace} · Pod · ${worker}`,
+        "pod",
+        {
+          namespace: pod.metadata.namespace,
+          resourceName: pod.metadata.name,
+        },
       ),
-    );
+    ),
+  );
   return objects;
 }

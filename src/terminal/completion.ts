@@ -1,8 +1,13 @@
 import { G } from "../game/runtime.js";
 import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
+import { currentChapter } from "../campaign/engine.js";
+import { pathCompletions } from "./path-completion.js";
 
 export const cmdCandidates = [
+  "case status",
+  "case hint",
+  "case next",
   "game status",
   "game save",
   "game export",
@@ -68,13 +73,33 @@ export const podCandidates = [
 ];
 
 export function candidates() {
-  return G.podShell ? podCandidates : cmdCandidates;
+  return G.podShell
+    ? podCandidates
+    : [
+        ...cmdCandidates,
+        ...currentChapter().probes.map((p) => "case test " + p.id),
+        "case conclude " + currentChapter().conclusion,
+      ];
 }
 
 export function matchSuggestion(v: string) {
   if (!v.trim()) return "";
+  if (!G.podShell) {
+    const paths = pathCompletions(v);
+    if (paths !== null) return paths[0] ?? "";
+  }
   const all = [...S.history.slice().reverse(), ...candidates()];
   return all.find((a) => a.startsWith(v) && a !== v) || "";
+}
+
+export function completionMatches(v: string, cursor = v.length) {
+  if (!G.podShell) {
+    const paths = pathCompletions(v, cursor);
+    if (paths !== null) return paths;
+  }
+  return [...new Set([...S.history.slice().reverse(), ...candidates()])].filter(
+    (c) => c.startsWith(v) && c !== v,
+  );
 }
 
 export function suggest() {

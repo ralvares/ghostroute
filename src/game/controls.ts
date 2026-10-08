@@ -13,8 +13,8 @@ import { floorPoint } from "../world/walkable.js";
 import { worldObjects } from "../world/locations.js";
 import {
   suggest,
-  candidates,
   matchSuggestion,
+  completionMatches,
 } from "../terminal/completion.js";
 import { exec } from "../terminal/commands.js";
 import { toast } from "../ui/notifications.js";
@@ -22,6 +22,7 @@ import type { WorldObject } from "../world/locations.js";
 import { saveProgress, scheduleSave } from "../simulation/persistence.js";
 let commandQueue = Promise.resolve();
 let queuedCommands = 0;
+let tabCycle: { last: string; values: string[]; index: number } | null = null;
 
 export function registerControls() {
   $("radioClose").addEventListener("click", closeRadio);
@@ -183,13 +184,15 @@ export function registerControls() {
     }
     if (e.key === "Tab") {
       e.preventDefault();
-      let v = $("termInput").value,
-        ms = [
-          ...new Set([...S.history.slice().reverse(), ...candidates()]),
-        ].filter((c) => c.startsWith(v) && c !== v);
+      const v = $("termInput").value;
+      if (!tabCycle || tabCycle.last !== v) {
+        tabCycle = { last: v, values: completionMatches(v, $("termInput").selectionStart ?? v.length), index: -1 };
+      }
+      const ms = tabCycle.values;
       if (ms.length) {
-        $("termInput").value = ms[G.tabIndex % ms.length];
-        G.tabIndex++;
+        tabCycle.index = (tabCycle.index + (e.shiftKey ? ms.length - 1 : 1)) % ms.length;
+        $("termInput").value = ms[tabCycle.index];
+        tabCycle.last = $("termInput").value;
         suggest();
       } else {
         toast("No completions for that prefix");

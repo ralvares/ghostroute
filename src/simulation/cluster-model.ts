@@ -4,15 +4,19 @@ export interface SecurityContext {
   allowPrivilegeEscalation?: boolean;
   readOnlyRootFilesystem?: boolean;
   capabilities?: { add?: string[]; drop?: string[] };
-  seccompProfile?: { type: string };
+  seccompProfile?: { type: string; localhostProfile?: string };
 }
 export interface ContainerSpec {
   name: string;
   image: string;
   securityContext?: SecurityContext;
-  env?: { name: string; value: string }[];
+  env?: { name: string; value?: string; valueFrom?: { secretKeyRef: { name: string; key: string } } }[];
+  resources?: { requests?: Record<string,string>; limits?: Record<string,string> };
+  volumeMounts?: { name: string; mountPath: string; readOnly?: boolean }[];
 }
 export interface PodSpec {
+  runtimeClassName?: string;
+  nodeSelector?: Record<string,string>;
   nodeName?: string;
   containers: ContainerSpec[];
   serviceAccountName?: string;
@@ -33,10 +37,14 @@ export interface Resource {
     labels?: Record<string, string>;
   };
   spec?: Partial<PodSpec> & {
+    [key: string]: any;
     replicas?: number;
     template?: { metadata?: Resource["metadata"]; spec: PodSpec };
   };
   status?: Record<string, unknown>;
+  data?: Record<string,string>;
+  stringData?: Record<string,string>;
+  disableRules?: {name:string;rationale:string}[];
   [key: string]: unknown;
 }
 export interface Scc extends Resource {

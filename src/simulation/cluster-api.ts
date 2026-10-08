@@ -5,95 +5,23 @@ import { admitPod } from "../security/scc.js";
 import { publish } from "./events.js";
 import { parse } from "yaml";
 import { policyFiles } from "./resources.js";
+import {
+  validateCampaignPod,
+  schedulingFailure,
+  reconcileFixtureControllers,
+  resource as findResource,
+} from "../campaign/models.js";
 
-export const resourceTypes = {
-  nodes: {
-    kind: "Node",
-    apiVersion: "v1",
-    namespaced: false,
-    aliases: ["node", "no"],
-  },
-  namespaces: {
-    kind: "Namespace",
-    apiVersion: "v1",
-    namespaced: false,
-    aliases: ["namespace", "ns", "project", "projects"],
-  },
-  pods: {
-    kind: "Pod",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["pod", "po"],
-  },
-  deployments: {
-    kind: "Deployment",
-    apiVersion: "apps/v1",
-    namespaced: true,
-    aliases: ["deployment", "deploy"],
-  },
-  serviceaccounts: {
-    kind: "ServiceAccount",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["serviceaccount", "sa"],
-  },
-  services: {
-    kind: "Service",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["service", "svc"],
-  },
-  configmaps: {
-    kind: "ConfigMap",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["configmap", "cm"],
-  },
-  secrets: {
-    kind: "Secret",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["secret"],
-  },
-  networkpolicies: {
-    kind: "NetworkPolicy",
-    apiVersion: "networking.k8s.io/v1",
-    namespaced: true,
-    aliases: ["networkpolicy", "netpol"],
-  },
-  roles: {
-    kind: "Role",
-    apiVersion: "rbac.authorization.k8s.io/v1",
-    namespaced: true,
-    aliases: ["role"],
-  },
-  rolebindings: {
-    kind: "RoleBinding",
-    apiVersion: "rbac.authorization.k8s.io/v1",
-    namespaced: true,
-    aliases: ["rolebinding"],
-  },
-  securitycontextconstraints: {
-    kind: "SecurityContextConstraints",
-    apiVersion: "security.openshift.io/v1",
-    namespaced: false,
-    aliases: ["scc"],
-  },
-  events: {
-    kind: "Event",
-    apiVersion: "v1",
-    namespaced: true,
-    aliases: ["event", "ev"],
-  },
-} as const;
-export type ResourceType = keyof typeof resourceTypes;
-export function resolveResource(name: string): ResourceType | undefined {
-  return (Object.keys(resourceTypes) as ResourceType[]).find(
-    (type) =>
-      type === name ||
-      (resourceTypes[type].aliases as readonly string[]).includes(name),
-  );
-}
+import {
+  resourceTypes,
+  resolveResource,
+  type ResourceType,
+} from "./resource-types.js";
+export {
+  resourceTypes,
+  resolveResource,
+  type ResourceType,
+} from "./resource-types.js";
 
 export function auditRequest(
   verb: string,
@@ -310,6 +238,7 @@ function usableSccs(namespace: string, sa: string, directRequest = false) {
 function admitResource(resource: Resource, directRequest = true) {
   const namespace = resource.metadata.namespace!;
   const spec = resource.spec as PodSpec;
+  validateCampaignPod(resource);
   const sa = spec.serviceAccountName ?? "default";
   if (
     !S.cluster.resources.some(
@@ -349,7 +278,7 @@ function admitResource(resource: Resource, directRequest = true) {
     ...resource.metadata.annotations,
     "openshift.io/scc": admission.scc,
   };
-  const image = admission.spec.containers[0]?.image;
+  const image = admission.spec.containers[0]?.image.split("@")[0];
   const uid = admission.spec.containers[0]?.securityContext?.runAsUser;
   const fails =
     (image === "registry.example.test/owned:root" && uid !== 0) ||
@@ -388,6 +317,42 @@ function admitResource(resource: Resource, directRequest = true) {
       },
     ],
   };
+  const scheduling = schedulingFailure(resource);
+  const secretRefs = admission.spec.containers
+    .flatMap((c) => c.env ?? [])
+    .filter((e) => e.valueFrom?.secretKeyRef);
+  const missing = secretRefs.find(
+    (e) => !findResource("Secret", e.valueFrom!.secretKeyRef.name, namespace),
+  );
+  if (scheduling || missing) {
+    resource.status = {
+      phase: "Pending",
+      containerStatuses: [
+        {
+          name: admission.spec.containers[0].name,
+          ready: false,
+          state: {
+            waiting: {
+              reason: scheduling
+                ? "FailedScheduling"
+                : "CreateContainerConfigError",
+              message: scheduling || "Referenced Secret is absent",
+            },
+          },
+        },
+      ],
+    };
+  }
+  for (const ref of secretRefs) {
+    const secret = findResource(
+      "Secret",
+      ref.valueFrom!.secretKeyRef.name,
+      namespace,
+    );
+    const value = secret?.stringData?.[ref.valueFrom!.secretKeyRef.key];
+    if (value)
+      resource.metadata.annotations!["roadshow.secret-version"] = value;
+  }
 }
 
 function reconcileDeployment(deployment: Resource) {
@@ -646,6 +611,7 @@ export function applyResource(
   else pool.push(resource as Scc);
   auditRequest(verb, type, ns, resource.metadata.name, old ? 200 : 201);
   if (resource.kind === "Deployment") reconcileDeployment(old ?? resource);
+  reconcileFixtureControllers();
   return `${resource.kind.toLowerCase()}${resource.kind === "Deployment" ? ".apps" : resource.kind === "SecurityContextConstraints" ? ".security.openshift.io" : ""}/${resource.metadata.name} ${old ? "configured" : "created"}`;
 }
 
@@ -735,7 +701,21 @@ export function deleteResource(
   const ns = resourceTypes[type].namespaced ? namespace : undefined;
   if (!authorized("delete", type, ns))
     throw new Error(forbidden("delete", type, ns));
-  const target = getResources(type, ns, name)[0];
+  const target = [
+    ...coreResources(),
+    ...S.cluster.resources,
+    ...S.cluster.sccs,
+    ...S.cluster.events,
+  ].find(
+    (item) =>
+      item.kind === resourceTypes[type].kind &&
+      item.metadata.name === name &&
+      item.metadata.namespace === ns,
+  );
+  if (!target)
+    throw new Error(
+      `Error from server (NotFound): ${type} "${name}" not found`,
+    );
   if (
     coreResources().some(
       (item) =>
@@ -768,6 +748,7 @@ export function deleteResource(
     S.cluster.sccs = S.cluster.sccs.filter(
       (item) => item.metadata.name !== name,
     );
+  reconcileFixtureControllers();
   auditRequest("delete", type, ns, name, 200);
   return `${target.kind.toLowerCase()} "${name}" deleted`;
 }

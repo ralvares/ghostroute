@@ -248,3 +248,43 @@ physical terminal boundaries, NPC interviews, actual Mira movement, outage and
 recovery, responsive layouts and both incident endings. Offline browser restart
 checks all artwork, fonts and both query engines. Original migration pixel gates
 are not claimed as acceptance for the later user-approved redesign.
+
+## Connected campaign contract
+
+`campaign/catalog.ts` owns 27 ordered chapters across seven acts, their source
+mapping, authored witness dialogue, bundled files, resource goals and probe IDs.
+`campaign/engine.ts` registers those documents in the existing filesystem,
+prepares the next tenant and records ordered completions. Only Chapter 01 uses
+the original incident ending. `S.done` retains that historical completion;
+`S.campaign` owns the active chapter, physical interviews, archive discovery,
+read records, resource fingerprints, verification reports and final handover.
+Chapter advancement preserves resources, notes and command history.
+
+`campaign/models.ts` evaluates bounded quota/defaulting, registry and label
+admission, scheduling prerequisites and policy decisions against the same
+resource state as `oc`. Recorded Pipeline/ESO/Compliance reconcilers are explicitly
+fixture evaluators. They do not execute external systems. API applies and deletes
+reconcile those fixture statuses; stale provider output cannot prove a current
+provider. ANP Allow applies only to the evaluated egress direction; destination
+NetworkPolicy ingress remains independent. Pass delegates, and BANP is consulted
+only if neither a higher admin decision nor tenant isolation decides that egress.
+
+`ui/campaign.ts` owns interviews, dossier panels, journey map and chapter debriefs.
+Physical interviews require the matching scene. Case closure requires two
+interviews, the archive dossier, three actual file reads, resource goals and two
+fresh probe receipts. A resource/control mutation invalidates previous probe
+fingerprints; audit reads do not. Saves restore these records and support older
+Chapter 01 checkpoints. The browser test closes the original case and all
+26 further cases through real world interactions and bastion commands.
+
+`simulation/resource-types.ts` supplies shared kind/API-group aliases to shell
+and RBAC. `terminal/path-completion.ts` resolves paths using the current virtual
+working directory and live filesystem; controls cycle completion with Tab and
+Shift+Tab. Command/probe suggestions remain separate from path completion.
+
+The browser deployment remains static: Vite compiles TypeScript to HTML, JS and
+CSS; WASM/query workers and all assets are local files. IndexedDB/local storage
+and the generated service worker provide per-origin progress and offline play.
+No server-side API or cluster connection is introduced. GitHub Pages needs the
+repository base path at build time. See README.md and CAMPAIGN.md for deployment
+and the explicit per-topic fidelity boundaries.

@@ -1939,3 +1939,91 @@ button:disabled {
     font-size: 12px;
   }
 }
+
+/* Journey lives in a focused modal; the scene retains its existing space. */
+.journeyList {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.journeyCase {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 62px;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid #283941;
+  align-items: start;
+}
+.journeyCase > span {
+  font: 700 16px var(--mono);
+  color: #91b6ab;
+}
+.journeyCase h3 {
+  font-size: 17px;
+  margin: 5px 0;
+}
+.journeyCase p {
+  font-size: 13px;
+  margin: 5px 0;
+  color: #b9c6cd;
+}
+.journeyCase small {
+  font-size: 11px;
+  color: #8fa4b3;
+}
+.journeyCase > b {
+  font-size: 10px;
+  color: #8da39e;
+  letter-spacing: 0.05em;
+}
+.journeyCase.current h3 {
+  color: #b7e9d7;
+}
+.chapterChecks {
+  padding-left: 20px;
+  line-height: 1.75;
+}
+.caseRisk {
+  color: #c8b796;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.chapterHealth {
+  font-size: 12px;
+  display: grid;
+  gap: 4px;
+}
+.chapterHealth p {
+  margin: 4px 0;
+}
+.chapterHealth span {
+  color: #a8b9c3;
+}
+.episode b {
+  font-weight: 400;
+}
+@media (max-width: 620px) {
+  .journeyCase {
+    grid-template-columns: 25px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .journeyCase > b {
+    grid-column: 2;
+  }
+  .navigation {
+    gap: 0;
+  }
+  .navtab {
+    padding: 10px 13px;
+  }
+}
+.journeyList {
+  max-height: 45svh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+@media (max-width: 620px) {
+  .journeyList {
+    max-height: 28svh;
+  }
+}

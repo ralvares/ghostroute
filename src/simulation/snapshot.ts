@@ -67,6 +67,7 @@ export function decodeProgress(text: string): SimulationState {
   saved.data.story.notes ??= "";
   saved.data.story.outageSeen ??= false;
   saved.data.world ??= { scene: "district", visited: ["district"] };
+  saved.data.campaign ??= makeState().campaign;
   // Version 1 saves made before filesystem navigation retain their incident.
   if (saved.data.cluster) {
     saved.data.cluster.cwd ??= "/home/operator";
@@ -94,6 +95,40 @@ export function decodeProgress(text: string): SimulationState {
   )
     throw new Error("Progress file is incomplete or damaged.");
   const data = saved.data as SimulationState;
+  const campaign = data.campaign;
+  if (
+    !Number.isInteger(campaign.active) ||
+    campaign.active < 0 ||
+    campaign.active > 26 ||
+    (campaign.active > 0 && !data.done) ||
+    !campaign.completed.every((n, i) => n === i && Number.isInteger(n)) ||
+    campaign.completed.length < campaign.active ||
+    campaign.completed.length > campaign.active + 1 ||
+    !campaign.interviews.every((w) =>
+      ["rhea", "mira", "kai", "vale"].includes(w),
+    ) ||
+    !campaign.evidence.every((f) =>
+      ["briefing.txt", "evidence.json", "handover.txt"].includes(f),
+    ) ||
+    !Object.values(campaign.proofs).every(
+      (p) =>
+        p &&
+        typeof p.fingerprint === "string" &&
+        typeof p.passed === "boolean" &&
+        typeof p.detail === "string",
+    ) ||
+    !campaign.reports.every(
+      (r) =>
+        Number.isInteger(r.chapter) &&
+        r.chapter > 0 &&
+        r.chapter <= campaign.active &&
+        typeof r.conclusion === "string" &&
+        Number.isFinite(r.commands),
+    ) ||
+    (campaign.finished &&
+      (campaign.active !== 26 || campaign.completed.length !== 27))
+  )
+    throw new Error("Progress file contains an invalid campaign checkpoint.");
   if (
     data.story.notes.length > 50000 ||
     !data.story.inventory.every((item) =>

@@ -1,0 +1,255 @@
+import { chapters } from "../campaign/catalog.js";
+import {
+  advanceCampaign,
+  currentChapter,
+  campaignChecks,
+  chapterRoot,
+} from "../campaign/engine.js";
+import { S } from "../simulation/state.js";
+import { G, C, keys } from "../game/runtime.js";
+import { openDetail, closeDetail } from "./panels.js";
+import { closeTerminal } from "../terminal/shell.js";
+import { radio, closeRadio } from "../characters/dialogue.js";
+import { updateHUD } from "./hud.js";
+import { updateSceneHUD } from "../world/scenes.js";
+import { esc, toast } from "./notifications.js";
+import { scheduleSave } from "../simulation/persistence.js";
+
+export function continueJourney() {
+  try {
+    const ch = advanceCampaign();
+    closeTerminal();
+    closeDetail();
+    closeRadio();
+    G.endOpen = false;
+    G.caseOpen = false;
+    document.getElementById("ending")!.hidden = true;
+    document.getElementById("casepanel")!.hidden = true;
+    S.world.scene = "district";
+    S.x = 520;
+    S.y = 410;
+    G.target = null;
+    G.pending = null;
+    G.near = null;
+    G.traceOn = false;
+    keys.clear();
+    S.story.notes +=
+      (S.story.notes ? "\n\n" : "") +
+      "Chapter " +
+      ch.id +
+      " · " +
+      ch.title +
+      "\n" +
+      ch.hook;
+    updateSceneHUD();
+    updateHUD();
+    scheduleSave();
+    C.focus();
+    radio(
+      "RHEA",
+      ch.hook +
+        " Meet " +
+        ch.witnesses
+          .map((w) => w.who.toUpperCase() + " in " + w.scene)
+          .join(" and ") +
+        ". Search the archive, then return to the bastion.",
+    );
+  } catch (error) {
+    toast((error as Error).message);
+  }
+}
+export function attachJourneyButton() {
+  const target = document.querySelector("#endBody .modal-foot")!;
+  const button = document.createElement("button");
+  button.className = "btnquiet";
+  button.id = "continueJourney";
+  button.textContent = "Continue journey → Chapter " + chapters[1].id;
+  button.addEventListener("click", continueJourney);
+  target.prepend(button);
+}
+export function showCampaignEnding() {
+  const ch = currentChapter(),
+    completed = S.campaign.finished;
+  closeTerminal();
+  closeRadio();
+  closeDetail();
+  G.endOpen = true;
+  document.getElementById("endBody")!.innerHTML =
+    '<div class="eyebrow">' +
+    esc(ch.act) +
+    " · CHAPTER " +
+    ch.id +
+    " RESOLVED</div><h2>" +
+    esc(completed ? "The city can answer without you." : ch.title) +
+    "</h2>" +
+    "<p>" +
+    esc(ch.outcome) +
+    "</p><p>" +
+    esc(
+      completed
+        ? "Rhea keeps the observations. Mira owns the controls. Kai owns the secure release. Vale preserves evidence and exception reviews. Your handover says what was tested, what remains a fixture, and who responds next."
+        : chapters[S.campaign.active + 1].hook,
+    ) +
+    "</p>" +
+    '<div class="endstats"><div><b>' +
+    S.campaign.completed.length +
+    "/" +
+    chapters.length +
+    "</b><small>Cases closed</small></div><div><b>" +
+    S.campaign.trust +
+    "</b><small>Verified handovers</small></div><div><b>" +
+    S.interruptions +
+    "</b><small>Payment disruptions carried</small></div></div>" +
+    '<p class="caseRisk">' +
+    esc(ch.risk) +
+    '</p><div class="modal-foot"><span class="hint">Notes and reports are saved locally.</span><button class="btnquiet" id="chapterNext">' +
+    (completed ? "Return to district" : "Continue journey →") +
+    "</button></div>";
+  document.getElementById("ending")!.hidden = false;
+  document.getElementById("chapterNext")!.addEventListener("click", () => {
+    if (!completed) continueJourney();
+    else {
+      G.endOpen = false;
+      document.getElementById("ending")!.hidden = true;
+      C.focus();
+    }
+  });
+  updateHUD();
+  scheduleSave();
+}
+export function showJourney() {
+  if (!S.started || G.endOpen) return;
+  closeTerminal();
+  const ch = currentChapter();
+  openDetail(
+    '<div class="eyebrow">ROADSHOW · SEVEN ACTS</div><h2>The long road home</h2><p>' +
+      esc(ch.hook) +
+      "</p><p><strong>" +
+      S.campaign.completed.length +
+      " / " +
+      chapters.length +
+      "</strong> cases closed. " +
+      (S.campaign.finished
+        ? "The journey is complete. Review the retained handovers in Journal."
+        : "Finish the current case to unlock the next. Your notebook and reports follow you.") +
+      "</p>" +
+      '<div class="journeyList">' +
+      chapters
+        .map(
+          (c, i) =>
+            '<article class="journeyCase ' +
+            (i === S.campaign.active ? "current" : "") +
+            '"><span>' +
+            c.id +
+            "</span><div><small>" +
+            esc(c.act + " · " + c.district) +
+            "</small><h3>" +
+            esc(c.title) +
+            "</h3><p>" +
+            esc(
+              i <= S.campaign.active
+                ? c.hook
+                : "Locked · continue the investigation",
+            ) +
+            "</p></div><b>" +
+            (S.campaign.completed.includes(i)
+              ? "CLOSED"
+              : i === S.campaign.active
+                ? "ACTIVE"
+                : "LOCKED") +
+            "</b></article>",
+        )
+        .join("") +
+      "</div>",
+  );
+}
+export function showCampaignCase() {
+  closeTerminal();
+  const ch = currentChapter();
+  openDetail(
+    '<div class="eyebrow">CHAPTER ' +
+      ch.id +
+      " / " +
+      chapters.length +
+      " · " +
+      esc(ch.namespace) +
+      "</div><h2>" +
+      esc(ch.title) +
+      "</h2><p>" +
+      esc(ch.hook) +
+      '</p><ul class="chapterChecks">' +
+      campaignChecks()
+        .map(
+          (g) =>
+            '<li class="' +
+            (g.passed ? "good" : "") +
+            '">' +
+            (g.passed ? "✓ " : "○ ") +
+            esc(g.label) +
+            "</li>",
+        )
+        .join("") +
+      "</ul><p>At the bastion: <code>cat " +
+      chapterRoot() +
+      'briefing.txt</code></p><p class="caseRisk">' +
+      esc(ch.risk) +
+      "</p>",
+  );
+}
+export function campaignInterview(who: string) {
+  if (!S.campaign.active) return false;
+  const ch = currentChapter(),
+    w = ch.witnesses.find((w) => w.who === who);
+  if (!w) return false;
+  const here = w.scene === S.world.scene;
+  if (here && !S.campaign.interviews.includes(w.who))
+    S.campaign.interviews.push(w.who);
+  openDetail(
+    '<div class="eyebrow">INTERVIEW · ' +
+      esc(who.toUpperCase()) +
+      " · CHAPTER " +
+      ch.id +
+      '</div><img class="interviewPortrait" src="' +
+      import.meta.env.BASE_URL +
+      "art/" +
+      who +
+      '.webp" alt="' +
+      esc(who) +
+      '"><h2>' +
+      esc(ch.title) +
+      "</h2><p>" +
+      esc(w.text) +
+      "</p><p>" +
+      (here
+        ? "Interview recorded in the case."
+        : "Meet me in " + esc(w.scene) + " to record this interview.") +
+      '</p><button class="btnquiet" id="campaignLead">Keep this lead in notebook</button>',
+  );
+  document.getElementById("campaignLead")!.addEventListener("click", () => {
+    const lead = who.toUpperCase() + " · " + w.text;
+    if (!S.story.notes.includes(lead)) S.story.notes += "\n\n" + lead;
+    updateHUD();
+    scheduleSave();
+    toast("Witness lead saved.");
+  });
+  updateHUD();
+  scheduleSave();
+  return true;
+}
+export function discoverCampaignArtifact() {
+  const ch = currentChapter();
+  S.campaign.artifactFound = true;
+  openDetail(
+    '<div class="eyebrow">ARCHIVE DISCOVERY · CHAPTER ' +
+      ch.id +
+      "</div><h2>" +
+      esc(ch.artifact.title) +
+      "</h2><p>" +
+      esc(ch.artifact.text) +
+      "</p><p>Record this against <code>" +
+      chapterRoot() +
+      "evidence.json</code> at the bastion. Keep the source limits in <code>handover.txt</code>.</p>",
+  );
+  updateHUD();
+  scheduleSave();
+}

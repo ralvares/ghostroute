@@ -24,8 +24,17 @@ import { updateHUD } from "../ui/hud.js";
 import { radio } from "../characters/dialogue.js";
 import { maybeWin } from "../missions/progression.js";
 import { progressCommand } from "./progress-commands.js";
+import { campaignCommand } from "./campaign-commands.js";
+import { observeCampaignCommand } from "../campaign/engine.js";
 
 export async function exec(cmd: string) {
+  const before=$("termOutput").children.length;
+  await executeCommand(cmd);
+  const last=$("termOutput").lastElementChild as HTMLElement|null;
+  observeCampaignCommand(cmd,$("termOutput").children.length>before && !!last?.textContent && !last.classList.contains("error") && !last.classList.contains("command"));
+  updateHUD();
+}
+async function executeCommand(cmd: string) {
   const incident = S;
   let raw = cmd.trim();
   const low = raw.toLowerCase();
@@ -63,6 +72,7 @@ export async function exec(cmd: string) {
     return;
   }
   if (await progressCommand(raw)) return;
+  if (campaignCommand(raw)) return;
   try {
     const handled = await clusterCommand(raw);
     if (S !== incident) return;

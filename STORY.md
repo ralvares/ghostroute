@@ -180,5 +180,6 @@ commands and service disruptions; a careful investigation can earn S, while a
 recovered outage leaves a lower rating.
 
 The chapter closes the Ghost Route incident. It does not invent an identified
-attacker. Additional districts, cases and longer campaigns remain future work;
-this document describes the implemented first chapter.
+attacker. Continue journey now opens the remaining 26 chapters across Foundry,
+Market, Records, Harbor, Build yard, Watch district and Council. This document
+retains the first chapter script; CAMPAIGN.md describes the connected journey.
