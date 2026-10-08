@@ -44,6 +44,7 @@ python3 -m playwright install chromium
 npm run test:browser
 npm run test:semantics
 npm run test:cluster
+python3 tests/bastion_browser.py http://127.0.0.1:4174/
 npm run test:offline
 npm run test:rpg
 python3 tests/campaign_browser.py http://127.0.0.1:4174/

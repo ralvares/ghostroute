@@ -179,7 +179,7 @@ export function recordInterview(who: Witness, scene: string) {
 export function observeCampaignCommand(raw: string, successfulOutput: boolean) {
   if (!S.campaign.active || !successfulOutput) return;
   const tokens = tokenize(raw);
-  if (tokens[0]?.value !== "cat") return;
+  if (!["cat", "less", "more"].includes(tokens[0]?.value)) return;
   for (const token of tokens.slice(1)) {
     if (token.kind !== "word") break;
     const path = resolvePath(token.value);

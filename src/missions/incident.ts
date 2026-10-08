@@ -10,22 +10,27 @@ export function observeIncidentCommand(
   if (!successful) return;
   const tokens = tokenize(raw),
     values = tokens.map((t) => t.value);
-  if (values[0] === "cat") {
-    const path = resolvePath(values[1] ?? "");
+  if (
+    ["cat", "jq", "more", "less", "head", "tail", "grep"].includes(values[0])
+  ) {
+    const paths = tokens
+      .filter((t) => t.kind === "word")
+      .slice(1)
+      .map((t) => resolvePath(t.value));
     if (
-      path === HOME + "/audit/kube-apiserver.log" &&
+      paths.includes(HOME + "/audit/kube-apiserver.log") &&
       output.includes("build-bot") &&
       output.includes("TELEMETRY_ENDPOINT")
     )
       S.incident.auditSeen = true;
     if (
-      path === HOME + "/case/release-job.json" &&
+      paths.includes(HOME + "/case/release-job.json") &&
       output.includes("00000000-0000-4000-8000-000000000000") &&
       output.includes("import-support-config")
     )
       S.incident.releaseSeen = true;
     if (
-      path === HOME + "/case/permission-review.yaml" &&
+      paths.includes(HOME + "/case/permission-review.yaml") &&
       output.includes("release-bot") &&
       output.includes("patch")
     )

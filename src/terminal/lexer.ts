@@ -33,7 +33,8 @@ export function tokenize(input: string): ShellToken[] {
     } else if (/\s/.test(char)) flush();
     else if (char === "|" || char === ">") {
       flush();
-      result.push({ kind: char === "|" ? "pipe" : "redirect", value: char });
+      const value = char === ">" && input[i + 1] === ">" ? (i++, ">>") : char;
+      result.push({ kind: char === "|" ? "pipe" : "redirect", value });
     } else if (char === ";" || char === "&" || char === "`")
       throw new Error(
         "shell: control operators and command substitution are not implemented",

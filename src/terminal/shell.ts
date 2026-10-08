@@ -5,6 +5,7 @@ import { closeRadio } from "../characters/dialogue.js";
 import { worldObjects } from "../world/locations.js";
 import { toast } from "../ui/notifications.js";
 import { suggest } from "../terminal/completion.js";
+import { closePager } from "./pager.js";
 
 // Simulated OpenShift shell.
 export function openTerminal() {
@@ -35,6 +36,7 @@ export function openTerminal() {
 }
 
 export function closeTerminal() {
+  closePager(false);
   G.terminalOpen = false;
   $("shellshade").hidden = true;
 

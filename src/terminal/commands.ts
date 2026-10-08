@@ -6,7 +6,9 @@ import {
   testConnection,
 } from "../simulation/operations.js";
 import { validOcCommand, validPodCommand } from "./syntax.js";
-import { clusterCommand } from "./cluster-shell.js";
+import { clusterCommand, paymentLogs } from "./cluster-shell.js";
+import { openPager } from "./pager.js";
+import { tokenize } from "./lexer.js";
 import { S } from "../simulation/state.js";
 import {
   print,
@@ -68,7 +70,7 @@ async function executeCommand(cmd: string) {
     print(
       G.podShell
         ? `Inside the payment-api Pod (SIMULATED):\n  env                 inspect process environment\n  curl -I URL         test an HTTP destination\n  nslookup NAME       test DNS\n  ip route            view route\n  exit                return to bastion`
-        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cd / cat / pwd / mkdir\n\nExplore the resources and policies. TAB completes supported commands.\nFor cluster labs, type oc --help, cat lab.txt, or ls workloads.\nLocal progress/offline: game status, game save, game export, game import.`,
+        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cd / cat / pwd / mkdir\n  jq FILTER FILE · grep · head / tail · sort / uniq · wc · cut\n  more / less FILE or COMMAND | less (q to quit, / to search)\n  echo / printf · > FILE / >> FILE · history · which · man TOOL\n\nExplore the resources and policies. TAB completes supported commands.\nFor cluster labs, type oc --help, cat lab.txt, or ls workloads.\nLocal progress/offline: game status, game save, game export, game import.`,
       "meta",
     );
     return;
@@ -95,8 +97,41 @@ async function executeCommand(cmd: string) {
     else if (handled) {
       if (raw.startsWith("oc login") || raw.startsWith("cd")) switchPrompt();
       updateHUD();
+      if (!handled.error && handled.stdout) {
+        const tokens = tokenize(raw);
+        const words = tokens
+          .slice(
+            0,
+            tokens.findIndex((t) => t.kind === "pipe") < 0
+              ? tokens.length
+              : tokens.findIndex((t) => t.kind === "pipe"),
+          )
+          .map((t) => t.value);
+        if (words[0] === "oc" && words.includes("payments")) {
+          if (words[1] === "logs" && words.includes("deployment/payment-api"))
+            addClue("logs");
+          if (
+            ["get", "describe"].includes(words[1]) &&
+            words.some((word) => word.includes("payment-api")) &&
+            (words.includes("-o") || words[1] === "describe")
+          )
+            addClue("env");
+          if (
+            words.some((word) =>
+              ["networkpolicies", "networkpolicy", "netpol"].includes(word),
+            )
+          )
+            addClue("policy");
+        }
+      }
       if (handled.stdout)
-        print(handled.stdout.trimEnd(), handled.error ? "error" : "reply");
+        print(
+          handled.stdout.replace(/\n$/, ""),
+          handled.error ? "error" : "reply",
+        );
+      if (handled.stderr) printError(handled.stderr.trimEnd());
+      if (handled.pager && !handled.error)
+        openPager(handled.stdout, handled.pager);
       return;
     }
   } catch (error) {
@@ -231,12 +266,7 @@ async function executeCommand(cmd: string) {
       return;
     }
     addClue("logs");
-    let line = S.env
-      ? "WARN telemetry: POST https://203.0.113.77/upload (unexpected configured target)"
-      : "INFO telemetry: external exporter disabled (config updated)";
-    print(
-      `2026-10-08T02:13:44Z INFO payment-api: ready, listening on :8080\n2026-10-08T02:14:02Z ${line}\n2026-10-08T02:14:11Z ${S.policy === "deny" ? "ERROR ledger request failed: i/o timeout (egress blocked)" : "INFO ledger request completed: 200 OK"}\n2026-10-08T02:14:18Z ${S.policy === "deny" ? "ERROR checkout degraded: cannot resolve dependencies" : "INFO /healthz passed"}`,
-    );
+    print(paymentLogs());
     return;
   }
   if (/^oc\s+(?:get|describe)\s+(?:netpol|networkpolic(?:y|ies))\b/.test(raw)) {

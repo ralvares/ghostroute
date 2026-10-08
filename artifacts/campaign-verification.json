@@ -1,12 +1,12 @@
 {
-  "target": "27-chapter evolving prod-east journey; stage-only UI and static GitHub Pages",
+  "target": "27-chapter evolving prod-east journey; shared offline Kubernetes API, bastion tools and pager",
   "date": "2026-10-08",
-  "unit_tests": 43,
+  "unit_tests": 51,
   "unit_result": "passed",
   "production_build": "passed",
   "framework_revision": "e48d32014657e162d04ab1f7a07d4891d0abac03",
   "original_gameplay": {
-    "url": "http://127.0.0.1:4183/ghostroute/",
+    "url": "http://127.0.0.1:4184/ghostroute/",
     "flows": [
       "WASD movement, Trace Vision, nearby interaction, modal escape",
       "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
@@ -17,7 +17,7 @@
     "browser_errors": []
   },
   "campaign_browser": {
-    "url": "http://127.0.0.1:4183/ghostroute/",
+    "url": "http://127.0.0.1:4184/ghostroute/",
     "chapters": [
       "02 The Borrowed Image",
       "03 The Door That Opens Twice",
@@ -359,5 +359,179 @@
     ],
     "comparison": "Supplied reference and native desktop/mobile captures reviewed together",
     "manual_scope": "Selected scenes and breakpoints; every chapter played by automated real-input browser"
+  },
+  "cluster_browser": {
+    "checks": [
+      "Namespace/context persistence",
+      "SCC admission and owned-app repair",
+      "Real jq filters and malformed-query recovery",
+      "Real Go range/index templates",
+      "Deployment/controller failure distinction",
+      "RBAC denies escalation",
+      "anyuid grant/revoke",
+      "Scoped custom SCC",
+      "Audit investigation",
+      "User manifest CRUD"
+    ],
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "offline_bastion": {
+    "checks": [
+      "All build/WASM assets available after offline browser restart",
+      "Incident/evidence/cluster/files/SCC grants survive restart",
+      "Real jq and Go templates first used offline",
+      "Warm workers reused",
+      "Hung jq worker replaced",
+      "Portable export/import",
+      "Invalid import preserves live progress"
+    ],
+    "timings_include_dom_input_and_autosave": {
+      "offline_navigation_and_restore_ms": 394.0,
+      "cold_offline_jq_command_ms": 111.7,
+      "warm_jq_command_ms": [
+        115.1,
+        15.2,
+        110.4,
+        11.1,
+        114.0
+      ],
+      "cold_offline_go_command_ms": 118.0,
+      "warm_go_command_ms": [
+        117.1,
+        117.2,
+        112.6,
+        111.2,
+        110.0
+      ],
+      "worker_roundtrip_ms": [
+        {
+          "tool": "jq",
+          "ms": 35.7
+        },
+        {
+          "tool": "jq",
+          "ms": 14.1
+        },
+        {
+          "tool": "jq",
+          "ms": 5.5
+        },
+        {
+          "tool": "jq",
+          "ms": 25.7
+        },
+        {
+          "tool": "jq",
+          "ms": 3.2
+        },
+        {
+          "tool": "jq",
+          "ms": 8.8
+        },
+        {
+          "tool": "template",
+          "ms": 36
+        },
+        {
+          "tool": "template",
+          "ms": 7.5
+        },
+        {
+          "tool": "template",
+          "ms": 11.3
+        },
+        {
+          "tool": "template",
+          "ms": 20.9
+        },
+        {
+          "tool": "template",
+          "ms": 28
+        },
+        {
+          "tool": "template",
+          "ms": 7.8
+        }
+      ]
+    },
+    "browser_errors": [],
+    "url": "http://127.0.0.1:4184/ghostroute/"
+  },
+  "bastion_tools": {
+    "url": "http://127.0.0.1:4184/ghostroute/",
+    "commands": [
+      "jq 'select(.verb == \"patch\" and .objectRef.name == \"payment-api\") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log",
+      "jq",
+      "jq -nr '\"  spaced  \"' | wc -c",
+      "jq -njr '\"  spaced  \"' | wc -c",
+      "jq -nr '\"\"' | wc -l",
+      "jq -n --arg name payment-api '{name: $name}'",
+      "jq -rc 'select(.verb==\"patch\") | .user.username' audit/kube-apiserver.log",
+      "jq --argjson code 200 'select(.responseStatus.code == $code) | .verb' audit/kube-apiserver.log",
+      "jq -e 'false' audit/kube-apiserver.log",
+      "jq 'broken(' audit/kube-apiserver.log",
+      "jq -R -s 'split(\"\\n\") | length' notes.txt",
+      "jq 'select(.verb==\"patch\")' audit/kube-apiserver.log | more",
+      "jq -nr 'range(1;81) | \"line-\"+tostring' > investigation.txt",
+      "wc -l investigation.txt",
+      "less investigation.txt",
+      "cat investigation.txt | grep -n line- | more",
+      "more investigation.txt",
+      "oc logs deployment/payment-api -n payments | less",
+      "oc logs deployment/payment-api -n payments --tail=1 | cat",
+      "oc get deployment payment-api -n payments -o yaml | less",
+      "oc get pods -n payments | grep payment-api",
+      "oc get --raw /apis/apps/v1/namespaces/payments/deployments/payment-api | jq '.metadata.name'",
+      "oc get --raw /api/v1 | jq -r '.resources[].name' | sort | head -n 3",
+      "oc get --raw /api/v1/namespaces/payments/pods/no-such-pod",
+      "oc get --raw /unsupported",
+      "jq -c 'select(.verb==\"patch\")' audit/kube-apiserver.log > selected.json",
+      "jq -r '.user.username' selected.json",
+      "printf '%s\\n' Alpha Alpha Beta > samples.txt",
+      "grep -in '^alpha$' samples.txt",
+      "cat samples.txt | sort | uniq -c",
+      "grep -v Beta samples.txt | wc -l",
+      "head -n 1 samples.txt",
+      "tail -n 1 samples.txt",
+      "printf '%s\\n' 'a:b:c' | cut -d : -f 1,3",
+      "echo Gamma >> samples.txt",
+      "tail -n 1 samples.txt",
+      "cat samples.txt | grep absent | wc -l",
+      "grep '[' samples.txt",
+      "cat samples.txt | tail -f",
+      "cat samples.txt | more | wc -l",
+      "echo bad > audit/kube-apiserver.log",
+      "which oc jq less more",
+      "which unknown",
+      "history | tail -n 2",
+      "man jq",
+      "game save",
+      "tail -n 1 samples.txt",
+      "jq 'select(.verb == \"patch\" and .objectRef.name == \"payment-api\") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log",
+      "less investigation.txt",
+      "less -N investigation.txt",
+      "cat samples.txt | wc -l"
+    ],
+    "exact_user_audit_query": true,
+    "pager_keyboard_search_and_touch": true,
+    "offline_resume": true,
+    "local_files_retained": true,
+    "browser_errors": [],
+    "failed_requests": []
+  },
+  "offline_update": {
+    "open_tab_update": true,
+    "offline_updated_build": true,
+    "notes_and_files_retained": true,
+    "jq_after_update": true,
+    "browser_errors": []
+  },
+  "production_asset": "index-BlKBdDF2.js",
+  "api_contract": {
+    "resource_reads": "offline REST paths, API discovery and Status responses",
+    "resource_crud": "shared RBAC/SCC/controller model",
+    "preserved_adapters": "original incident mutations and domain-specific SCC/controller operations",
+    "fidelity": "bounded, not full OpenShift/Linux compatibility"
   }
 }

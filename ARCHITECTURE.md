@@ -319,3 +319,45 @@ Runtime-failure proof captures the observed failed Pod in campaign diagnostics.
 Chapter 04 requires deletion of that failed Pod after capture and successful
 startup of its replacement. Later handovers check the retained diagnosis and
 the live replacement, rather than requiring the faulty workload to remain.
+
+## Bastion and offline API contracts — 2026-10-08
+
+`simulation/kube-api.ts` owns the local REST request/response boundary. GET
+resources/lists and discovery, POST create, PATCH named apply objects, and DELETE
+map to the existing shared server model. Responses contain objects or Kubernetes
+Status errors; returned Pods include admission changes and controller status.
+`terminal/cluster-shell.ts` formats CLI output through this API. RBAC, SCC, audit,
+namespace isolation and controller reconciliation remain in `cluster-api.ts`.
+Unsupported routes/options return explicit simulation limitations. Dedicated
+original-incident mutations and SCC/controller helper adapters remain bounded;
+this boundary does not claim full OpenShift protocol fidelity.
+
+`terminal/text-tools.ts` handles identical file/pipeline arguments and exact text
+streams, real WASM jq, filtering, sorting/counting and pager requests. The lexer
+parses quotes, pipes and final > / >> without host evaluation. Writes use the
+same persisted virtual filesystem as cat/ls/oc -f. The Vite jq compatibility
+transform removes jq-wasm's stdout trim in both worker and development bundles;
+this preserves actual CLI whitespace/newlines for pipes, wc and saved evidence.
+It checks the pinned dependency shape rather than silently accepting upgrades.
+
+`terminal/pager.ts` owns transient display/navigation/search state only. It
+hides the prompt while reading, sizes pages to the actual viewport and returns
+focus on q/Escape. Closing the bastion discards pager state. No pager state is
+serialized and navigation never changes cluster resources. Reading retained
+incident evidence through jq or pagers can advance investigation only when the
+successful output contains the required evidence; full dossier readers also
+support more/less.
+
+`tests/bastion.test.mjs` verifies parsing, byte/line semantics, errors, persistence,
+completion and REST RBAC/admission. `tests/bastion_browser.py` drives the exact
+reported jq query, real WASM flags/bytes, file output, pagers/search/touch controls,
+and offline reload. The 27-chapter browser replay now uses the standalone audit
+query and less for every handover, in addition to the existing full journey gates.
+
+Offline build updates activate only after every new asset has been fetched with
+HTTP cache bypass and stored. Existing tabs get the new version on their next
+navigation without closing all tabs. The most recent prior asset cache remains
+available to old lazy workers; older caches are cleaned. IndexedDB/local progress
+is independent and never cleared by activation. `tests/update_browser.py`
+verifies an open-tab update, offline navigation into the new build, retained
+notes/files and working jq after activation.

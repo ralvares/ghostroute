@@ -21,6 +21,7 @@ export async function registerOffline() {
   try {
     const registration = await navigator.serviceWorker.register(
       `${import.meta.env.BASE_URL}sw.js`,
+      { updateViaCache: "none" },
     );
     // An activated worker has finished caching every asset, including unused WASM tools.
     await new Promise<void>((resolve, reject) => {

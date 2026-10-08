@@ -185,3 +185,18 @@ release-input review, and final live-control drift rejection are exercised
 through real browser commands. All 43 unit checks pass. Every chapter is
 played by the automated browser; manual visual review covers selected scenes
 and responsive states, not every chapter. No zero-bug claim is made.
+
+## Bastion pager and API pass — 2026-10-08
+
+Status: passed in reviewed desktop and 390px mobile states. Native browser
+interaction confirmed the exact reported audit query, readable JSON in less,
+page sizing using available height, literal search and q returning to the prompt.
+The terminal remains available only at the bastion; notes stay alongside it.
+Automated input checks cover scrolling, search failure/cancel/repeat, Escape,
+mobile controls and reopening the bastion after closing a pager.
+
+51 unit checks, the 27-chapter real-input journey, original outage/recovery/endings,
+SCC/RBAC browser checks, exact jq bytes and offline cold restart pass. The update
+regression also checks that a new cached build activates with an old tab open,
+retaining notes/files and working offline. The shared REST API is documented as
+bounded; no full OpenShift/Linux compatibility or zero-bug claim is made.

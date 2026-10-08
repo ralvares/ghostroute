@@ -1,4 +1,5 @@
 import { completePath } from "../simulation/filesystem.js";
+import { tokenize } from "./lexer.js";
 
 /** Complete a filename at the cursor without changing earlier arguments or the suffix. */
 export function pathCompletions(
@@ -12,10 +13,36 @@ export function pathCompletions(
   const fragment = match[2];
   const start = cursor - fragment.length - quote.length;
   const head = input.slice(0, start);
-  const command = before.trimStart().split(/\s+/)[0];
-  const words = head.trim().split(/\s+/);
+  let tokens;
+  try {
+    tokens = tokenize(head);
+  } catch {
+    return null;
+  }
+  let pipe = -1;
+  tokens.forEach((token, index) => {
+    if (token.kind === "pipe") pipe = index;
+  });
+  const words = tokens.slice(pipe + 1).map((token) => token.value);
+  const command = words[0];
   const enabled =
-    ["cd", "cat", "ls", "head", "tail"].includes(command) ||
+    [
+      "cd",
+      "cat",
+      "ls",
+      "head",
+      "tail",
+      "less",
+      "more",
+      "sort",
+      "uniq",
+      "wc",
+    ].includes(command) ||
+    (command === "jq" &&
+      words.slice(1).some((word) => !word.startsWith("-"))) ||
+    (command === "grep" &&
+      words.slice(1).some((word) => !word.startsWith("-"))) ||
+    tokens.at(-1)?.kind === "redirect" ||
     (command === "oc" && ["-f", "--filename"].includes(words.at(-1) ?? ""));
   if (!enabled || !head.trim()) return null;
   const suffix = input.slice(cursor);

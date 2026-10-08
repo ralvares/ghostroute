@@ -33,12 +33,19 @@ const prefix = 'nexus-offline:' + base.pathname + ':';
 const cacheName = prefix + '${version}';
 const assets = ${JSON.stringify(assets)}.map(path => new URL(path, base).href);
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(cacheName);
+    await cache.addAll(assets.map(url => new Request(url, { cache: 'reload' })));
+    // Publish only a complete cache. Existing tabs may keep running their loaded
+    // code; their next navigation must receive this version without closing all tabs.
+    await self.skipWaiting();
+  })());
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    for (const name of await caches.keys()) {
-      if (name.startsWith(prefix) && name !== cacheName) await caches.delete(name);
+    const previous = (await caches.keys()).filter(name => name.startsWith(prefix) && name !== cacheName);
+    for (const name of previous.slice(0, -1)) {
+      await caches.delete(name);
     }
     await self.clients.claim();
   })());
@@ -49,7 +56,13 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);
     const match = await cache.match(event.request.mode === 'navigate' ? new URL('index.html', base).href : event.request);
-    return match || fetch(event.request);
+    if (match) return match;
+    // A still-open older tab may request its lazy worker/assets after activation.
+    for (const name of (await caches.keys()).filter(name => name.startsWith(prefix) && name !== cacheName)) {
+      const previous = await (await caches.open(name)).match(event.request);
+      if (previous) return previous;
+    }
+    return fetch(event.request);
   })());
 });
 `,

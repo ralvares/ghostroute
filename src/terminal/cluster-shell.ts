@@ -1,12 +1,16 @@
+import {
+  readApiResources as getResources,
+  applyApiResource as applyResource,
+  deleteApiResource as deleteResource,
+  kubeRequest,
+  apiBody,
+} from "../simulation/kube-api.js";
 import { parseAllDocuments, stringify } from "yaml";
 import { S } from "../simulation/state.js";
 import type { Resource, Scc } from "../simulation/cluster-model.js";
 import {
   resourceTypes,
   resolveResource,
-  getResources,
-  applyResource,
-  deleteResource,
   grantScc,
   restartDeployment,
   auditRequest,
@@ -24,10 +28,10 @@ import { policyFiles } from "../simulation/resources.js";
 import { tokenize } from "./lexer.js";
 import { runQuery } from "./query-tools.js";
 import { validOcCommand } from "./syntax.js";
+import { textCommand, textTools, toolHelp } from "./text-tools.js";
+import type { ToolResult } from "./text-tools.js";
 
-interface Result {
-  stdout: string;
-  error?: boolean;
+interface Result extends ToolResult {
   legacyCommand?: string;
 }
 const result = (stdout: string, error = false): Result => ({
@@ -103,6 +107,18 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     return { stdout: "", legacyCommand: `oc apply -f ${canonical}` };
   }
   const verb = args[0];
+  if (verb === "get" && flag("--raw")) {
+    rejectFlags(flags, ["--raw"]);
+    if (args.length !== 1)
+      throw new Error("error: oc get --raw PATH accepts no resource arguments");
+    return result(
+      JSON.stringify(
+        apiBody(kubeRequest({ method: "GET", path: flag("--raw")! })),
+        null,
+        2,
+      ),
+    );
+  }
   if (verb === "version")
     return result(
       "Client Version: 4.22.0 (simulation)\nServer Version: 4.22.0 (simulation)",
@@ -173,7 +189,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
             ));
       return result(usable ? "yes" : "no");
     }
-    if (identity) return result(roleAllows(identity,args[2],type,namespace,resourceName) ? "yes" : "no");
+    if (identity)
+      return result(
+        roleAllows(identity, args[2], type, namespace, resourceName)
+          ? "yes"
+          : "no",
+      );
     return result(
       authorized(
         args[2],
@@ -230,6 +251,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
           raw.includes("policies/"))));
   if (
     original &&
+    !["get", "describe"].includes(verb) &&
     !["nodes", "node", "ns", "namespaces"].includes(args[1]) &&
     !["auth", "whoami"].includes(verb) &&
     !flag("-o")?.includes("json") &&
@@ -320,7 +342,11 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       );
     }
     if (!items.length)
-      return result(`No resources found in ${namespace} namespace.`);
+      return result(
+        namespace === "payments" && type === "networkpolicies"
+          ? "No resources found in payments namespace. payment-api egress is not restricted by a NetworkPolicy."
+          : `No resources found in ${namespace} namespace.`,
+      );
     if (type === "events")
       return result(
         "TYPE  REASON  MESSAGE\n" +
@@ -551,17 +577,20 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
   const tokens = tokenize(raw);
   if (!tokens.length) return null;
   const redirect = tokens.findIndex((token) => token.kind === "redirect");
+  let destination: string | undefined,
+    append = false;
   if (redirect >= 0) {
     if (
-      tokens[0].value !== "echo" ||
-      redirect !== 2 ||
-      tokens.length !== 4 ||
-      tokens[1].kind !== "word" ||
-      tokens[3].kind !== "word"
+      redirect !== tokens.length - 2 ||
+      tokens.at(-1)?.kind !== "word" ||
+      tokens.slice(0, redirect).some((token) => token.kind === "redirect")
     )
-      throw new Error("simulation: file writes use echo 'content' > path");
-    writeVirtualFile(tokens[3].value, tokens[1].value + "\n");
-    return result("");
+      throw new Error(
+        "shell: output redirection must end with > FILE or >> FILE",
+      );
+    destination = tokens.at(-1)!.value;
+    append = tokens[redirect].value === ">>";
+    tokens.splice(redirect);
   }
   const stages: string[][] = [[]];
   for (const token of tokens) {
@@ -572,14 +601,64 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
     throw new Error("shell: missing pipeline command");
   const first = stages[0];
   let response: Result | null;
-  if (first[0] === "oc") response = await oc(first, raw);
-  else if (first[0] === "cat" && first.length >= 2)
-    response = result(first.slice(1).map(readFile).join(""));
+  if (first[0] === "oc") {
+    const source = stages.length === 1 && !destination ? raw : first.join(" ");
+    response = await oc(first, source);
+    if (!response && first[1] === "logs" && validOcCommand(source)) {
+      if (!first.some((word) => word.includes("payment-api")))
+        throw new Error(
+          "simulation: select the payment-api Deployment for these logs",
+        );
+      if (!first.includes("payments"))
+        throw new Error(
+          'Error from server (NotFound): deployments.apps "payment-api" not found in namespace "default"',
+        );
+      const tail = source.match(/--tail(?:=|\s+)(\d+)/)?.[1];
+      response = result(
+        tail === undefined
+          ? paymentLogs()
+          : Number(tail)
+            ? paymentLogs().split("\n").slice(-Number(tail)).join("\n")
+            : "",
+      );
+    }
+  } else if (textTools.includes(first[0])) response = await textCommand(first);
+  else if (first[0] === "man" && first.length === 2 && toolHelp[first[1]])
+    response = { stdout: toolHelp[first[1]] + "\n", pager: "less" };
+  else if (first[0] === "which" && first.length >= 2) {
+    const supported = [
+      ...textTools,
+      "oc",
+      "ls",
+      "pwd",
+      "mkdir",
+      "history",
+      "man",
+    ];
+    response = result(
+      first
+        .slice(1)
+        .map((tool) =>
+          supported.includes(tool)
+            ? "/usr/bin/" + tool
+            : `which: no ${tool} in simulated PATH`,
+        )
+        .join("\n"),
+      first.slice(1).some((tool) => !supported.includes(tool)),
+    );
+  } else if (first[0] === "history" && first.length === 1)
+    response = result(
+      S.history
+        .map((entry, index) => `${String(index + 1).padStart(5)}  ${entry}`)
+        .join("\n"),
+    );
   else if (first[0] === "pwd" && first.length === 1)
     response = result(S.cluster.cwd);
   else if (first[0] === "cd" && first.length <= 2) {
-    if (stages.length > 1)
-      throw new Error("simulation: cd does not support pipelines");
+    if (stages.length > 1 || destination)
+      throw new Error(
+        "simulation: cd does not support pipelines or redirection",
+      );
     response = result(changeDirectory(first[1]));
   } else if (first[0] === "ls") {
     const flags = first.slice(1).filter((word) => word.startsWith("-"));
@@ -596,85 +675,65 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
       ),
     );
   } else if (first[0] === "mkdir") {
-    const parents = first[1] === "-p";
-    const path = first[parents ? 2 : 1];
-    if (!path || first.length !== (parents ? 3 : 2))
+    const parents = first[1] === "-p",
+      path = first[parents ? 2 : 1];
+    if (
+      !path ||
+      first.length !== (parents ? 3 : 2) ||
+      stages.length > 1 ||
+      destination
+    )
       throw new Error("simulation: mkdir [-p] <directory>");
     makeDirectory(path, parents);
     response = result("");
-  } else return null;
+  } else {
+    if (stages.length > 1 || destination)
+      throw new Error(`${first[0]}: command not found. Type help.`);
+    return null;
+  }
   if (!response) {
-    if (stages.length > 1)
+    if (stages.length > 1 || destination)
       throw new Error(
-        "simulation: this legacy command has no structured pipeline output; use oc get ... -o json",
+        "simulation: this command has no pipeline output; use oc get ... -o json",
       );
     return null;
   }
-  if (response.error) return response;
-  for (const stage of stages.slice(1)) {
-    if (stage[0] === "jq") {
-      const query = stage.at(-1)!;
-      const flags = stage.slice(1, -1);
-      if (
-        !query ||
-        stage.length < 2 ||
-        flags.some(
-          (flag) =>
-            ![
-              "-r",
-              "-c",
-              "-s",
-              "-e",
-              "-M",
-              "--raw-output",
-              "--compact-output",
-              "--slurp",
-            ].includes(flag),
-        )
-      )
-        throw new Error(
-          "simulation: jq needs a quoted query and optional -r/-c/-s/-e/-M flags",
-        );
-      const filtered = await runQuery("jq", response.stdout, query, flags);
-      response = result(
-        filtered.exitCode ? filtered.stderr : filtered.stdout,
-        filtered.exitCode !== 0,
-      );
-    } else if (stage[0] === "grep") {
-      const { args, flags } = options(stage.slice(1));
-      rejectFlags(flags, []);
-      if (args.length !== 1)
-        throw new Error("simulation: grep expects one quoted literal pattern");
-      response = result(
-        response.stdout
-          .split("\n")
-          .filter((line) => line.includes(args[0]))
-          .join("\n"),
-      );
-    } else if (["head", "tail"].includes(stage[0])) {
-      const count = stage[1] === "-n" ? Number(stage[2]) : 10;
-      if (!Number.isInteger(count) || count < 0 || count > 10000)
-        throw new Error("error: invalid line count");
-      const lines = response.stdout.trimEnd().split("\n");
-      response = result(
-        (stage[0] === "head"
-          ? lines.slice(0, count)
-          : count
-            ? lines.slice(-count)
-            : []
-        ).join("\n"),
-      );
-    } else if (stage[0] === "sort" && stage.length === 1)
-      response = result(
-        response.stdout.trimEnd().split("\n").sort().join("\n"),
-      );
-    else if (stage[0] === "wc" && stage[1] === "-l" && stage.length === 2)
-      response = result(String(response.stdout.match(/\n/g)?.length ?? 0));
-    else
+  if (response.legacyCommand && (stages.length > 1 || destination))
+    throw new Error(
+      "simulation: this incident mutation must run as a standalone command",
+    );
+  for (const [index, stage] of stages.entries()) {
+    if (!index) continue;
+    if (response.stderr || (response.error && response.exitCode !== 1))
+      return response;
+    if (response.pager)
+      throw new Error("shell: more/less must be the final pipeline command");
+    const filtered = await textCommand(stage, response.stdout);
+    if (!filtered)
       throw new Error(
         `simulation: pipeline tool ${stage[0]} is not implemented`,
       );
+    response = filtered;
+  }
+  if (destination) {
+    if (response.pager)
+      throw new Error("shell: redirect the text before opening a pager");
     if (response.error) return response;
+    let previous = "";
+    if (append) {
+      try {
+        previous = readFile(destination);
+      } catch (error) {
+        if (!(error as Error).message.includes("No such file")) throw error;
+      }
+    }
+    writeVirtualFile(destination, previous + response.stdout);
+    return result("");
   }
   return response;
+}
+
+/** Shared source for direct logs and pipelines so cluster health/config changes remain visible. */
+export function paymentLogs() {
+  return `2026-10-08T02:13:44Z INFO payment-api: ready, listening on :8080\n2026-10-08T02:14:02Z ${S.env ? "WARN telemetry: POST https://203.0.113.77/upload (unexpected configured target)" : "INFO telemetry: external exporter disabled (config updated)"}\n2026-10-08T02:14:11Z ${S.policy === "deny" ? "ERROR ledger request failed: i/o timeout (egress blocked)" : "INFO ledger request completed: 200 OK"}\n2026-10-08T02:14:18Z ${S.policy === "deny" ? "ERROR checkout degraded: cannot resolve dependencies" : "INFO /healthz passed"}`;
 }

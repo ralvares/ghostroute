@@ -76,8 +76,48 @@ Go templates use Go's `text/template`, including range, index, conditionals,
 printf and `base64decode`. Quoted pipelines are parsed without invoking a host
 shell. Compiled engines stay warm in background workers with a five-second limit;
 a timed-out worker is replaced. Malformed or long-running expressions do not stop
-the game. Supported pipeline tools are
-`jq`, literal `grep`, lexicographic `sort`, `head`/`tail` (`-n`), and `wc -l`.
+the game. The same tools read files directly or accept piped output: `cat`,
+`jq`, `grep` (`-i`, `-n`, `-v`, `-F`, `-E`, `-c`), `sort` (`-n`, `-r`, `-u`),
+`uniq -c`, `head`/`tail -n`, `wc -lwc`, and `cut -d/-f`.
+`more` and `less` open a pager inside the bastion. Space/PageDown advances,
+b/PageUp goes back, arrows move a line, `/` searches, `n` repeats, and `q` returns
+to the prompt. Escape exits the pager first. Mobile has navigation/search/quit buttons.
+`less -N` shows line numbers. `man jq` (or another supported tool) opens usage.
+
+```sh
+jq 'select(.verb == "patch" and .objectRef.name == "payment-api") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}' audit/kube-apiserver.log
+oc logs deployment/payment-api -n payments | less
+oc get deployment payment-api -n payments -o yaml | more
+jq -c 'select(.responseStatus.code == 403)' audit/kube-apiserver.log > denied.json
+jq -r '.user.username' denied.json | sort | uniq -c
+less -N audit/kube-apiserver.log
+history | tail -n 10
+which oc jq less
+```
+
+Tab completes file arguments after quoted jq filters as well as `cat`, `less`,
+`more`, and output redirection. `echo` and `%s`/`%s\n` `printf` formats write text;
+`>` replaces and `>>` appends locally saved files. Audit/scenario policy files
+remain read-only. `jq` with no input shows usage; it does not wait on an invisible
+stdin. Interactive follow mode, arbitrary executables, shell expansion,
+background jobs and control operators are outside this browser shell.
+Unknown tools/options fail explicitly. These are bounded CLI semantics, not a
+complete Linux host or full OpenShift implementation.
+
+The CLI's resource reads and CRUD now call an offline REST boundary with
+Kubernetes paths, API discovery and `Status` errors. For example:
+
+```sh
+oc get --raw /api/v1 | jq '.resources[].name'
+oc get --raw /apis/apps/v1/namespaces/payments/deployments/payment-api | jq '.spec.template.spec.containers'
+```
+
+This runs in process with the same RBAC/admission/controller state; it exposes
+no real HTTP server and makes no cluster network request. REST writes currently
+support create, named apply objects and delete; watches, resourceVersion conflicts,
+server-side field ownership and arbitrary API subresources are not simulated.
+The retained first incident's mutations and domain-specific SCC/controller helpers
+still have dedicated adapters; they are not a complete oc binary.
 
 ## Repair an application you own
 
@@ -156,7 +196,7 @@ Default SCCs are protected from edits in this laboratory.
 ```sh
 cat audit/kube-apiserver.log | jq 'select(.responseStatus.code == 403)'
 cat audit/kube-apiserver.log | jq -r 'select(.responseStatus.code == 403) | .user.username' | sort
-oc adm node-logs master-01 --path=kube-apiserver/audit.log | jq 'select(.verb == "patch")'
+oc adm node-logs control-01 --path=kube-apiserver/audit.log | jq 'select(.verb == "patch")'
 ```
 
 The local evidence file contains deterministic Kubernetes-shaped JSON audit
