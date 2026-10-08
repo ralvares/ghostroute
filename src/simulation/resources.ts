@@ -1,0 +1,4 @@
+export const policyFiles: Record<string, string> = {
+  "policies/deny-all.yaml": `apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: default-deny-egress\n  namespace: payments\nspec:\n  podSelector:\n    matchLabels:\n      app: payment-api\n  policyTypes: [Egress]\n  egress: []`,
+  "policies/payments-egress.yaml": `apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nmetadata:\n  name: payment-egress\n  namespace: payments\nspec:\n  podSelector:\n    matchLabels:\n      app: payment-api\n  policyTypes: [Egress]\n  egress:\n  - to:\n    - namespaceSelector:\n        matchLabels:\n          kubernetes.io/metadata.name: openshift-dns\n      podSelector:\n        matchLabels:\n          dns.operator.openshift.io/daemonset-dns: default\n    ports:\n    - { protocol: UDP, port: 53 }\n    - { protocol: TCP, port: 53 }\n  - to:\n    - podSelector:\n        matchLabels:\n          app: ledger\n    ports:\n    - { protocol: TCP, port: 8443 }`,
+};

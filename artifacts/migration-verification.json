@@ -1,0 +1,65 @@
+{
+  "gameplay": {
+    "url": "http://127.0.0.1:4174/",
+    "flows": [
+      "WASD movement, Trace Vision, nearby interaction, modal escape",
+      "Click-to-walk, NPC dialogue, RHACS investigation and caseboard",
+      "Autocomplete/history, evidence, rollout, deny-all outage, recovery, DNS, positive/negative tests, B-grade completion",
+      "Restart, S-grade safe completion and mobile canvas"
+    ],
+    "browser_errors": []
+  },
+  "semantics": {
+    "checks": [
+      "Unsupported commands reject",
+      "JSON/YAML representations",
+      "Only applied policies listed",
+      "Additive policy order preserves service",
+      "Exact Pod destinations",
+      "Deployment/Pod coherence"
+    ],
+    "browser_errors": []
+  },
+  "visual": [
+    {
+      "image": "debrief.png",
+      "identical": false,
+      "mean_channel_error": [
+        7.638888888888888e-06,
+        1.25e-05,
+        2.777777777777778e-06
+      ]
+    },
+    {
+      "image": "investigation.png",
+      "identical": false,
+      "mean_channel_error": [
+        1.1805555555555555e-05,
+        1.1805555555555555e-05,
+        6.944444444444445e-06
+      ]
+    },
+    {
+      "image": "mobile.png",
+      "identical": true,
+      "mean_channel_error": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "image": "opening.png",
+      "identical": true,
+      "mean_channel_error": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "unit_tests": 6,
+  "typecheck": "passed",
+  "production_build": "passed",
+  "target": "preserved Ghost Route migration"
+}

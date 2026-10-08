@@ -9,6 +9,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 CLOCK = """
+const nativeFrame = window.requestAnimationFrame.bind(window);
+window.flushPaint = () => new Promise(resolve => nativeFrame(() => nativeFrame(resolve)));
 let gameTime = 1000, callbacks = [];
 performance.now = () => gameTime;
 window.requestAnimationFrame = fn => { callbacks.push(fn); return callbacks.length; };
@@ -33,7 +35,8 @@ def run(url, output):
         page.goto(url)
         page.wait_for_function("typeof window.stepGame === 'function'")
         page.evaluate("stepGame()")
-        page.screenshot(path=str(output / "opening.png"))
+        page.evaluate("flushPaint()")
+        page.screenshot(animations="disabled", path=str(output / "opening.png"))
         page.locator("#startBtn").click()
         page.locator("#radioClose").click()
         # The avatar starts near the Ops station. Moving north reveals payment-api.
@@ -89,7 +92,8 @@ def run(url, output):
         command("oc get networkpolicies -n payments", "not restricted")
         expect(page.locator("#evidenceCount")).to_have_text("5 / 5")
         page.evaluate("document.querySelector('#toast').classList.remove('show')")
-        page.screenshot(path=str(output / "investigation.png"))
+        page.evaluate("flushPaint()")
+        page.screenshot(animations="disabled", path=str(output / "investigation.png"))
         command("cat policies/payments-egress.yaml", "port: 8443")
         command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
         command("oc apply -f policies/deny-all.yaml", "default-deny-egress configured")
@@ -110,7 +114,8 @@ def run(url, output):
         expect(page.locator(".grade")).to_have_text("B")
         expect(page.locator("#endBody")).to_contain_text("1Service disruptions")
         page.evaluate("document.querySelector('#toast').classList.remove('show')")
-        page.screenshot(path=str(output / "debrief.png"))
+        page.evaluate("flushPaint()")
+        page.screenshot(animations="disabled", path=str(output / "debrief.png"))
         receipts.append("Autocomplete/history, evidence, rollout, deny-all outage, recovery, DNS, positive/negative tests, B-grade completion")
         page.locator("#playAgain").click()
         expect(page.locator("#opening")).to_be_visible()
@@ -142,7 +147,8 @@ def run(url, output):
         expect(page.locator("#opening")).to_be_visible()
         page.set_viewport_size({"width": 390, "height": 844})
         page.evaluate("stepGame()")
-        page.screenshot(path=str(output / "mobile.png"))
+        page.evaluate("flushPaint()")
+        page.screenshot(animations="disabled", path=str(output / "mobile.png"))
         receipts.append("Restart, S-grade safe completion and mobile canvas")
         assert not errors, errors
         browser.close()

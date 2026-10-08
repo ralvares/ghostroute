@@ -1,0 +1,23 @@
+{
+  "name": "nexus-ghost-route",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "tsc --outDir .test-build --noEmit false && node --test tests/*.test.mjs",
+    "test:browser": "python3 tests/gameplay.py http://127.0.0.1:4174/ artifacts/migrated",
+    "test:semantics": "python3 tests/semantics.py http://127.0.0.1:4174/",
+    "test:visual": "python3 tests/compare_screenshots.py"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "8.3.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

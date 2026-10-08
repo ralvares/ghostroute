@@ -1,0 +1,50 @@
+interface Elements {
+  restartTop: HTMLButtonElement;
+  frame: HTMLElement;
+  world: HTMLCanvasElement;
+  casehud: HTMLElement;
+  phase: HTMLElement;
+  objectiveTitle: HTMLElement;
+  objective: HTMLElement;
+  health: HTMLElement;
+  healthDetail: HTMLElement;
+  exposure: HTMLElement;
+  exposureDetail: HTMLElement;
+  nearby: HTMLElement;
+  nearbyText: HTMLElement;
+  radio: HTMLElement;
+  radioPortrait: HTMLElement;
+  radioName: HTMLElement;
+  radioText: HTMLElement;
+  radioClose: HTMLButtonElement;
+  toast: HTMLElement;
+  opening: HTMLElement;
+  startBtn: HTMLButtonElement;
+  details: HTMLElement;
+  detailsBody: HTMLElement;
+  casepanel: HTMLElement;
+  closeCase: HTMLButtonElement;
+  evidenceList: HTMLElement;
+  shellshade: HTMLElement;
+  termTitle: HTMLElement;
+  closeTerm: HTMLButtonElement;
+  termOutput: HTMLElement;
+  termform: HTMLFormElement;
+  termPrompt: HTMLElement;
+  ghostLead: HTMLElement;
+  ghostTail: HTMLElement;
+  termInput: HTMLInputElement;
+  ending: HTMLElement;
+  endBody: HTMLElement;
+  terminalBtn: HTMLButtonElement;
+  traceBtn: HTMLButtonElement;
+  caseBtn: HTMLButtonElement;
+  evidenceCount: HTMLElement;
+  detailDone: HTMLButtonElement;
+  playAgain: HTMLButtonElement;
+}
+export function $<K extends keyof Elements>(id: K): Elements[K] {
+  const element = document.getElementById(id);
+  if (!element) throw new Error("Missing game element: " + id);
+  return element as Elements[K];
+}
