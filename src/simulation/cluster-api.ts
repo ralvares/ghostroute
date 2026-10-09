@@ -1,4 +1,9 @@
 import { normalizeSecret, secretValue } from "./secrets.js";
+import { synchronizeMetadata } from "./api-storage.js";
+import { validateResourceUpdate } from "./resource-update.js";
+import { strategicPatch } from "./strategic-patch.js";
+import { mergePatch } from "./api-patch.js";
+import { strategicSchemas } from "./strategic-schemas.js";
 import { S } from "./state.js";
 import { allocatePodAddress, creationNetwork } from "./pod-addresses.js";
 import { defaultSccs } from "./default-sccs.js";
@@ -66,12 +71,7 @@ export function auditRequest(
       code,
       ...(code >= 400
         ? {
-            reason:
-              code === 403
-                ? "Forbidden"
-                : code === 404
-                  ? "NotFound"
-                  : "Invalid",
+            reason: ({400:"BadRequest",403:"Forbidden",404:"NotFound",409:"Conflict",415:"UnsupportedMediaType",422:"Invalid",501:"NotImplemented"} as Record<number,string>)[code] ?? "Unknown",
             message,
           }
         : {}),
@@ -241,6 +241,7 @@ export function getResources(
   namespace?: string,
   name?: string,
 ): Resource[] {
+  const core = synchronizeClusterMetadata();
   const verb = name ? "get" : "list";
   if (!authorized(verb, type, namespace, name)) {
     const message = forbidden(verb, type, namespace, name);
@@ -260,7 +261,7 @@ export function getResources(
                 apiVersion: "project.openshift.io/v1",
                 kind: "Project",
               }))
-          : [...S.cluster.resources, ...coreResources()];
+          : [...S.cluster.resources, ...core];
   const resources = all.filter(
     (resource) =>
       resource.kind === resourceTypes[type].kind &&
@@ -290,6 +291,12 @@ export function getResources(
       },
     })),
   );
+}
+
+export function synchronizeClusterMetadata() {
+  const core = coreResources();
+  synchronizeMetadata([...S.cluster.resources, ...S.cluster.sccs, ...S.cluster.events, ...core]);
+  return core;
 }
 
 function namespaceRange(namespace: string): [number, number] {
@@ -328,7 +335,7 @@ function usableSccs(namespace: string, sa: string, directRequest = false) {
   return available;
 }
 
-function admitResource(resource: Resource, directRequest = true) {
+function admitResource(resource: Resource, directRequest = true, runRuntime = true) {
   const namespace = resource.metadata.namespace!;
   const spec = resource.spec as PodSpec;
   validateCampaignPod(resource);
@@ -361,17 +368,24 @@ function admitResource(resource: Resource, directRequest = true) {
     );
   resource.spec = {
     ...admission.spec,
-    nodeName:
+    ...(runRuntime ? {nodeName:
       requestedNode ??
       (S.cluster.resources.filter((item) => item.kind === "Pod").length % 2
         ? "worker-02"
-        : "worker-01"),
+        : "worker-01")} : {}),
   };
   resource.metadata.annotations = {
     ...resource.metadata.annotations,
     "openshift.io/scc": admission.scc,
   };
-  const containerStatuses = admission.spec.containers.map((container) => {
+  if (runRuntime) startPod(resource);
+  else resource.status = {phase: "Pending"};
+}
+
+function startPod(resource: Resource, previous?: Resource) {
+  const namespace = resource.metadata.namespace!;
+  const spec = resource.spec as PodSpec;
+  const containerStatuses = spec.containers.map((container) => {
     const image = container.image.split("@")[0],
       uid = container.securityContext?.runAsUser;
     const pullFailure = registryPullFailure(container.image);
@@ -413,12 +427,13 @@ function admitResource(resource: Resource, directRequest = true) {
   const running = containerStatuses.every(
     (c) => c.state.waiting?.reason !== "ImagePullBackOff",
   );
-  const network = creationNetwork(resource, S.cluster.resources);
-  const podIP = allocatePodAddress(resource, S.cluster.resources);
-  resource.metadata.annotations!["k8s.v1.cni.cncf.io/network-status"] =
-    JSON.stringify([
+  const podIP = previous?.status?.podIP ?? allocatePodAddress(resource, S.cluster.resources);
+  if (!previous) {
+    const network = creationNetwork(resource, S.cluster.resources);
+    resource.metadata.annotations!["k8s.v1.cni.cncf.io/network-status"] = JSON.stringify([
       { name: network.domain, interface: "eth0", ips: [podIP], default: true },
     ]);
+  }
   resource.status = {
     phase: running ? "Running" : "Pending",
     containerStatuses,
@@ -433,7 +448,7 @@ function admitResource(resource: Resource, directRequest = true) {
     ],
   };
   const scheduling = schedulingFailure(resource);
-  const secretRefs = admission.spec.containers
+  const secretRefs = spec.containers
     .flatMap((c) => c.env ?? [])
     .filter((e) => e.valueFrom?.secretKeyRef);
   const missing = secretRefs.find(
@@ -444,7 +459,7 @@ function admitResource(resource: Resource, directRequest = true) {
       phase: "Pending",
       containerStatuses: [
         {
-          name: admission.spec.containers[0].name,
+          name: spec.containers[0].name,
           ready: false,
           restartCount: 0,
           state: {
@@ -473,7 +488,7 @@ function admitResource(resource: Resource, directRequest = true) {
   }
 }
 
-function reconcileDeployment(deployment: Resource) {
+function reconcileDeployment(deployment: Resource, recreate = true) {
   const template = deployment.spec?.template;
   if (!template) throw new Error("Deployment requires spec.template");
   const namespace = deployment.metadata.namespace!;
@@ -483,13 +498,20 @@ function reconcileDeployment(deployment: Resource) {
       !(
         resource.kind === "Pod" &&
         resource.metadata.namespace === namespace &&
-        resource.metadata.name.startsWith(prefix)
+        resource.metadata.name.startsWith(prefix) &&
+        (recreate || Number(resource.metadata.name.slice(prefix.length)) >= (deployment.spec?.replicas ?? 1))
       ),
   );
+  synchronizeClusterMetadata();
   const replicas = deployment.spec?.replicas ?? 1;
   let available = 0,
     failedCreates = 0;
   for (let index = 0; index < replicas; index++) {
+    const existing = S.cluster.resources.find(resource => resource.kind === "Pod" && resource.metadata.namespace === namespace && resource.metadata.name === prefix + index);
+    if (existing) {
+      if ((existing.status?.containerStatuses as {ready: boolean}[] | undefined)?.every(status => status.ready)) available++;
+      continue;
+    }
     const pod: Resource = {
       apiVersion: "v1",
       kind: "Pod",
@@ -497,6 +519,8 @@ function reconcileDeployment(deployment: Resource) {
         name: prefix + index,
         namespace,
         creationTimestamp: new Date(clusterTime()).toISOString(),
+        labels: structuredClone(template.metadata?.labels ?? {}),
+        annotations: structuredClone(template.metadata?.annotations ?? {}),
       },
       spec: structuredClone(template.spec),
     };
@@ -580,9 +604,12 @@ export function applyResource(
   input: Resource,
   namespace: string,
   createOnly = false,
+  operation?: "create" | "patch" | "update",
+  reconcile = true,
 ) {
+  synchronizeClusterMetadata();
   refreshResourceTypes();
-  const resource = structuredClone(input);
+  let resource = structuredClone(input);
   normalizeSecret(resource);
   const type = (Object.keys(resourceTypes) as ResourceType[]).find(
     (type) => resourceTypes[type].kind === resource.kind,
@@ -627,11 +654,19 @@ export function applyResource(
       item.metadata.name === resource.metadata.name &&
       item.metadata.namespace === ns,
   );
+  const previousTemplate = JSON.stringify(old?.spec?.template);
+  const previousReplicas = old?.spec?.replicas ?? 1;
+  if (old && !createOnly && operation === undefined) {
+    // Apply preserves admission-generated/defaulted fields that the manifest did not own.
+    resource = (strategicSchemas[resource.kind]
+      ? strategicPatch(resource.kind, old, resource)
+      : mergePatch(old, resource)) as Resource;
+  }
   resource.metadata.creationTimestamp =
     old?.metadata.creationTimestamp ?? new Date(clusterTime()).toISOString();
-  const verb = old ? "patch" : "create";
-  if (!authorized(verb, type, ns)) {
-    const message = forbidden(verb, type, ns);
+  const verb = operation ?? (old ? "patch" : "create");
+  if (!authorized(verb, type, ns, resource.metadata.name)) {
+    const message = forbidden(verb, type, ns, resource.metadata.name);
     auditRequest(verb, type, ns, resource.metadata.name, 403, message);
     throw new Error(message);
   }
@@ -639,6 +674,11 @@ export function applyResource(
     throw new Error(
       `Error from server (AlreadyExists): ${type} "${resource.metadata.name}" already exists`,
     );
+  if (old && resource.metadata.uid && resource.metadata.uid !== old.metadata.uid)
+    throw new Error(`Error from server (Conflict): ${type} "${resource.metadata.name}" UID precondition failed`);
+  if (old && resource.metadata.resourceVersion && resource.metadata.resourceVersion !== old.metadata.resourceVersion)
+    throw new Error(`Error from server (Conflict): Operation cannot be fulfilled on ${type} "${resource.metadata.name}": the object has been modified; please apply your changes to the latest version and try again`);
+  if (old) validateResourceUpdate(old, resource);
   if (
     ns &&
     !S.cluster.resources.some(
@@ -781,9 +821,9 @@ export function applyResource(
     throw new Error(
       "Error from server (Invalid): RoleBinding requires subjects and roleRef",
     );
-  if (resource.kind === "Pod") {
+  if (resource.kind === "Pod" && !old) {
     try {
-      admitResource(resource);
+      admitResource(resource, true, reconcile);
     } catch (error) {
       auditRequest(
         verb,
@@ -795,6 +835,10 @@ export function applyResource(
       );
       throw error;
     }
+  }
+  if (old && resource.kind === "Pod") {
+    if (resource.spec?.containers?.some((container, i) => container.image !== old.spec?.containers?.[i]?.image)) startPod(resource, old);
+    else resource.status = structuredClone(old.status);
   }
   if (resource.kind === "Service") {
     resource.spec ??= {};
@@ -828,13 +872,18 @@ export function applyResource(
       metadata: { name: "default", namespace: resource.metadata.name },
     });
   }
-  if (old) Object.assign(old, resource);
+  if (old) {
+    for (const key of Object.keys(old)) delete old[key];
+    Object.assign(old, resource);
+  }
   else pool.push(resource as Scc);
   auditRequest(verb, type, ns, resource.metadata.name, old ? 200 : 201);
-  if (resource.kind === "Deployment") reconcileDeployment(old ?? resource);
+  if (reconcile && resource.kind === "Deployment" && (!old || previousTemplate !== JSON.stringify(resource.spec?.template) || previousReplicas !== (resource.spec?.replicas ?? 1)))
+    reconcileDeployment(old ?? resource, !old || previousTemplate !== JSON.stringify(resource.spec?.template));
   refreshResourceTypes();
-  reconcileFixtureControllers();
-  return `${resource.kind.toLowerCase()}${resource.kind === "Deployment" ? ".apps" : resource.kind === "SecurityContextConstraints" ? ".security.openshift.io" : ""}/${resource.metadata.name} ${old ? "configured" : "created"}`;
+  if (reconcile) reconcileFixtureControllers();
+  synchronizeClusterMetadata();
+  return `${resource.kind.toLowerCase()}${resource.apiVersion.includes("/") ? "." + resource.apiVersion.split("/")[0] : ""}/${resource.metadata.name} ${old ? "configured" : "created"}`;
 }
 
 export function grantScc(
@@ -928,8 +977,8 @@ export function deleteResource(
   namespace: string,
 ) {
   const ns = resourceTypes[type].namespaced ? namespace : undefined;
-  if (!authorized("delete", type, ns))
-    throw new Error(forbidden("delete", type, ns));
+  if (!authorized("delete", type, ns, name))
+    throw new Error(forbidden("delete", type, ns, name));
   refreshResourceTypes();
   const target = [
     ...coreResources(),
@@ -972,7 +1021,8 @@ export function deleteResource(
             r.kind === target.kind &&
             r.metadata.name === name &&
             r.metadata.namespace === ns,
-        ) && !(type === "namespaces" && item.metadata.namespace === name),
+        ) && !(type === "namespaces" && item.metadata.namespace === name) &&
+        !(type === "deployments" && item.kind === "Pod" && item.metadata.namespace === ns && item.metadata.name.startsWith(name + "-sim-")),
   );
   if (type === "events" || type === "namespaces")
     S.cluster.events = S.cluster.events.filter((event) =>
@@ -992,6 +1042,7 @@ export function deleteResource(
     );
   refreshResourceTypes();
   reconcileFixtureControllers();
+  synchronizeClusterMetadata();
   auditRequest("delete", type, ns, name, 200);
   return `${target.kind.toLowerCase()} "${name}" deleted`;
 }

@@ -50,6 +50,15 @@ self.addEventListener('activate', event => {
     await self.clients.claim();
   })());
 });
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'offline-readiness' || !event.ports[0]) return;
+  event.waitUntil((async () => {
+    const cache = await caches.open(cacheName);
+    const entry = new URL(event.data.entry, base);
+    const ready = entry.origin === base.origin && assets.includes(entry.href) && !!(await cache.match(entry.href));
+    event.ports[0].postMessage({ ready });
+  })());
+});
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return;

@@ -1,0 +1,405 @@
+{
+  "source": "k8s.io/apimachinery/pkg/util/strategicpatch v0.35.2 against pinned Kubernetes/OpenShift API types",
+  "cases": [
+    {
+      "name": "merge containers and nested env",
+      "Kind": "Deployment",
+      "Object": {
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "app",
+                  "image": "v1",
+                  "env": [
+                    {
+                      "name": "KEEP",
+                      "value": "yes"
+                    },
+                    {
+                      "name": "TOKEN",
+                      "value": "v1"
+                    }
+                  ],
+                  "securityContext": {
+                    "runAsUser": 1000
+                  }
+                },
+                {
+                  "name": "sidecar",
+                  "image": "v1"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Patch": {
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "name": "app",
+                  "image": "v2",
+                  "env": [
+                    {
+                      "name": "TOKEN",
+                      "value": "v2"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "expected": {
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "env": [
+                    {
+                      "name": "KEEP",
+                      "value": "yes"
+                    },
+                    {
+                      "name": "TOKEN",
+                      "value": "v2"
+                    }
+                  ],
+                  "image": "v2",
+                  "name": "app",
+                  "securityContext": {
+                    "runAsUser": 1000
+                  }
+                },
+                {
+                  "image": "v1",
+                  "name": "sidecar"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "append new container",
+      "Kind": "Pod",
+      "Object": {
+        "spec": {
+          "containers": [
+            {
+              "name": "app",
+              "image": "v1"
+            }
+          ]
+        }
+      },
+      "Patch": {
+        "spec": {
+          "containers": [
+            {
+              "name": "sidecar",
+              "image": "s1"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "spec": {
+          "containers": [
+            {
+              "image": "s1",
+              "name": "sidecar"
+            },
+            {
+              "image": "v1",
+              "name": "app"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "delete list entry",
+      "Kind": "Pod",
+      "Object": {
+        "spec": {
+          "containers": [
+            {
+              "name": "app",
+              "image": "v1"
+            },
+            {
+              "name": "sidecar",
+              "image": "s1"
+            }
+          ]
+        }
+      },
+      "Patch": {
+        "spec": {
+          "containers": [
+            {
+              "name": "sidecar",
+              "$patch": "delete"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "spec": {
+          "containers": [
+            {
+              "image": "v1",
+              "name": "app"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "replace list directive",
+      "Kind": "Pod",
+      "Object": {
+        "spec": {
+          "containers": [
+            {
+              "name": "app",
+              "image": "v1"
+            }
+          ]
+        }
+      },
+      "Patch": {
+        "spec": {
+          "containers": [
+            {
+              "$patch": "replace"
+            },
+            {
+              "name": "other",
+              "image": "v2"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "spec": {
+          "containers": [
+            {
+              "image": "v2",
+              "name": "other"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "primitive merge finalizers",
+      "Kind": "Namespace",
+      "Object": {
+        "metadata": {
+          "finalizers": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "Patch": {
+        "metadata": {
+          "finalizers": [
+            "b",
+            "c"
+          ]
+        }
+      },
+      "expected": {
+        "metadata": {
+          "finalizers": [
+            "a",
+            "b",
+            "c"
+          ]
+        }
+      }
+    },
+    {
+      "name": "remove primitive finalizer",
+      "Kind": "Namespace",
+      "Object": {
+        "metadata": {
+          "finalizers": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "Patch": {
+        "metadata": {
+          "$deleteFromPrimitiveList/finalizers": [
+            "a"
+          ]
+        }
+      },
+      "expected": {
+        "metadata": {
+          "finalizers": [
+            "b"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ordered list merge",
+      "Kind": "Pod",
+      "Object": {
+        "spec": {
+          "containers": [
+            {
+              "name": "a",
+              "image": "1"
+            },
+            {
+              "name": "b",
+              "image": "1"
+            },
+            {
+              "name": "c",
+              "image": "1"
+            }
+          ]
+        }
+      },
+      "Patch": {
+        "spec": {
+          "$setElementOrder/containers": [
+            {
+              "name": "c"
+            },
+            {
+              "name": "a"
+            },
+            {
+              "name": "b"
+            }
+          ],
+          "containers": [
+            {
+              "name": "c",
+              "image": "2"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "spec": {
+          "containers": [
+            {
+              "image": "2",
+              "name": "c"
+            },
+            {
+              "image": "1",
+              "name": "a"
+            },
+            {
+              "image": "1",
+              "name": "b"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "retain strategy keys",
+      "Kind": "Deployment",
+      "Object": {
+        "spec": {
+          "strategy": {
+            "type": "RollingUpdate",
+            "rollingUpdate": {
+              "maxSurge": 1
+            }
+          }
+        }
+      },
+      "Patch": {
+        "spec": {
+          "strategy": {
+            "$retainKeys": [
+              "type"
+            ],
+            "type": "Recreate"
+          }
+        }
+      },
+      "expected": {
+        "spec": {
+          "strategy": {
+            "type": "Recreate"
+          }
+        }
+      }
+    },
+    {
+      "name": "atomic tolerations",
+      "Kind": "Pod",
+      "Object": {
+        "spec": {
+          "tolerations": [
+            {
+              "key": "a",
+              "operator": "Exists"
+            }
+          ]
+        }
+      },
+      "Patch": {
+        "spec": {
+          "tolerations": [
+            {
+              "key": "b",
+              "operator": "Exists"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "spec": {
+          "tolerations": [
+            {
+              "key": "b",
+              "operator": "Exists"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "plain null removes data",
+      "Kind": "ConfigMap",
+      "Object": {
+        "data": {
+          "remove": "x",
+          "keep": "y"
+        }
+      },
+      "Patch": {
+        "data": {
+          "remove": null
+        }
+      },
+      "expected": {
+        "data": {
+          "keep": "y"
+        }
+      }
+    }
+  ]
+}

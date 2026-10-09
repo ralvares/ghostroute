@@ -1,10 +1,9 @@
 import {
   readApiResources,
   readApiTable as apiTable,
-  applyApiResource as applyResource,
-  deleteApiResource as deleteResource,
   kubeRequest,
   apiBody,
+  apiResourcePath,
 } from "../simulation/kube-api.js";
 import { parseAllDocuments, stringify } from "yaml";
 import { S } from "../simulation/state.js";
@@ -14,8 +13,8 @@ import {
   resolveResource,
   refreshResourceTypes,
   grantScc,
-  restartDeployment,
   auditRequest,
+  clusterTime,
 } from "../simulation/cluster-api.js";
 import {
   authorized,
@@ -38,9 +37,12 @@ import { runQuery } from "./query-tools.js";
 import { validOcCommand } from "./syntax.js";
 import { textCommand, textTools, toolHelp } from "./text-tools.js";
 import type { ToolResult } from "./text-tools.js";
-import { printResourceJson } from "./json-printer.js";
+import { printResourceJson, printTypedResourceJson } from "./json-printer.js";
 import { printResourceTable } from "./table-printer.js";
 import { jsonPathValues } from "../simulation/resource-table.js";
+import { mergePatch, jsonPatch } from "../simulation/api-patch.js";
+import { strategicPatch } from "../simulation/strategic-patch.js";
+import { normalizeSecret } from "../simulation/secrets.js";
 
 interface Result extends ToolResult {
   legacyCommand?: string;
@@ -83,6 +85,7 @@ function options(words: string[]) {
       "--show-labels",
       "--namespaced",
       "--help",
+      "--overwrite", "--list",
     ].includes(key);
     const value =
       equals < 0 ? (boolean ? "true" : words[++i]) : token.slice(equals + 1);
@@ -106,7 +109,7 @@ const readFile = readVirtualFile;
 async function oc(words: string[], raw: string): Promise<Result | null> {
   if (words.length === 1 || words.includes("--help"))
     return result(
-      `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, delete, patch, scale, run\nPod diagnostics: oc exec POD [-n NAMESPACE] [-c CONTAINER] -- curl -I http://POD-IP:PORT/health; nc -zv POD-IP PORT; id\nExec uses recorded workload endpoints; arbitrary processes, interactive streams, service DNS and TLS verification are not implemented.\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
+      `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, replace, delete, patch, scale, run, label, annotate\nPod diagnostics: oc exec POD [-n NAMESPACE] [-c CONTAINER] -- curl -I http://POD-IP:PORT/health; nc -zv POD-IP PORT; id\nExec uses recorded workload endpoints; arbitrary processes, interactive streams, service DNS and TLS verification are not implemented.\nWrite previews: --dry-run=client or --dry-run=server; -o json/yaml/name\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
     );
   refreshResourceTypes();
   if (words[1] === "exec") {
@@ -135,6 +138,30 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
   const { args, flags, flag } = options(words.slice(1));
   const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
   const impersonate = flag("--as");
+  const identifier = (object: Resource) => object.kind.toLowerCase() + (object.apiVersion.includes("/") ? "." + object.apiVersion.split("/")[0] : "") + "/" + object.metadata.name;
+  const writeObject = (object: Resource, method: "POST" | "PATCH" | "PUT", typed = false) => {
+    const type = resolveResource(object.kind);
+    if (!type) throw new Error(`error: unknown resource kind ${object.kind}`);
+    const dryRun = flag("--dry-run") ?? "none";
+    if (!["none", "client", "server"].includes(dryRun)) throw new Error('error: --dry-run must be "none", "client", or "server"');
+    const output = flag("-o") ?? flag("--output");
+    if (output && !["json", "yaml", "name"].includes(output)) throw new Error("simulation: mutation output supports json, yaml, or name");
+    const copy = structuredClone(object);
+    normalizeSecret(copy);
+    if (dryRun === "client" && object.kind === "Secret" && object.type === undefined) delete copy.type;
+    const objectNamespace = resourceTypes[type].namespaced ? (copy.metadata.namespace ?? namespace) : undefined;
+    if (copy.metadata.namespace && (flag("-n") || flag("--namespace")) && copy.metadata.namespace !== namespace)
+      throw new Error(`error: the namespace from the provided object "${copy.metadata.namespace}" does not match the namespace "${namespace}"`);
+    if (objectNamespace) copy.metadata.namespace = objectNamespace;
+    let body = copy;
+    let message = `${identifier(copy)} ${method === "POST" ? "created" : method === "PUT" ? "replaced" : "configured"}`;
+    if (dryRun !== "client") {
+      const response = kubeRequest({ method, path: apiResourcePath(type, objectNamespace, method === "POST" ? undefined : copy.metadata.name) + (dryRun === "server" ? "?dryRun=All" : ""), body: copy, contentType: method === "PATCH" ? "application/apply-patch+yaml" : "application/json", impersonateUser: impersonate });
+      body = apiBody(response) as Resource;
+      message = method === "PUT" ? message : response.message!;
+    }
+    return output === "json" ? (method === "POST" && typed ? printTypedResourceJson(body) : printResourceJson(body)) : output === "yaml" ? stringify(body) : output === "name" ? identifier(body) : message + (dryRun === "none" ? "" : dryRun === "client" ? " (dry run)" : " (server dry run)");
+  };
   const getResources = (...params: Parameters<typeof readApiResources>) =>
     readApiResources(params[0], params[1], params[2], params[3], impersonate);
   const readApiTable = (...params: Parameters<typeof apiTable>) =>
@@ -613,7 +640,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       }),
     );
   }
-  if (verb === "create" || verb === "apply" || verb === "new-project") {
+  if (verb === "create" || verb === "apply" || verb === "replace" || verb === "new-project") {
     rejectFlags(flags, [
       "-n",
       "--namespace",
@@ -621,6 +648,9 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--filename",
       "--image",
       "--from-literal",
+      "--from-file", "--from-env-file",
+      "--type",
+      "--dry-run", "-o", "--output", "--as",
     ]);
     const file = flag("-f") ?? flag("--filename");
     if (file) {
@@ -634,13 +664,14 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         const object = document.toJS() as Resource;
         if (!object || typeof object !== "object")
           throw new Error("error: manifest must be an API object");
-        messages.push(applyResource(object, namespace, verb === "create"));
+        messages.push(writeObject(object, verb === "create" ? "POST" : verb === "replace" ? "PUT" : "PATCH"));
       }
       return result(messages.join("\n"));
     }
+    if (verb === "replace") throw new Error("error: must specify -f for replace");
     const type =
       verb === "new-project" ? "namespaces" : resolveResource(args[1] ?? "");
-    const name = verb === "new-project" ? args[1] : args[2];
+    const name = verb === "new-project" ? args[1] : type === "secrets" && args[2] === "generic" ? args[3] : args[2];
     if (!type || !name)
       throw new Error("error: specify a resource and a name, or -f manifest");
     const definition = resourceTypes[type];
@@ -649,29 +680,49 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       kind: definition.kind,
       metadata: { name },
     };
+    if (type === "namespaces") {object.spec={};object.status={};}
     if (type === "deployments") {
       if (!flag("--image")) throw new Error("error: --image is required");
       object.spec = {
         replicas: 1,
-        template: { spec: { containers: [{ name, image: flag("--image")! }] } },
+        selector: { matchLabels: { app: name } },
+        template: { metadata: { labels: { app: name } }, spec: { containers: [{ name, image: flag("--image")! }] } },
       };
-    } else if (type === "configmaps") {
+    } else if (type === "configmaps" || (type === "secrets" && args[2] === "generic")) {
       const data: Record<string, string> = {};
+      const add = (key: string, value: string) => {
+        if (!/^[-._a-zA-Z0-9]+$/.test(key)) throw new Error(`error: invalid key ${key}`);
+        if (Object.hasOwn(data, key)) throw new Error(`error: cannot add key ${key}, another key by that name already exists`);
+        Object.defineProperty(data, key, {value, configurable:true, enumerable:true, writable:true});
+      };
       for (const literal of flags["--from-literal"] ?? []) {
         const equals = literal.indexOf("=");
         if (equals < 1)
           throw new Error("error: --from-literal expects key=value");
-        data[literal.slice(0, equals)] = literal.slice(equals + 1);
+        add(literal.slice(0, equals), literal.slice(equals + 1));
       }
-      object.data = data;
+      for (const source of flags["--from-file"] ?? []) {
+        const equals = source.indexOf("="), path = equals < 0 ? source : source.slice(equals + 1);
+        add(equals < 0 ? path.split("/").at(-1)! : source.slice(0, equals), readFile(path));
+      }
+      for (const source of flags["--from-env-file"] ?? []) {
+        for (const line of readFile(source).split(/\r?\n/)) {
+          if (!line.trim() || line.trimStart().startsWith("#")) continue;
+          const equals = line.indexOf("=");
+          if (equals < 1) throw new Error("simulation: env-file entries must be KEY=value; host environment substitution is unavailable");
+          add(line.slice(0, equals).trim(), line.slice(equals + 1));
+        }
+      }
+      if (type === "secrets") {object.stringData=data; if (flag("--type")) object.type=flag("--type");}
+      else object.data = data;
     } else if (!["namespaces", "serviceaccounts"].includes(type))
       throw new Error("simulation: use -f for this resource kind");
-    const message = applyResource(object, namespace, true);
-    if (verb === "new-project") S.cluster.namespace = name;
+    const message = writeObject(object, "POST", true);
+    if (verb === "new-project" && (!flag("--dry-run") || flag("--dry-run") === "none")) S.cluster.namespace = name;
     return result(message);
   }
   if (verb === "run") {
-    rejectFlags(flags, ["-n", "--namespace", "--image", "--overrides"]);
+    rejectFlags(flags, ["-n", "--namespace", "--image", "--overrides", "--dry-run", "-o", "--output", "--as"]);
     if (!args[1] || !flag("--image"))
       throw new Error("error: specify a name and --image");
     let object: Resource = {
@@ -681,10 +732,10 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       spec: { containers: [{ name: args[1], image: flag("--image")! }] },
     };
     if (flag("--overrides"))
-      object = merge(object, JSON.parse(flag("--overrides")!)) as Resource;
-    return result(applyResource(object, namespace, true));
+      object = mergePatch(object, JSON.parse(flag("--overrides")!)) as Resource;
+    return result(writeObject(object, "POST", true));
   }
-  if (["delete", "patch", "scale", "rollout", "set"].includes(verb)) {
+  if (["delete", "patch", "scale", "rollout", "set", "label", "annotate"].includes(verb)) {
     rejectFlags(flags, [
       "-n",
       "--namespace",
@@ -692,6 +743,8 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--patch",
       "--type",
       "--replicas",
+      "--dry-run", "-o", "--output", "--as",
+      "--overwrite", "--list",
     ]);
     const resourceToken =
       verb === "rollout" || verb === "set" ? args[2] : args[1];
@@ -709,6 +762,9 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       );
     }
     if (verb === "delete") {
+      const dryRun = flag("--dry-run") ?? "none";
+      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      if (flag("-o") || flag("--output")) throw new Error("simulation: delete output formats are not implemented");
       const names = embeddedName
         ? [embeddedName, ...args.slice(2)]
         : args.slice(2);
@@ -720,7 +776,15 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       let failed = false;
       for (const item of names) {
         try {
-          responses.push(deleteResource(type, item, namespace));
+          const scope = resourceTypes[type].namespaced ? ` from ${namespace} namespace` : "";
+          if (dryRun === "client") {
+            getResources(type, resourceTypes[type].namespaced ? namespace : undefined, item);
+            responses.push(`${resourceTypes[type].kind.toLowerCase()} "${item}" deleted${scope} (dry run)`);
+          } else {
+            const response = kubeRequest({ method: "DELETE", path: apiResourcePath(type, resourceTypes[type].namespaced ? namespace : undefined, item) + (dryRun === "server" ? "?dryRun=All" : ""), impersonateUser: impersonate });
+            apiBody(response);
+            responses.push(response.message! + scope + (dryRun === "server" ? " (server dry run)" : ""));
+          }
         } catch (error) {
           failed = true;
           responses.push((error as Error).message);
@@ -728,8 +792,28 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       }
       return result(responses.join("\n"), failed);
     }
-    if (verb === "rollout" && args[1] === "restart" && type === "deployments")
-      return result(restartDeployment(name, namespace));
+    if (verb === "patch") {
+      const patch = flag("-p") ?? flag("--patch");
+      if (!patch) throw new Error("error: patch needs -p JSON");
+      const patchType = flag("--type") ?? "strategic";
+      const contentTypes: Record<string, string> = { merge: "application/merge-patch+json", json: "application/json-patch+json", strategic: "application/strategic-merge-patch+json" };
+      if (!contentTypes[patchType]) throw new Error('error: --type must be "json", "merge", or "strategic"');
+      const dryRun = flag("--dry-run") ?? "none";
+      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      const output = flag("-o") ?? flag("--output");
+      if (output && !["json", "yaml", "name"].includes(output)) throw new Error("simulation: patch output supports json, yaml, or name");
+      const original = getResources(type, resourceTypes[type].namespaced ? namespace : undefined, name)[0];
+      let patched: Resource;
+      if (dryRun === "client") {
+        const document = JSON.parse(patch);
+        patched = patchType === "merge" ? mergePatch(original, document) : patchType === "json" ? jsonPatch(original, document) : strategicPatch(original.kind, original, document);
+      } else {
+        const response = kubeRequest({ method: "PATCH", path: apiResourcePath(type, resourceTypes[type].namespaced ? namespace : undefined, name) + (dryRun === "server" ? "?dryRun=All" : ""), body: JSON.parse(patch), contentType: contentTypes[patchType], impersonateUser: impersonate });
+        patched = apiBody(response) as Resource;
+      }
+      const unchanged = printResourceJson(patched) === printResourceJson(original);
+      return result(output === "json" ? printResourceJson(patched) : output === "yaml" ? stringify(patched) : `${identifier(patched)}${output === "name" ? "" : " patched" + (unchanged ? " (no change)" : "")}`);
+    }
     const object = getResources(
       type,
       resourceTypes[type].namespaced ? namespace : undefined,
@@ -745,17 +829,54 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       );
     }
     let updated: Resource;
-    if (verb === "patch") {
-      if (flag("--type") && flag("--type") !== "merge")
-        throw new Error("simulation: patch currently supports --type=merge");
-      const patch = flag("-p") ?? flag("--patch");
-      if (!patch) throw new Error("error: patch needs -p JSON");
-      updated = merge(object, JSON.parse(patch)) as Resource;
-    } else if (verb === "scale" && type === "deployments") {
+    if (verb === "label" || verb === "annotate") {
+      const key = verb === "label" ? "labels" : "annotations";
+      updated = structuredClone(object);
+      updated.metadata[key] ??= {};
+      const changes = args.slice(embeddedName ? 2 : 3);
+      if (flag("--list") === "true") {
+        if (changes.length) throw new Error("error: --list does not accept updates");
+        return result(Object.entries(updated.metadata[key]!).map(([k,v])=>`${k}=${v}`).join("\n"));
+      }
+      if (!changes.length) throw new Error(`error: at least one ${verb} update is required`);
+      for (const change of changes) {
+        const equals = change.indexOf("=");
+        const remove = equals < 0 && change.endsWith("-");
+        const name = remove ? change.slice(0,-1) : change.slice(0,equals);
+        if (!name || (equals < 0 && !remove)) throw new Error(`error: ${verb} update expects key=value or key-`);
+        const previous = updated.metadata[key]![name];
+        if (remove) delete updated.metadata[key]![name];
+        else {
+          const value = change.slice(equals+1);
+          if (previous !== undefined && previous !== value && flag("--overwrite") !== "true")
+            throw new Error(`error: '${name}' already has a value (${previous}), and --overwrite is false`);
+          Object.defineProperty(updated.metadata[key]!,name,{value,writable:true,enumerable:true,configurable:true});
+        }
+      }
+      // Send null for removals so the API removes the field rather than preserving it.
+      const delta: Record<string, string | null> = {};
+      for (const change of changes) {
+        const equals = change.indexOf("="), name = equals < 0 ? change.slice(0,-1) : change.slice(0,equals);
+        Object.defineProperty(delta,name,{value: equals < 0 ? null : change.slice(equals+1),enumerable:true});
+      }
+      const dryRun = flag("--dry-run") ?? "none";
+      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      const output = flag("-o") ?? flag("--output");
+      if (output && !["json","yaml","name"].includes(output)) throw new Error("simulation: metadata output supports json, yaml, or name");
+      if (dryRun !== "client") updated = apiBody(kubeRequest({method:"PATCH",path:apiResourcePath(type,resourceTypes[type].namespaced ? namespace : undefined,name)+(dryRun === "server" ? "?dryRun=All" : ""),body:{metadata:{[key]:delta}},contentType:"application/merge-patch+json",impersonateUser:impersonate})) as Resource;
+      return result(output === "json" ? printResourceJson(updated) : output === "yaml" ? stringify(updated) : identifier(updated)+(output === "name" ? "" : ` ${verb === "label" ? "labeled" : "annotated"}` + (dryRun === "server" ? " (server dry run)" : dryRun === "client" ? " (dry run)" : "")));
+    }
+    if (verb === "rollout" && args[1] === "restart" && type === "deployments") {
+      updated = structuredClone(object);
+      updated.spec!.template!.metadata ??= {};
+      updated.spec!.template!.metadata.annotations = { ...updated.spec!.template!.metadata.annotations, "kubectl.kubernetes.io/restartedAt": new Date(clusterTime()).toISOString() };
+      return result(writeObject(updated, "PATCH").replace(/ configured$/, " restarted"));
+    }
+    if (verb === "scale" && type === "deployments") {
       const replicas = Number(flag("--replicas"));
       if (!Number.isInteger(replicas) || replicas < 0 || replicas > 10)
         throw new Error("simulation: replicas must be 0–10");
-      updated = merge(object, { spec: { replicas } }) as Resource;
+      updated = mergePatch(object, { spec: { replicas } }) as Resource;
     } else if (
       verb === "set" &&
       args[1] === "image" &&
@@ -770,7 +891,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         throw new Error("error: set image needs container=image");
       target.image = assignment[1];
     } else throw new Error(`simulation: ${verb} ${args[1]} is not implemented`);
-    return result(applyResource(updated, namespace));
+    return result(writeObject(updated, "PATCH"));
   }
   if (verb === "logs") {
     rejectFlags(flags, ["-n", "--namespace"]);
@@ -807,22 +928,6 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
   throw new Error(
     `simulation: oc ${verb} is not implemented; use oc --help or oc api-resources`,
   );
-}
-
-function merge(base: unknown, patch: unknown): unknown {
-  if (!patch || typeof patch !== "object" || Array.isArray(patch))
-    return structuredClone(patch);
-  const output: Record<string, unknown> =
-    base && typeof base === "object" && !Array.isArray(base)
-      ? (structuredClone(base) as Record<string, unknown>)
-      : {};
-  for (const [key, value] of Object.entries(patch)) {
-    if (["__proto__", "constructor", "prototype"].includes(key))
-      throw new Error("error: invalid object key");
-    if (value === null) delete output[key];
-    else output[key] = merge(output[key], value);
-  }
-  return output;
 }
 
 /** Returns null only when the preserved episode interpreter owns the command. */

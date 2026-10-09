@@ -22,7 +22,7 @@ const cache = mkdtempSync(join(tmpdir(), "ghostroute-oc-cache-"));
 mkdirSync("artifacts/campaign", { recursive: true });
 const native = (args) =>
   new Promise((resolve, reject) => {
-    const p = spawn("oc", args);
+    const p = spawn(process.env.GHOSTROUTE_OC ?? "oc", args);
     let stdout = "",
       stderr = "";
     p.stdout.on("data", (v) => (stdout += v));

@@ -1,0 +1,24 @@
+{
+  "client": "Client Version: 4.22.0\nKustomize Version: v5.7.1",
+  "server": "offline mock API; not a live OpenShift acceptance test",
+  "commands": [
+    "oc get pods -A",
+    "oc get pods -A -o json",
+    "oc get scc restricted-v3 -o json",
+    "oc get --raw /api/v1/pods",
+    "oc get pods -A -o wide",
+    "oc get pods -n payments --no-headers",
+    "oc get pods -A --show-labels -L app",
+    "oc get pods -A -l 'app in (payment-api)'",
+    "oc get pods -A --field-selector=spec.nodeName=worker-01",
+    "oc get deployments -A",
+    "oc get nodes -o wide",
+    "oc get scc",
+    "oc get scc anyuid",
+    "oc get crd",
+    "oc get projects",
+    "oc get pods -A -o 'custom-columns=Name:.metadata.name,scc:.metadata.annotations.openshift\\.io/scc'"
+  ],
+  "byte_exact": true,
+  "pinned422PrinterFixtures": "tests/fixtures/upstream-printers.json"
+}

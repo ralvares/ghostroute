@@ -1,0 +1,83 @@
+{
+  "checks": [
+    "All build/WASM assets available after offline browser restart",
+    "Incident/evidence/cluster/files/SCC grants survive restart",
+    "Real jq and Go templates first used offline",
+    "Warm workers reused",
+    "Hung jq worker replaced",
+    "Portable export/import",
+    "Invalid import preserves live progress"
+  ],
+  "timings_include_dom_input_and_autosave": {
+    "offline_navigation_and_restore_ms": 416.6,
+    "cold_offline_jq_command_ms": 118.6,
+    "warm_jq_command_ms": [
+      114.7,
+      114.4,
+      120.1,
+      113.4,
+      114.9
+    ],
+    "cold_offline_go_command_ms": 114.4,
+    "warm_go_command_ms": [
+      113.4,
+      127.8,
+      113.8,
+      113.7,
+      113.3
+    ],
+    "worker_roundtrip_ms": [
+      {
+        "tool": "jq",
+        "ms": 24.9
+      },
+      {
+        "tool": "jq",
+        "ms": 14
+      },
+      {
+        "tool": "jq",
+        "ms": 32.7
+      },
+      {
+        "tool": "jq",
+        "ms": 15.8
+      },
+      {
+        "tool": "jq",
+        "ms": 15.2
+      },
+      {
+        "tool": "jq",
+        "ms": 16.7
+      },
+      {
+        "tool": "template",
+        "ms": 62.5
+      },
+      {
+        "tool": "template",
+        "ms": 22.4
+      },
+      {
+        "tool": "template",
+        "ms": 10.7
+      },
+      {
+        "tool": "template",
+        "ms": 13.3
+      },
+      {
+        "tool": "template",
+        "ms": 31.1
+      },
+      {
+        "tool": "template",
+        "ms": 17.6
+      }
+    ]
+  },
+  "browser_errors": [],
+  "url": "http://127.0.0.1:4189/ghostroute/",
+  "screenshot": "artifacts/intent-playthrough/api-cold-offline.png"
+}

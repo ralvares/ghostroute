@@ -149,6 +149,7 @@ export function decodeProgress(text: string): SimulationState {
     }
   // Version 1 saves made before filesystem navigation retain their incident.
   if (saved.data.cluster) {
+    saved.data.cluster.apiStorage ??= makeState().cluster.apiStorage;
     saved.data.cluster.cwd ??= "/home/operator";
     saved.data.cluster.previousCwd ??= "/home/operator";
     saved.data.cluster.directories ??= [];

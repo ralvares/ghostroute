@@ -1,0 +1,23 @@
+{
+  "client": "Client Version: 4.22.0\nKustomize Version: v5.7.1",
+  "server": "offline mock API; CLI byte comparison, not acceptance against a live server",
+  "commands": [
+    "oc 'create' 'namespace' 'new-tenant'",
+    "oc 'create' 'namespace' 'preview' '--dry-run=client' '-o' 'json'",
+    "oc 'create' 'namespace' 'preview' '--dry-run=server' '-o' 'json'",
+    "oc 'create' 'configmap' 'copy' '--from-literal=a=b'",
+    "oc 'create' 'configmap' 'copy' '--from-literal=a=b' '--dry-run=client' '-o' 'json'",
+    "oc 'create' 'configmap' 'copy' '--from-literal=a=b' '--dry-run=server' '-o' 'json'",
+    "oc 'create' 'secret' 'generic' 'token' '--from-literal=password=training' '--dry-run=client' '-o' 'json'",
+    "oc 'create' 'secret' 'generic' 'token' '--from-literal=password=training' '--dry-run=server' '-o' 'json'",
+    "oc 'patch' 'configmap' 'settings' '--type=merge' '-p' '{\"data\":{\"remove\":null,\"keep\":\"changed\"}}'",
+    "oc 'patch' 'configmap' 'settings' '--type=merge' '-p' '{\"data\":{\"remove\":null}}' '-o' 'json'",
+    "oc 'patch' 'configmap' 'settings' '--type=json' '-p' '[{\"op\":\"remove\",\"path\":\"/data/remove\"}]' '-o' 'json'",
+    "oc 'patch' 'configmap' 'settings' '-p' '{\"data\":{\"keep\":\"preview\"}}' '--dry-run=server'",
+    "oc 'patch' 'configmap' 'settings' '-p' '{\"data\":{\"keep\":\"preview\"}}' '--dry-run=client' '-o' 'json'",
+    "oc 'label' 'configmap' 'settings' 'owner=mira'",
+    "oc 'annotate' 'configmap' 'settings' 'investigation=verified' '--dry-run=server'",
+    "oc 'delete' 'configmap' 'settings' '--dry-run=server'"
+  ],
+  "byte_exact": true
+}

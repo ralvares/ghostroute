@@ -4,10 +4,16 @@ import {
   getResources,
   resourceTypes,
   clusterTime,
+  synchronizeClusterMetadata,
 } from "./cluster-api.js";
 import type { Resource } from "./cluster-model.js";
 import { refreshResourceTypes, type ResourceType } from "./resource-types.js";
-import { S } from "./state.js";
+import { S, replaceState } from "./state.js";
+import { bufferEvents, publish } from "./events.js";
+import { resourceKey } from "./api-storage.js";
+import { jsonPatch, mergePatch } from "./api-patch.js";
+import { strategicPatch } from "./strategic-patch.js";
+import { strategicSchemas } from "./strategic-schemas.js";
 import { executePodFixture, type PodExecOptions } from "./pod-exec.js";
 import { authorized, forbidden } from "../security/rbac.js";
 import { auditRequest } from "./cluster-api.js";
@@ -17,9 +23,9 @@ import { crdPrinters } from "./crd-printers.js";
 import { labelPredicate, fieldPredicate } from "./selectors.js";
 
 export interface ApiRequest {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
-  body?: Resource | PodExecOptions;
+  body?: unknown;
   contentType?: string;
   accept?: string;
   impersonateUser?: string;
@@ -63,6 +69,56 @@ function status(code: number, reason: string, message: string): ApiResponse {
 
 /** Offline REST boundary. The CLI is a client; RBAC, SCC/controllers and audit remain server-owned. */
 export function kubeRequest(request: ApiRequest): ApiResponse {
+  if (request.impersonateUser) return bufferEvents(() => handleRequest(request), true);
+  if (request.method === "GET") return handleRequest(request);
+  const live = S;
+  const descriptors = Object.getOwnPropertyDescriptors(live);
+  for (const descriptor of Object.values(descriptors))
+    if ("value" in descriptor) descriptor.value = structuredClone(descriptor.value);
+  const isolated = Object.defineProperties({}, descriptors) as typeof S;
+  const auditStart = live.audit.length;
+  let versions: typeof live.cluster.apiStorage.objects;
+  let response: ApiResponse;
+  try {
+    response = bufferEvents(() => {
+      replaceState(isolated);
+      synchronizeClusterMetadata();
+      versions = structuredClone(isolated.cluster.apiStorage.objects);
+      return handleRequest(request);
+    }, false);
+  } catch (error) {
+    replaceState(live);
+    throw error;
+  }
+  const url = new URL(request.path, "https://prod-east.invalid");
+  if (response.code < 400 && url.searchParams.has("dryRun")) {
+    const object = response.body as Resource;
+    if (object.metadata?.name) {
+      const stored = versions![resourceKey(object)];
+      if (stored) object.metadata.resourceVersion = stored.resourceVersion;
+      else delete object.metadata.resourceVersion;
+    }
+  }
+  if (response.code >= 400 || url.searchParams.has("dryRun")) {
+    replaceState(live);
+    const match = url.pathname.match(/^\/(?:api\/v1|apis\/[^/]+\/[^/]+)\/(?:namespaces\/([^/]+)\/)?([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    if (match) {
+      auditRequest(request.method === "POST" ? "create" : request.method === "PUT" ? "update" : request.method.toLowerCase(), match[2], match[1], match[3], response.code, (response.body as any)?.message ?? "");
+      const event = S.cluster.audit.at(-1)!;
+      event.requestURI = request.path;
+      if (match[4]) event.objectRef.subresource = match[4];
+    }
+  } else {
+    // A transaction commits into the existing incident object. Command queues
+    // use its identity to discard results only after an actual game reset/import.
+    replaceState(live);
+    Object.defineProperties(live, Object.getOwnPropertyDescriptors(isolated));
+    for (const event of isolated.audit.slice(auditStart)) publish(event);
+  }
+  return response;
+}
+
+function handleRequest(request: ApiRequest): ApiResponse {
   try {
     if (request.impersonateUser) {
       assertCanImpersonate(request.impersonateUser);
@@ -142,7 +198,7 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
                 verbs:
                   name === "projects"
                     ? ["get", "list"]
-                    : ["get", "list", "create", "patch", "delete"],
+                    : ["get", "list", "create", "update", "patch", "delete"],
               })),
           },
         };
@@ -249,11 +305,7 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
         limit = limitText === null ? 0 : Number(limitText);
       if (!Number.isSafeInteger(limit) || limit < 0)
         return status(400, "BadRequest", "limit must be a nonnegative integer");
-      const encoded = JSON.stringify(selected);
-      let hash = 2166136261;
-      for (let i = 0; i < encoded.length; i++)
-        hash = Math.imul(hash ^ encoded.charCodeAt(i), 16777619);
-      const resourceVersion = (hash >>> 0).toString(16);
+      const resourceVersion = String(S.cluster.apiStorage.revision);
       let offset = 0;
       if (url.searchParams.get("continue")) {
         let cursor;
@@ -343,6 +395,10 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
         "BadRequest",
         "a namespace is required for this write",
       );
+    const unknownWriteQuery = [...url.searchParams.keys()].find(key => !["dryRun", "fieldManager", "fieldValidation", "timeout"].includes(key));
+    if (unknownWriteQuery) return status(501, "NotImplemented", "simulation: API write query is not implemented: " + unknownWriteQuery);
+    if (url.searchParams.has("dryRun") && url.searchParams.get("dryRun") !== "All")
+      return status(400, "BadRequest", 'Invalid dryRun value: only "All" is supported');
     if (request.method === "DELETE") {
       if (!objectName)
         return status(
@@ -350,6 +406,13 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
           "NotImplemented",
           "simulation: delete collection is not implemented",
         );
+      if (!authorized("delete", type, ns, objectName))
+        return status(403, "Forbidden", forbidden("delete", type, ns, objectName).replace(/^Error from server \(Forbidden\): /, ""));
+      const core = synchronizeClusterMetadata();
+      const target = [...S.cluster.resources, ...S.cluster.sccs, ...S.cluster.events, ...core].find(item => item.kind === definition.kind && item.metadata.name === objectName && item.metadata.namespace === (definition.namespaced ? ns : undefined));
+      const options = request.body as {preconditions?: {uid?: string; resourceVersion?: string}} | undefined;
+      if (target && options?.preconditions && ((options.preconditions.uid && options.preconditions.uid !== target.metadata.uid) || (options.preconditions.resourceVersion && options.preconditions.resourceVersion !== target.metadata.resourceVersion)))
+        return status(409, "Conflict", `${type} "${objectName}" delete precondition failed`);
       const message = deleteResource(type, objectName, ns ?? "default");
       return {
         code: 200,
@@ -362,7 +425,32 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
         message,
       };
     }
-    const object = request.body as Resource | undefined;
+    const pool = type === "securitycontextconstraints" ? S.cluster.sccs : type === "events" ? S.cluster.events : S.cluster.resources;
+    synchronizeClusterMetadata();
+    const existing = pool.find(item => item.kind === definition.kind && item.metadata.name === objectName && item.metadata.namespace === (definition.namespaced ? ns : undefined));
+    let object = request.body as Resource | undefined;
+    if (request.method === "PUT" || request.method === "PATCH") {
+      const verb = request.method === "PUT" ? "update" : (!existing && request.contentType === "application/apply-patch+yaml") ? "create" : "patch";
+      if (!authorized(verb, type, ns, objectName)) {
+        const message = forbidden(verb, type, ns, objectName);
+        return status(403, "Forbidden", message.replace(/^Error from server \(Forbidden\): /, ""));
+      }
+      if (!objectName) return status(405, "MethodNotAllowed", "a named resource is required for this operation");
+      if (!existing && (request.method === "PUT" || request.contentType !== "application/apply-patch+yaml"))
+        return status(404, "NotFound", `${type} "${objectName}" not found`);
+      if (request.method === "PATCH") {
+        switch (request.contentType) {
+          case "application/merge-patch+json": object = mergePatch(existing, request.body); break;
+          case "application/json-patch+json": object = jsonPatch(existing, request.body); break;
+          case "application/strategic-merge-patch+json":
+            object = strategicPatch(definition.kind, existing, request.body); break;
+          case "application/apply-patch+yaml":
+            if (existing) object = strategicSchemas[definition.kind] ? strategicPatch(definition.kind, existing, request.body) : mergePatch(existing, request.body);
+            break;
+          default: return status(415, "UnsupportedMediaType", "unsupported patch content type");
+        }
+      }
+    }
     if (
       !object ||
       object.kind !== definition.kind ||
@@ -382,19 +470,12 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
         "MethodNotAllowed",
         "POST creates objects at the collection endpoint",
       );
-    if (
-      request.method === "PATCH" &&
-      (!objectName || request.contentType !== "application/apply-patch+yaml")
-    )
-      return status(
-        501,
-        "NotImplemented",
-        "simulation: REST PATCH supports named apply objects only",
-      );
     const message = applyResource(
       object,
       ns ?? "default",
       request.method === "POST",
+      request.method === "POST" || !existing ? "create" : request.method === "PUT" ? "update" : "patch",
+      !url.searchParams.has("dryRun"),
     );
     const stored = (
       type === "securitycontextconstraints"
@@ -420,6 +501,8 @@ export function kubeRequest(request: ApiRequest): ApiResponse {
       Forbidden: 403,
       NotFound: 404,
       AlreadyExists: 409,
+      Conflict: 409,
+      UnsupportedMediaType: 415,
       Invalid: 422,
       BadRequest: 400,
     };

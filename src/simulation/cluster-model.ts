@@ -41,6 +41,9 @@ export interface Resource {
   kind: string;
   metadata: {
     name: string;
+    uid?: string;
+    resourceVersion?: string;
+    generation?: number;
     namespace?: string;
     creationTimestamp?: string;
     deletionTimestamp?: string;
@@ -239,5 +242,16 @@ export function createCluster() {
     events: [] as Resource[],
     files: {} as Record<string, string>,
     generation: 0,
+    apiStorage: {
+      revision: 0,
+      nextUid: 0,
+      objects: {} as Record<string, {
+        uid: string;
+        resourceVersion: string;
+        generation: number;
+        fingerprint: string;
+        spec: string;
+      }>,
+    },
   };
 }

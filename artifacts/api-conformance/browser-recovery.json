@@ -1,0 +1,230 @@
+{
+  "url": "http://127.0.0.1:4189/ghostroute/",
+  "real_input": true,
+  "checks": [
+    "client/server dry run",
+    "SCC failure without persisted Pod",
+    "conditional replacement and failed JSON test",
+    "label overwrite/removal",
+    "metadata without rollout",
+    "scale preserves running Pods",
+    "strategic template patch",
+    "Pod immutability",
+    "Secret from local file",
+    "delete dry run and Deployment cleanup",
+    "offline files/identity/revision restore",
+    "offline WASM queries"
+  ],
+  "commands": [
+    {
+      "command": "oc create namespace investigation",
+      "output": "namespace/investigation created"
+    },
+    {
+      "command": "oc project investigation",
+      "output": "Now using project \"investigation\"."
+    },
+    {
+      "command": "mkdir -p notes",
+      "output": "operator@bastion:~$ mkdir -p notes"
+    },
+    {
+      "command": "cd notes",
+      "output": "operator@bastion:~$ cd notes"
+    },
+    {
+      "command": "pwd",
+      "output": "/home/operator/notes"
+    },
+    {
+      "command": "oc create cm settings --from-literal=version=v1 --dry-run=client -o yaml > settings.yaml",
+      "output": "operator@bastion:~/notes$ oc create cm settings --from-literal=version=v1 --dry-run=client -o yaml > settings.yaml"
+    },
+    {
+      "command": "cat settings.yaml",
+      "output": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: settings\n  namespace: investigation\ndata:\n  version: v1"
+    },
+    {
+      "command": "oc get cm settings",
+      "output": "Error from server (NotFound): configmaps \"settings\" not found"
+    },
+    {
+      "command": "oc create -f settings.yaml --dry-run=server",
+      "output": "configmap/settings created (server dry run)"
+    },
+    {
+      "command": "oc get cm settings",
+      "output": "Error from server (NotFound): configmaps \"settings\" not found"
+    },
+    {
+      "command": "oc create -f settings.yaml",
+      "output": "configmap/settings created"
+    },
+    {
+      "command": "oc get cm settings -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"data\": {\n        \"version\": \"v1\"\n    },\n    \"kind\": \"ConfigMap\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T02:14:06.000Z\",\n        \"name\": \"settings\",\n        \"namespace\": \"investigation\",\n        \"resourceVersion\": \"44\",\n        \"uid\": \"00000000-0000-4000-9000-000000000044\"\n    }\n}"
+    },
+    {
+      "command": "oc get cm settings -o json > stale.json",
+      "output": "operator@bastion:~/notes$ oc get cm settings -o json > stale.json"
+    },
+    {
+      "command": "oc label cm settings owner=mira",
+      "output": "configmap/settings labeled"
+    },
+    {
+      "command": "oc annotate cm settings case=incident-18",
+      "output": "configmap/settings annotated"
+    },
+    {
+      "command": "oc label cm settings owner=kai",
+      "output": "error: 'owner' already has a value (mira), and --overwrite is false"
+    },
+    {
+      "command": "oc label cm settings owner=kai --overwrite",
+      "output": "configmap/settings labeled"
+    },
+    {
+      "command": "oc label cm settings owner-",
+      "output": "configmap/settings labeled"
+    },
+    {
+      "command": "oc patch cm settings --type=merge -p '{\"data\":{\"version\":\"v2\"}}'",
+      "output": "configmap/settings patched"
+    },
+    {
+      "command": "oc replace -f stale.json",
+      "output": "Error from server (Conflict): Operation cannot be fulfilled on configmaps \"settings\": the object has been modified; please apply your changes to the latest version and try again"
+    },
+    {
+      "command": "oc get cm settings -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"data\": {\n        \"version\": \"v2\"\n    },\n    \"kind\": \"ConfigMap\",\n    \"metadata\": {\n        \"annotations\": {\n            \"case\": \"incident-18\"\n        },\n        \"creationTimestamp\": \"2026-10-08T02:14:06.000Z\",\n        \"labels\": {},\n        \"name\": \"settings\",\n        \"namespace\": \"investigation\",\n        \"resourceVersion\": \"49\",\n        \"uid\": \"00000000-0000-4000-9000-000000000044\"\n    }\n}"
+    },
+    {
+      "command": "oc patch cm settings --type=json -p '[{\"op\":\"replace\",\"path\":\"/data/version\",\"value\":\"bad\"},{\"op\":\"test\",\"path\":\"/metadata/name\",\"value\":\"wrong\"}]'",
+      "output": "Error from server (Invalid): JSON patch test operation failed"
+    },
+    {
+      "command": "oc get cm settings -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"data\": {\n        \"version\": \"v2\"\n    },\n    \"kind\": \"ConfigMap\",\n    \"metadata\": {\n        \"annotations\": {\n            \"case\": \"incident-18\"\n        },\n        \"creationTimestamp\": \"2026-10-08T02:14:06.000Z\",\n        \"labels\": {},\n        \"name\": \"settings\",\n        \"namespace\": \"investigation\",\n        \"resourceVersion\": \"49\",\n        \"uid\": \"00000000-0000-4000-9000-000000000044\"\n    }\n}"
+    },
+    {
+      "command": "oc get cm settings -o json > current.json",
+      "output": "operator@bastion:~/notes$ oc get cm settings -o json > current.json"
+    },
+    {
+      "command": "oc replace -f current.json",
+      "output": "configmap/settings replaced"
+    },
+    {
+      "command": "oc run root --image=busybox --overrides='{\"spec\":{\"containers\":[{\"name\":\"root\",\"image\":\"busybox\",\"securityContext\":{\"runAsUser\":0}}]}}' --dry-run=client -o yaml > root.yaml",
+      "output": "operator@bastion:~/notes$ oc run root --image=busybox --overrides='{\"spec\":{\"containers\":[{\"name\":\"root\",\"image\":\"busybox\",\"securityContext\":{\"runAsUser\":0}}]}}' --dry-run=client -o yaml > root.yaml"
+    },
+    {
+      "command": "oc create -f root.yaml --dry-run=server",
+      "output": "Error from server (Forbidden): pods \"root\" is forbidden: unable to validate against any security context constraint: [provider \"anyuid\": Forbidden: not usable by user or serviceaccount, provider restricted-v3: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000, 65534], provider \"hostaccess\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid-v2\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork-v2\": Forbidden: not usable by user or serviceaccount, provider \"nested-container\": Forbidden: not usable by user or serviceaccount, provider \"nonroot\": Forbidden: not usable by user or serviceaccount, provider \"nonroot-v2\": Forbidden: not usable by user or serviceaccount, provider \"privileged\": Forbidden: not usable by user or serviceaccount, provider \"restricted\": Forbidden: not usable by user or serviceaccount, provider restricted-v2: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000780000, 1000789999]]"
+    },
+    {
+      "command": "oc get pod root",
+      "output": "Error from server (NotFound): pods \"root\" not found"
+    },
+    {
+      "command": "oc create deployment witness --image=busybox",
+      "output": "deployment.apps/witness created"
+    },
+    {
+      "command": "oc get pods -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"items\": [\n        {\n            \"apiVersion\": \"v1\",\n            \"kind\": \"Pod\",\n            \"metadata\": {\n                \"annotations\": {\n                    \"k8s.v1.cni.cncf.io/network-status\": \"[{\\\"name\\\":\\\"ovn-kubernetes\\\",\\\"interface\\\":\\\"eth0\\\",\\\"ips\\\":[\\\"10.128.1.20\\\"],\\\"default\\\":true}]\",\n                    \"openshift.io/scc\": \"restricted-v3\"\n                },\n                \"creationTimestamp\": \"2026-10-08T02:14:30.000Z\",\n                \"generation\": 1,\n                \"labels\": {\n                    \"app\": \"witness\"\n                },\n                \"name\": \"witness-sim-0\",\n                \"namespace\": \"investigation\",\n                \"resourceVersion\": \"52\",\n                \"uid\": \"00000000-0000-4000-9000-000000000046\"\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"image\": \"busybox\",\n                        \"name\": \"witness\",\n                        \"securityContext\": {\n                            \"allowPrivilegeEscalation\": false,\n                            \"capabilities\": {\n                                \"drop\": [\n                                    \"ALL\"\n                                ]\n                            },\n                            \"runAsUser\": 1000,\n                            \"seccompProfile\": {\n                                \"type\": \"RuntimeDefault\"\n                            }\n                        }\n                    }\n                ],\n                \"hostUsers\": false,\n                \"nodeName\": \"worker-01\"\n            },\n            \"status\": {\n                \"conditions\": [\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Initialized\"\n                    },\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Ready\"\n                    }\n                ],\n                \"containerStatuses\": [\n                    {\n                        \"name\": \"witness\",\n                        \"ready\": true,\n                        \"restartCount\": 0,\n                        \"state\": {\n                            \"running\": {\n                                \"startedAt\": \"2026-10-08T02:14:30.000Z\"\n                            }\n                        }\n                    }\n                ],\n                \"phase\": \"Running\",\n                \"podIP\": \"10.128.1.20\",\n                \"podIPs\": [\n                    {\n                        \"ip\": \"10.128.1.20\"\n                    }\n                ]\n            }\n        }\n    ],\n    \"kind\": \"List\",\n    \"metadata\": {\n        \"resourceVersion\": \"\"\n    }\n}"
+    },
+    {
+      "command": "oc label deployment witness owner=mira",
+      "output": "deployment.apps/witness labeled"
+    },
+    {
+      "command": "oc get pods -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"items\": [\n        {\n            \"apiVersion\": \"v1\",\n            \"kind\": \"Pod\",\n            \"metadata\": {\n                \"annotations\": {\n                    \"k8s.v1.cni.cncf.io/network-status\": \"[{\\\"name\\\":\\\"ovn-kubernetes\\\",\\\"interface\\\":\\\"eth0\\\",\\\"ips\\\":[\\\"10.128.1.20\\\"],\\\"default\\\":true}]\",\n                    \"openshift.io/scc\": \"restricted-v3\"\n                },\n                \"creationTimestamp\": \"2026-10-08T02:14:30.000Z\",\n                \"generation\": 1,\n                \"labels\": {\n                    \"app\": \"witness\"\n                },\n                \"name\": \"witness-sim-0\",\n                \"namespace\": \"investigation\",\n                \"resourceVersion\": \"52\",\n                \"uid\": \"00000000-0000-4000-9000-000000000046\"\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"image\": \"busybox\",\n                        \"name\": \"witness\",\n                        \"securityContext\": {\n                            \"allowPrivilegeEscalation\": false,\n                            \"capabilities\": {\n                                \"drop\": [\n                                    \"ALL\"\n                                ]\n                            },\n                            \"runAsUser\": 1000,\n                            \"seccompProfile\": {\n                                \"type\": \"RuntimeDefault\"\n                            }\n                        }\n                    }\n                ],\n                \"hostUsers\": false,\n                \"nodeName\": \"worker-01\"\n            },\n            \"status\": {\n                \"conditions\": [\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Initialized\"\n                    },\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Ready\"\n                    }\n                ],\n                \"containerStatuses\": [\n                    {\n                        \"name\": \"witness\",\n                        \"ready\": true,\n                        \"restartCount\": 0,\n                        \"state\": {\n                            \"running\": {\n                                \"startedAt\": \"2026-10-08T02:14:30.000Z\"\n                            }\n                        }\n                    }\n                ],\n                \"phase\": \"Running\",\n                \"podIP\": \"10.128.1.20\",\n                \"podIPs\": [\n                    {\n                        \"ip\": \"10.128.1.20\"\n                    }\n                ]\n            }\n        }\n    ],\n    \"kind\": \"List\",\n    \"metadata\": {\n        \"resourceVersion\": \"\"\n    }\n}"
+    },
+    {
+      "command": "oc scale deployment witness --replicas=2 --dry-run=server",
+      "output": "deployment.apps/witness configured (server dry run)"
+    },
+    {
+      "command": "oc get pods -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"items\": [\n        {\n            \"apiVersion\": \"v1\",\n            \"kind\": \"Pod\",\n            \"metadata\": {\n                \"annotations\": {\n                    \"k8s.v1.cni.cncf.io/network-status\": \"[{\\\"name\\\":\\\"ovn-kubernetes\\\",\\\"interface\\\":\\\"eth0\\\",\\\"ips\\\":[\\\"10.128.1.20\\\"],\\\"default\\\":true}]\",\n                    \"openshift.io/scc\": \"restricted-v3\"\n                },\n                \"creationTimestamp\": \"2026-10-08T02:14:30.000Z\",\n                \"generation\": 1,\n                \"labels\": {\n                    \"app\": \"witness\"\n                },\n                \"name\": \"witness-sim-0\",\n                \"namespace\": \"investigation\",\n                \"resourceVersion\": \"52\",\n                \"uid\": \"00000000-0000-4000-9000-000000000046\"\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"image\": \"busybox\",\n                        \"name\": \"witness\",\n                        \"securityContext\": {\n                            \"allowPrivilegeEscalation\": false,\n                            \"capabilities\": {\n                                \"drop\": [\n                                    \"ALL\"\n                                ]\n                            },\n                            \"runAsUser\": 1000,\n                            \"seccompProfile\": {\n                                \"type\": \"RuntimeDefault\"\n                            }\n                        }\n                    }\n                ],\n                \"hostUsers\": false,\n                \"nodeName\": \"worker-01\"\n            },\n            \"status\": {\n                \"conditions\": [\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Initialized\"\n                    },\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Ready\"\n                    }\n                ],\n                \"containerStatuses\": [\n                    {\n                        \"name\": \"witness\",\n                        \"ready\": true,\n                        \"restartCount\": 0,\n                        \"state\": {\n                            \"running\": {\n                                \"startedAt\": \"2026-10-08T02:14:30.000Z\"\n                            }\n                        }\n                    }\n                ],\n                \"phase\": \"Running\",\n                \"podIP\": \"10.128.1.20\",\n                \"podIPs\": [\n                    {\n                        \"ip\": \"10.128.1.20\"\n                    }\n                ]\n            }\n        }\n    ],\n    \"kind\": \"List\",\n    \"metadata\": {\n        \"resourceVersion\": \"\"\n    }\n}"
+    },
+    {
+      "command": "oc scale deployment witness --replicas=2",
+      "output": "deployment.apps/witness configured"
+    },
+    {
+      "command": "oc get pods -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"items\": [\n        {\n            \"apiVersion\": \"v1\",\n            \"kind\": \"Pod\",\n            \"metadata\": {\n                \"annotations\": {\n                    \"k8s.v1.cni.cncf.io/network-status\": \"[{\\\"name\\\":\\\"ovn-kubernetes\\\",\\\"interface\\\":\\\"eth0\\\",\\\"ips\\\":[\\\"10.128.1.20\\\"],\\\"default\\\":true}]\",\n                    \"openshift.io/scc\": \"restricted-v3\"\n                },\n                \"creationTimestamp\": \"2026-10-08T02:14:30.000Z\",\n                \"generation\": 1,\n                \"labels\": {\n                    \"app\": \"witness\"\n                },\n                \"name\": \"witness-sim-0\",\n                \"namespace\": \"investigation\",\n                \"resourceVersion\": \"52\",\n                \"uid\": \"00000000-0000-4000-9000-000000000046\"\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"image\": \"busybox\",\n                        \"name\": \"witness\",\n                        \"securityContext\": {\n                            \"allowPrivilegeEscalation\": false,\n                            \"capabilities\": {\n                                \"drop\": [\n                                    \"ALL\"\n                                ]\n                            },\n                            \"runAsUser\": 1000,\n                            \"seccompProfile\": {\n                                \"type\": \"RuntimeDefault\"\n                            }\n                        }\n                    }\n                ],\n                \"hostUsers\": false,\n                \"nodeName\": \"worker-01\"\n            },\n            \"status\": {\n                \"conditions\": [\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Initialized\"\n                    },\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Ready\"\n                    }\n                ],\n                \"containerStatuses\": [\n                    {\n                        \"name\": \"witness\",\n                        \"ready\": true,\n                        \"restartCount\": 0,\n                        \"state\": {\n                            \"running\": {\n                                \"startedAt\": \"2026-10-08T02:14:30.000Z\"\n                            }\n                        }\n                    }\n                ],\n                \"phase\": \"Running\",\n                \"podIP\": \"10.128.1.20\",\n                \"podIPs\": [\n                    {\n                        \"ip\": \"10.128.1.20\"\n                    }\n                ]\n            }\n        },\n        {\n            \"apiVersion\": \"v1\",\n            \"kind\": \"Pod\",\n            \"metadata\": {\n                \"annotations\": {\n                    \"k8s.v1.cni.cncf.io/network-status\": \"[{\\\"name\\\":\\\"ovn-kubernetes\\\",\\\"interface\\\":\\\"eth0\\\",\\\"ips\\\":[\\\"10.128.1.21\\\"],\\\"default\\\":true}]\",\n                    \"openshift.io/scc\": \"restricted-v3\"\n                },\n                \"creationTimestamp\": \"2026-10-08T02:14:40.000Z\",\n                \"generation\": 1,\n                \"labels\": {\n                    \"app\": \"witness\"\n                },\n                \"name\": \"witness-sim-1\",\n                \"namespace\": \"investigation\",\n                \"resourceVersion\": \"56\",\n                \"uid\": \"00000000-0000-4000-9000-000000000047\"\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"image\": \"busybox\",\n                        \"name\": \"witness\",\n                        \"securityContext\": {\n                            \"allowPrivilegeEscalation\": false,\n                            \"capabilities\": {\n                                \"drop\": [\n                                    \"ALL\"\n                                ]\n                            },\n                            \"runAsUser\": 1000,\n                            \"seccompProfile\": {\n                                \"type\": \"RuntimeDefault\"\n                            }\n                        }\n                    }\n                ],\n                \"hostUsers\": false,\n                \"nodeName\": \"worker-02\"\n            },\n            \"status\": {\n                \"conditions\": [\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Initialized\"\n                    },\n                    {\n                        \"status\": \"True\",\n                        \"type\": \"Ready\"\n                    }\n                ],\n                \"containerStatuses\": [\n                    {\n                        \"name\": \"witness\",\n                        \"ready\": true,\n                        \"restartCount\": 0,\n                        \"state\": {\n                            \"running\": {\n                                \"startedAt\": \"2026-10-08T02:14:40.000Z\"\n                            }\n                        }\n                    }\n                ],\n                \"phase\": \"Running\",\n                \"podIP\": \"10.128.1.21\",\n                \"podIPs\": [\n                    {\n                        \"ip\": \"10.128.1.21\"\n                    }\n                ]\n            }\n        }\n    ],\n    \"kind\": \"List\",\n    \"metadata\": {\n        \"resourceVersion\": \"\"\n    }\n}"
+    },
+    {
+      "command": "oc patch deployment witness -p '{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"witness\",\"image\":\"registry.example.test/owned:arbitrary-uid\"}]}}}}'",
+      "output": "deployment.apps/witness patched"
+    },
+    {
+      "command": "oc get pods -o wide",
+      "output": "NAME            READY   STATUS    RESTARTS   AGE   IP            NODE        NOMINATED NODE   READINESS GATES\nwitness-sim-0   1/1     Running   0          3s    10.128.1.20   worker-01   <none>           <none>\nwitness-sim-1   1/1     Running   0          2s    10.128.1.21   worker-02   <none>           <none>"
+    },
+    {
+      "command": "oc patch pod witness-sim-0 -p '{\"spec\":{\"containers\":[{\"name\":\"witness\",\"env\":[{\"name\":\"UNSAFE\",\"value\":\"1\"}]}]}}'",
+      "output": "Error from server (Invalid): Pod \"witness-sim-0\" is invalid: spec: Forbidden: pod updates may not change fields other than spec.containers[*].image, spec.initContainers[*].image, spec.activeDeadlineSeconds, spec.tolerations (only additions to existing tolerations), spec.terminationGracePeriodSeconds (allow it to be set to 1 if it was previously negative)"
+    },
+    {
+      "command": "oc create secret generic training --from-file=record=current.json --dry-run=server -o name",
+      "output": "secret/training"
+    },
+    {
+      "command": "oc get secret training",
+      "output": "Error from server (Forbidden): secrets \"training\" is forbidden: User \"operator\" cannot get resource \"secrets\" in API group \"\" in the namespace \"investigation\""
+    },
+    {
+      "command": "oc delete cm settings --dry-run=server",
+      "output": "configmap \"settings\" deleted from investigation namespace (server dry run)"
+    },
+    {
+      "command": "oc get cm settings",
+      "output": "NAME       DATA   AGE\nsettings   1      47s"
+    },
+    {
+      "command": "oc delete deployment witness",
+      "output": "deployment \"witness\" deleted from investigation namespace"
+    },
+    {
+      "command": "oc get pods",
+      "output": "No resources found in investigation namespace."
+    },
+    {
+      "command": "game save",
+      "output": "Progress saved locally."
+    },
+    {
+      "command": "pwd",
+      "output": "/home/operator/notes"
+    },
+    {
+      "command": "cat stale.json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"data\": {\n        \"version\": \"v1\"\n    },\n    \"kind\": \"ConfigMap\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T02:14:06.000Z\",\n        \"name\": \"settings\",\n        \"namespace\": \"investigation\",\n        \"resourceVersion\": \"44\",\n        \"uid\": \"00000000-0000-4000-9000-000000000044\"\n    }\n}"
+    },
+    {
+      "command": "oc get cm settings -o json",
+      "output": "{\n    \"apiVersion\": \"v1\",\n    \"data\": {\n        \"version\": \"v2\"\n    },\n    \"kind\": \"ConfigMap\",\n    \"metadata\": {\n        \"annotations\": {\n            \"case\": \"incident-18\"\n        },\n        \"creationTimestamp\": \"2026-10-08T02:14:06.000Z\",\n        \"labels\": {},\n        \"name\": \"settings\",\n        \"namespace\": \"investigation\",\n        \"resourceVersion\": \"49\",\n        \"uid\": \"00000000-0000-4000-9000-000000000044\"\n    }\n}"
+    },
+    {
+      "command": "oc get cm settings -o json | jq -r '.data.version'",
+      "output": "v2"
+    },
+    {
+      "command": "oc get cm settings -o go-template='{{index .data \"version\"}}'",
+      "output": "v2"
+    },
+    {
+      "command": "game status",
+      "output": "Local progress: saved \u00b7 2026-10-09T03:18:39.231Z\nOffline installation: ready\nProgress stays in this browser. Use game export for a portable backup."
+    }
+  ],
+  "browser_errors": [],
+  "screenshot": "artifacts/campaign/api-write-offline.png"
+}

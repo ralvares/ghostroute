@@ -60,6 +60,8 @@ function applyFiles(ch) {
     if (ch.id === "05" && name === "vendor.yaml") continue;
     if (ch.id === "16" && ["client.yaml", "server.yaml"].includes(name))
       deleteResource("pods", name.slice(0, -5), ch.namespace);
+    if (ch.id === "07" && name === "consumer.yaml")
+      deleteResource("pods", "app", ch.namespace);
     if (ch.id === "25" && name === "app.yaml") {
       S.cluster.user = "platform-admin";
       grantScc("rs-profile", "profiled", ch.namespace);
@@ -225,6 +227,8 @@ test("network policy union, ANP priority, Pass and destination ingress stay inde
     "ANP egress Allow cannot bypass destination ingress",
   );
   assert.equal(flow(ns, "client", "external", ns, true), true);
+  // A second write uses the latest resourceVersion, as a real API client must.
+  admin.metadata.resourceVersion = resource("AdminNetworkPolicy", "rs-external-guard").metadata.resourceVersion;
   admin.spec.egress[0].action = "Pass";
   applyResource(admin, ns);
   assert.equal(
