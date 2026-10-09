@@ -151,43 +151,43 @@ test("server selectors implement sets, absence and field filtering; invalid sele
   assert.equal(
     kubeRequest({
       method: "GET",
-      path: "/api/v1/pods?labelSelector=app%20in%20(payment-api)",
+      path: "/api/v1/namespaces/payments/pods?labelSelector=app%20in%20(payment-api)",
     }).body.items.length,
     2,
   );
   assert.equal(
     kubeRequest({
       method: "GET",
-      path: "/api/v1/pods?labelSelector=app%20notin%20(payment-api)",
+      path: "/api/v1/namespaces/payments/pods?labelSelector=app%20notin%20(payment-api)",
     }).body.items.length,
     1,
   );
   assert.equal(
-    kubeRequest({ method: "GET", path: "/api/v1/pods?labelSelector=!app" }).body
+    kubeRequest({ method: "GET", path: "/api/v1/namespaces/payments/pods?labelSelector=!app" }).body
       .items.length,
     0,
   );
   assert.equal(
-    kubeRequest({ method: "GET", path: "/api/v1/pods?labelSelector=!incident" })
+    kubeRequest({ method: "GET", path: "/api/v1/namespaces/payments/pods?labelSelector=!incident" })
       .body.items.length,
     3,
   );
   assert.equal(
     kubeRequest({
       method: "GET",
-      path: "/api/v1/pods?fieldSelector=spec.nodeName%3Dworker-01",
+      path: "/api/v1/namespaces/payments/pods?fieldSelector=spec.nodeName%3Dworker-01",
     }).body.items.length,
     1,
   );
   assert.equal(
     kubeRequest({
       method: "GET",
-      path: "/api/v1/pods?fieldSelector=nonexistent%3Dx",
+      path: "/api/v1/namespaces/payments/pods?fieldSelector=nonexistent%3Dx",
     }).code,
     400,
   );
   assert.equal(
-    kubeRequest({ method: "GET", path: "/api/v1/pods?labelSelector=broken(" })
+    kubeRequest({ method: "GET", path: "/api/v1/namespaces/payments/pods?labelSelector=broken(" })
       .code,
     400,
   );
@@ -427,7 +427,7 @@ test("4.22 default SCC inventory uses upstream fields and v3 UID boundaries", as
   assert.equal(v3.runAsUser.uidRangeMin, 1000);
   assert.equal(v3.runAsUser.uidRangeMax, 65534);
   assert.ok(v3.volumes.includes("image"));
-  await clusterCommand("oc create namespace bounds");
+  await clusterCommand("oc new-project bounds");
   for (const uid of [1000, 1001, 65534]) {
     const resource = {
       apiVersion: "v1",

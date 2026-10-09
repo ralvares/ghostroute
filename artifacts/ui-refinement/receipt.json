@@ -1,0 +1,44 @@
+[
+  {
+    "viewport": "desktop",
+    "terminal": {
+      "x": 49,
+      "y": 139,
+      "width": 1168,
+      "height": 868
+    },
+    "consoleFont": "15px",
+    "nativeHelpExact": true,
+    "visibleTools": true,
+    "notesShared": true,
+    "pageErrors": []
+  },
+  {
+    "viewport": "tablet",
+    "terminal": {
+      "x": 17,
+      "y": 167,
+      "width": 636,
+      "height": 716
+    },
+    "consoleFont": "15px",
+    "nativeHelpExact": true,
+    "visibleTools": true,
+    "notesShared": true,
+    "pageErrors": []
+  },
+  {
+    "viewport": "mobile",
+    "terminal": {
+      "x": 9,
+      "y": 166,
+      "width": 372,
+      "height": 529
+    },
+    "consoleFont": "15px",
+    "nativeHelpExact": true,
+    "visibleTools": true,
+    "notesShared": true,
+    "pageErrors": []
+  }
+]

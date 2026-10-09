@@ -1,6 +1,16 @@
-import {skopeoCommand} from "./skopeo.js";
-import {podmanCommand} from "./podman.js";
-import {roxctlCommand} from "./roxctl.js";
+import {matchesLabels} from "../security/network-policy.js";
+import {advanceEmulatorTime} from "../simulation/clock.js";
+import {reconcileFixtureControllers} from "../simulation/engine.js";
+import {durationMs} from "../security/external-secrets.js";
+import { ocReference } from "./oc-reference.js";
+import { exposedResource } from "./resource-generators.js";
+import { timemachineCommand } from "./timemachine.js";
+import { gitCommand } from "./git.js";
+import { tknCommand } from "./tkn.js";
+import { taskPodLogs } from "../release/tekton.js";
+import { skopeoCommand } from "./skopeo.js";
+import { podmanCommand } from "./podman.js";
+import { roxctlCommand } from "./roxctl.js";
 import {
   readApiResources,
   readApiTable as apiTable,
@@ -42,13 +52,18 @@ import { textCommand, textTools, toolHelp } from "./text-tools.js";
 import type { ToolResult } from "./text-tools.js";
 import { printResourceJson, printTypedResourceJson } from "./json-printer.js";
 import { printResourceTable } from "./table-printer.js";
-import { jsonPathValues } from "../simulation/resource-table.js";
+import { age, jsonPathValues } from "../simulation/resource-table.js";
 import { mergePatch, jsonPatch } from "../simulation/api-patch.js";
 import { strategicPatch } from "../simulation/strategic-patch.js";
-import { encodeSecret, normalizeSecret } from "../simulation/secrets.js";
+import {
+  encodeSecret,
+  normalizeSecret,
+  secretValue,
+} from "../simulation/secrets.js";
 
 interface Result extends ToolResult {
   legacyCommand?: string;
+  podShell?: { name: string; namespace: string; uid: string; container?: string };
 }
 export function commandNamespace(words: string[]) {
   const { flags } = options([...words.slice(1)]);
@@ -88,7 +103,9 @@ function options(words: string[]) {
       "--show-labels",
       "--namespaced",
       "--help",
-      "--overwrite", "--list",
+      "--overwrite",
+      "--list",
+      "--confirm",
     ].includes(key);
     const value =
       equals < 0 ? (boolean ? "true" : words[++i]) : token.slice(equals + 1);
@@ -110,11 +127,10 @@ function auditText() {
 const readFile = readVirtualFile;
 
 async function oc(words: string[], raw: string): Promise<Result | null> {
-  if (words.length === 1 || words.includes("--help"))
-    return result(
-      `OpenShift 4.22 OFFLINE cluster simulator\nResource operations: get, describe, create, apply, replace, delete, patch, scale, run, label, annotate\nPod diagnostics: oc exec POD [-n NAMESPACE] [-c CONTAINER] -- curl -I http://POD-IP:PORT/health; nc -zv POD-IP PORT; id\nExec uses recorded workload endpoints; arbitrary processes, interactive streams, service DNS and TLS verification are not implemented.\nWrite previews: --dry-run=client or --dry-run=server; -o json/yaml/name\nContext: project, new-project, whoami, login\nSecurity: auth can-i, adm policy add-scc-to-user/remove-scc-from-user\nInvestigation: -o json/yaml/go-template, jq, grep, sort, head, tail, wc\nFiles: cat lab.txt; ls workloads; ls scc; echo '<JSON>' > workloads/custom.json\nDiscovery: oc api-resources\nNot every oc subcommand/API field is implemented. Such cases report a simulator limitation; RBAC/admission errors are reserved for evaluated requests.`,
-    );
+  const reference = await ocReference(words);
+  if (reference !== undefined) return reference;
   refreshResourceTypes();
+  if (words[1] === "timemachine") return timemachineCommand(words);
   if (words[1] === "exec") {
     const separator = words.indexOf("--");
     if (separator < 3 || separator === words.length - 1)
@@ -141,35 +157,186 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
   const { args, flags, flag } = options(words.slice(1));
   const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
   const impersonate = flag("--as");
-  const identifier = (object: Resource) => object.kind.toLowerCase() + (object.apiVersion.includes("/") ? "." + object.apiVersion.split("/")[0] : "") + "/" + object.metadata.name;
-  const writeObject = (object: Resource, method: "POST" | "PATCH" | "PUT", typed = false) => {
+  const identifier = (object: Resource) =>
+    object.kind.toLowerCase() +
+    (object.apiVersion.includes("/")
+      ? "." + object.apiVersion.split("/")[0]
+      : "") +
+    "/" +
+    object.metadata.name;
+  const writeObject = (
+    object: Resource,
+    method: "POST" | "PATCH" | "PUT",
+    typed = false,
+  ) => {
     const type = resolveResource(object.kind);
     if (!type) throw new Error(`error: unknown resource kind ${object.kind}`);
     const dryRun = flag("--dry-run") ?? "none";
-    if (!["none", "client", "server"].includes(dryRun)) throw new Error('error: --dry-run must be "none", "client", or "server"');
+    if (!["none", "client", "server"].includes(dryRun))
+      throw new Error('error: --dry-run must be "none", "client", or "server"');
     const output = flag("-o") ?? flag("--output");
-    if (output && !["json", "yaml", "name"].includes(output)) throw new Error("simulation: mutation output supports json, yaml, or name");
+    if (output && !["json", "yaml", "name"].includes(output))
+      throw new Error(
+        "simulation: mutation output supports json, yaml, or name",
+      );
     const copy = structuredClone(object);
     normalizeSecret(copy);
-    if (dryRun === "client" && object.kind === "Secret" && object.type === undefined) delete copy.type;
-    const objectNamespace = resourceTypes[type].namespaced ? (copy.metadata.namespace ?? namespace) : undefined;
-    if (copy.metadata.namespace && (flag("-n") || flag("--namespace")) && copy.metadata.namespace !== namespace)
-      throw new Error(`error: the namespace from the provided object "${copy.metadata.namespace}" does not match the namespace "${namespace}"`);
+    if (
+      dryRun === "client" &&
+      object.kind === "Secret" &&
+      object.type === undefined
+    )
+      delete copy.type;
+    const objectNamespace = resourceTypes[type].namespaced
+      ? (copy.metadata.namespace ?? namespace)
+      : undefined;
+    if (
+      copy.metadata.namespace &&
+      (flag("-n") || flag("--namespace")) &&
+      copy.metadata.namespace !== namespace
+    )
+      throw new Error(
+        `error: the namespace from the provided object "${copy.metadata.namespace}" does not match the namespace "${namespace}"`,
+      );
     if (objectNamespace) copy.metadata.namespace = objectNamespace;
     let body = copy;
     let message = `${identifier(copy)} ${method === "POST" ? "created" : method === "PUT" ? "replaced" : "configured"}`;
     if (dryRun !== "client") {
-      const response = kubeRequest({ method, path: apiResourcePath(type, objectNamespace, method === "POST" ? undefined : copy.metadata.name) + (dryRun === "server" ? "?dryRun=All" : ""), body: copy, contentType: method === "PATCH" ? "application/apply-patch+yaml" : "application/json", impersonateUser: impersonate });
+      const response = kubeRequest({
+        method,
+        path:
+          apiResourcePath(
+            type,
+            objectNamespace,
+            method === "POST" ? undefined : copy.metadata.name,
+          ) + (dryRun === "server" ? "?dryRun=All" : ""),
+        body: copy,
+        contentType:
+          method === "PATCH"
+            ? "application/apply-patch+yaml"
+            : "application/json",
+        impersonateUser: impersonate,
+      });
       body = apiBody(response) as Resource;
-      message = method === "PUT" ? message : response.message!;
+      message = method === "PUT" ? message : (response.message ?? message);
     }
-    return output === "json" ? (method === "POST" && typed ? printTypedResourceJson(body) : printResourceJson(body)) : output === "yaml" ? stringify(body) : output === "name" ? identifier(body) : message + (dryRun === "none" ? "" : dryRun === "client" ? " (dry run)" : " (server dry run)");
+    return output === "json"
+      ? method === "POST" && typed
+        ? printTypedResourceJson(body)
+        : printResourceJson(body)
+      : output === "yaml"
+        ? stringify(body)
+        : output === "name"
+          ? identifier(body)
+          : message +
+            (dryRun === "none"
+              ? ""
+              : dryRun === "client"
+                ? " (dry run)"
+                : " (server dry run)");
   };
   const getResources = (...params: Parameters<typeof readApiResources>) =>
     readApiResources(params[0], params[1], params[2], params[3], impersonate);
   const readApiTable = (...params: Parameters<typeof apiTable>) =>
     apiTable(params[0], params[1], params[2], params[3], impersonate);
   const verb = args[0];
+  if (verb === "expose") {
+    rejectFlags(flags, [
+      "-n",
+      "--namespace",
+      "--as",
+      "--name",
+      "--port",
+      "--target-port",
+      "--protocol",
+      "--selector",
+      "-l",
+      "--labels",
+      "--cluster-ip",
+      "--external-ip",
+      "--type",
+      "--session-affinity",
+      "--hostname",
+      "--path",
+      "--wildcard-policy",
+      "--dry-run",
+      "-o",
+      "--output",
+    ]);
+    const [alias, embedded] = (args[1] ?? "").split("/");
+    const type = resolveResource(alias),
+      name = embedded ?? args[2];
+    if (!type || !name || args.length !== (embedded ? 2 : 3))
+      throw new Error("error: use oc expose TYPE NAME or TYPE/NAME");
+    const source = getResources(type, namespace, name)[0];
+    return result(writeObject(exposedResource(source, flags), "POST", true));
+  }
+  if (verb === "extract") {
+    rejectFlags(flags, [
+      "-n",
+      "--namespace",
+      "--as",
+      "--to",
+      "--keys",
+      "--confirm",
+    ]);
+    if (args.length !== 2)
+      throw new Error("error: use oc extract RESOURCE/NAME");
+    const [alias, name] = args[1].split("/");
+    const type = resolveResource(alias);
+    if (!name || !["secrets", "configmaps"].includes(type ?? ""))
+      throw new Error("error: extract requires a Secret or ConfigMap name");
+    const object = getResources(type!, namespace, name)[0];
+    const binaryData = object.binaryData as Record<string, string> | undefined;
+    const keys =
+      flags["--keys"]?.flatMap((value) => value.split(",")) ??
+      Object.keys({ ...object.data, ...binaryData }).sort();
+    const files = keys.map((key) => {
+      if (
+        !Object.hasOwn(object.data ?? {}, key) &&
+        !Object.hasOwn(binaryData ?? {}, key)
+      )
+        throw new Error(`error: key "${key}" does not exist in ${args[1]}`);
+      let value: string;
+      if (type === "secrets" || binaryData?.[key] !== undefined) {
+        try {
+          value = new TextDecoder("utf-8", { fatal: true }).decode(
+            Uint8Array.from(atob(type === "secrets" ? object.data![key] : binaryData![key]), (c) => c.charCodeAt(0)),
+          );
+        } catch {
+          throw new Error(
+            "simulation: the virtual filesystem supports UTF-8 extraction; binary files are not implemented",
+          );
+        }
+      } else value = object.data![key];
+      return { key, value };
+    });
+    if (flag("--to") === "-")
+      return {
+        stdout: files
+          .map((f) => f.value + (f.value.endsWith("\n") ? "" : "\n"))
+          .join(""),
+        stderr: files.map((f) => `# ${f.key}\n`).join(""),
+      };
+    const paths = files.map((f) => ({
+      ...f,
+      path: (flag("--to") ?? ".").replace(/\/$/, "") + "/" + f.key,
+    }));
+    if (flag("--confirm") !== "true")
+      for (const f of paths) {
+        let exists = false;
+        try {
+          readFile(f.path);
+          exists = true;
+        } catch {}
+        if (exists)
+          throw new Error(
+            `error: file ${f.path} already exists; use --confirm to overwrite`,
+          );
+      }
+    for (const f of paths) writeVirtualFile(f.path, f.value);
+    return result(paths.map((f) => f.path).join("\n"));
+  }
   if (verb === "get" && flag("--raw")) {
     rejectFlags(flags, ["--raw", "--as"]);
     if (args.length !== 1)
@@ -197,12 +364,19 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     const user = flag("-u") ?? flag("--username");
     if (
       !["operator", "platform-admin"].includes(user ?? "") ||
-      (flag("-p") ?? flag("--password")) !== "training"
+      (flag("-p") ?? flag("--password")) !==
+        (user === "platform-admin"
+          ? S.story.inventory.includes("admin-access-key")
+            ? "training-admin-7f2b9a64c183"
+            : undefined
+          : "training")
     )
       return result(
         "error: invalid credentials for this local training identity",
         true,
       );
+    if (!flag("-p") && !flag("--password"))
+      return result("error: username and password are required", true);
     S.cluster.user = user!;
     return result(`Logged into simulated OpenShift 4.22 as "${user}".`);
   }
@@ -308,27 +482,13 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     const identity = flag("--as");
     if (identity) assertCanImpersonate(identity);
     if (args[2] === "use" && type === "securitycontextconstraints") {
-      const match = identity?.match(/^system:serviceaccount:([^:]+):([^:]+)$/);
-      const usable =
-        resourceName === "restricted-v3" ||
-        resourceName === "restricted-v2" ||
-        (match
-          ? roleAllows(
-              identity!,
-              "use",
-              "securitycontextconstraints",
-              match[1],
-              resourceName,
-            )
-          : S.cluster.user === "platform-admin" ||
-            roleAllows(
-              S.cluster.user,
-              "use",
-              "securitycontextconstraints",
-              namespace,
-              resourceName,
-            ));
-      return result(usable ? "yes" : "no");
+      const caller = identity ?? S.cluster.user;
+      const sa = caller.match(/^system:serviceaccount:([^:]+):([^:]+)$/);
+      return result(
+        roleAllows(caller, "use", type, sa?.[1] ?? namespace, resourceName)
+          ? "yes"
+          : "no",
+      );
     }
     if (identity)
       return result(
@@ -405,11 +565,58 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
           : "",
     );
   }
-  if (verb === "rsh" && validOcCommand(raw)) {
-    getResources("deployments",namespace,"payment-api");
-    if (!getResources("pods",namespace).some(p => p.metadata.labels?.app === "payment-api" && Array.isArray(p.status?.containerStatuses) && p.status.containerStatuses.some((c: any)=>c.ready)))
-      throw new Error("Error from server (BadRequest): no running payment-api container is available");
-    return null;
+  if (verb === "rsh") {
+    rejectFlags(flags, ["-n", "--namespace", "-c", "--container", "--as"]);
+    if (args.length !== 2)
+      throw new Error(
+        "simulation: rsh supports an interactive shell on one Pod or Deployment; use oc exec for a single command",
+      );
+    const [alias, embeddedName] = args[1].split("/");
+    const type = embeddedName ? resolveResource(alias) : "pods";
+    if (type !== "pods" && type !== "deployments")
+      throw new Error("simulation: rsh supports Pod and Deployment targets");
+    const target = getResources(type, namespace, embeddedName ?? alias)[0];
+    const pod =
+      type === "pods"
+        ? target
+        : getResources("pods", namespace).find(
+            (p) => p.status?.phase === "Running" && (
+              p.metadata.ownerReferences?.some(
+                (owner) =>
+                  owner.uid === target.metadata.uid ||
+                  owner.name === target.metadata.name,
+              ) ||
+              matchesLabels(p.metadata.labels, target.spec?.selector ?? {})),
+          );
+    if (!pod || pod.status?.phase !== "Running")
+      throw new Error(
+        "Error from server (BadRequest): no running container is available",
+      );
+    const response = apiBody(
+      kubeRequest({
+        method: "POST",
+        path: `/api/v1/namespaces/${namespace}/pods/${pod.metadata.name}/exec`,
+        body: {
+          command: ["/bin/sh"],
+          container: flag("-c") ?? flag("--container"),
+        },
+        impersonateUser: impersonate,
+      }),
+    ) as Result;
+    if (response.error) return response;
+    if (
+      !S.cluster.resources.some(
+        (r) => r.kind === "Pod" && r.metadata.uid === pod.metadata.uid,
+      )
+    )
+      return result(
+        "command terminated: Pod was terminated by RHACS runtime enforcement",
+        true,
+      );
+    return {
+      stdout: "",
+      podShell: { name: pod.metadata.name, namespace, uid: pod.metadata.uid!, container: flag("-c") ?? flag("--container") },
+    };
   }
 
   if (verb === "get" || verb === "describe") {
@@ -576,7 +783,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
                   event.metadata.namespace === item.metadata.namespace &&
                   event.metadata.name.startsWith(item.metadata.name + "."),
               )
-              .map((event) => event.message)
+              .map((event) => `${event.type ?? "Normal"}  ${event.reason ?? ""}  ${age(event.lastTimestamp, clusterTime())}  ${(event.source as any)?.component ?? ""}  ${event.message ?? ""}`)
               .join("\n")}`,
         )
         .join("\n");
@@ -606,7 +813,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       }),
     );
   }
-  if (verb === "create" || verb === "apply" || verb === "replace" || verb === "new-project") {
+  if (
+    verb === "create" ||
+    verb === "apply" ||
+    verb === "replace" ||
+    verb === "new-project"
+  ) {
     rejectFlags(flags, [
       "-n",
       "--namespace",
@@ -614,10 +826,17 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--filename",
       "--image",
       "--from-literal",
-      "--from-file", "--from-env-file",
-      "--docker-server", "--docker-username", "--docker-password", "--docker-email",
+      "--from-file",
+      "--from-env-file",
+      "--docker-server",
+      "--docker-username",
+      "--docker-password",
+      "--docker-email",
       "--type",
-      "--dry-run", "-o", "--output", "--as",
+      "--dry-run",
+      "-o",
+      "--output",
+      "--as",
     ]);
     const file = flag("-f") ?? flag("--filename");
     if (file) {
@@ -631,14 +850,27 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         const object = document.toJS() as Resource;
         if (!object || typeof object !== "object")
           throw new Error("error: manifest must be an API object");
-        messages.push(writeObject(object, verb === "create" ? "POST" : verb === "replace" ? "PUT" : "PATCH"));
+        messages.push(
+          writeObject(
+            object,
+            verb === "create" ? "POST" : verb === "replace" ? "PUT" : "PATCH",
+          ),
+        );
       }
       return result(messages.join("\n"));
     }
-    if (verb === "replace") throw new Error("error: must specify -f for replace");
+    if (verb === "replace")
+      throw new Error("error: must specify -f for replace");
     const type =
-      verb === "new-project" ? "namespaces" : resolveResource(args[1] ?? "");
-    const name = verb === "new-project" ? args[1] : type === "secrets" && ["generic","docker-registry"].includes(args[2]) ? args[3] : args[2];
+      verb === "new-project"
+        ? "projectrequests"
+        : resolveResource(args[1] ?? "");
+    const name =
+      verb === "new-project"
+        ? args[1]
+        : type === "secrets" && ["generic", "docker-registry"].includes(args[2])
+          ? args[3]
+          : args[2];
     if (!type || !name)
       throw new Error("error: specify a resource and a name, or -f manifest");
     const definition = resourceTypes[type];
@@ -647,25 +879,63 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       kind: definition.kind,
       metadata: { name },
     };
-    if (type === "namespaces") {object.spec={};object.status={};}
+    if (type === "namespaces") {
+      object.spec = {};
+      object.status = {};
+    }
     if (type === "deployments") {
       if (!flag("--image")) throw new Error("error: --image is required");
       object.spec = {
         replicas: 1,
         selector: { matchLabels: { app: name } },
-        template: { metadata: { labels: { app: name } }, spec: { containers: [{ name, image: flag("--image")! }] } },
+        template: {
+          metadata: { labels: { app: name } },
+          spec: { containers: [{ name, image: flag("--image")! }] },
+        },
       };
     } else if (type === "secrets" && args[2] === "docker-registry") {
-      const server=flag("--docker-server")??"https://index.docker.io/v1/", username=flag("--docker-username"), password=flag("--docker-password");
-      if(!username || !password)throw new Error("error: either --from-file or the combination of --docker-username, --docker-password and --docker-server is required");
-      object.type="kubernetes.io/dockerconfigjson";
-      object.data={".dockerconfigjson":encodeSecret(JSON.stringify({auths:{[server]:{username,password,...(flag("--docker-email")?{email:flag("--docker-email")}:{}),auth:encodeSecret(username+":"+password)}}}))};
-    } else if (type === "configmaps" || (type === "secrets" && args[2] === "generic")) {
+      const server = flag("--docker-server") ?? "https://index.docker.io/v1/",
+        username = flag("--docker-username"),
+        password = flag("--docker-password");
+      if (!username || !password)
+        throw new Error(
+          "error: either --from-file or the combination of --docker-username, --docker-password and --docker-server is required",
+        );
+      object.type = "kubernetes.io/dockerconfigjson";
+      object.data = {
+        ".dockerconfigjson": encodeSecret(
+          JSON.stringify({
+            auths: {
+              [server]: {
+                username,
+                password,
+                ...(flag("--docker-email")
+                  ? { email: flag("--docker-email") }
+                  : {}),
+                auth: encodeSecret(username + ":" + password),
+              },
+            },
+          }),
+        ),
+      };
+    } else if (
+      type === "configmaps" ||
+      (type === "secrets" && args[2] === "generic")
+    ) {
       const data: Record<string, string> = {};
       const add = (key: string, value: string) => {
-        if (!/^[-._a-zA-Z0-9]+$/.test(key)) throw new Error(`error: invalid key ${key}`);
-        if (Object.hasOwn(data, key)) throw new Error(`error: cannot add key ${key}, another key by that name already exists`);
-        Object.defineProperty(data, key, {value, configurable:true, enumerable:true, writable:true});
+        if (!/^[-._a-zA-Z0-9]+$/.test(key))
+          throw new Error(`error: invalid key ${key}`);
+        if (Object.hasOwn(data, key))
+          throw new Error(
+            `error: cannot add key ${key}, another key by that name already exists`,
+          );
+        Object.defineProperty(data, key, {
+          value,
+          configurable: true,
+          enumerable: true,
+          writable: true,
+        });
       };
       for (const literal of flags["--from-literal"] ?? []) {
         const equals = literal.indexOf("=");
@@ -674,27 +944,51 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         add(literal.slice(0, equals), literal.slice(equals + 1));
       }
       for (const source of flags["--from-file"] ?? []) {
-        const equals = source.indexOf("="), path = equals < 0 ? source : source.slice(equals + 1);
-        add(equals < 0 ? path.split("/").at(-1)! : source.slice(0, equals), readFile(path));
+        const equals = source.indexOf("="),
+          path = equals < 0 ? source : source.slice(equals + 1);
+        add(
+          equals < 0 ? path.split("/").at(-1)! : source.slice(0, equals),
+          readFile(path),
+        );
       }
       for (const source of flags["--from-env-file"] ?? []) {
         for (const line of readFile(source).split(/\r?\n/)) {
           if (!line.trim() || line.trimStart().startsWith("#")) continue;
           const equals = line.indexOf("=");
-          if (equals < 1) throw new Error("simulation: env-file entries must be KEY=value; host environment substitution is unavailable");
+          if (equals < 1)
+            throw new Error(
+              "simulation: env-file entries must be KEY=value; host environment substitution is unavailable",
+            );
           add(line.slice(0, equals).trim(), line.slice(equals + 1));
         }
       }
-      if (type === "secrets") {object.stringData=data; if (flag("--type")) object.type=flag("--type");}
-      else object.data = data;
-    } else if (!["namespaces", "serviceaccounts"].includes(type))
+      if (type === "secrets") {
+        object.stringData = data;
+        if (flag("--type")) object.type = flag("--type");
+      } else object.data = data;
+    } else if (
+      !["namespaces", "serviceaccounts", "projectrequests"].includes(type)
+    )
       throw new Error("simulation: use -f for this resource kind");
     const message = writeObject(object, "POST", true);
-    if (verb === "new-project" && (!flag("--dry-run") || flag("--dry-run") === "none")) S.cluster.namespace = name;
+    if (
+      verb === "new-project" &&
+      (!flag("--dry-run") || flag("--dry-run") === "none")
+    )
+      S.cluster.namespace = name;
     return result(message);
   }
   if (verb === "run") {
-    rejectFlags(flags, ["-n", "--namespace", "--image", "--overrides", "--dry-run", "-o", "--output", "--as"]);
+    rejectFlags(flags, [
+      "-n",
+      "--namespace",
+      "--image",
+      "--overrides",
+      "--dry-run",
+      "-o",
+      "--output",
+      "--as",
+    ]);
     if (!args[1] || !flag("--image"))
       throw new Error("error: specify a name and --image");
     let object: Resource = {
@@ -707,7 +1001,17 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       object = mergePatch(object, JSON.parse(flag("--overrides")!)) as Resource;
     return result(writeObject(object, "POST", true));
   }
-  if (["delete", "patch", "scale", "rollout", "set", "label", "annotate"].includes(verb)) {
+  if (
+    [
+      "delete",
+      "patch",
+      "scale",
+      "rollout",
+      "set",
+      "label",
+      "annotate",
+    ].includes(verb)
+  ) {
     rejectFlags(flags, [
       "-n",
       "--namespace",
@@ -715,8 +1019,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--patch",
       "--type",
       "--replicas",
-      "--dry-run", "-o", "--output", "--as",
-      "--overwrite", "--list",
+      "--dry-run",
+      "-o",
+      "--output",
+      "--as",
+      "--overwrite",
+      "--list",
     ]);
     const resourceToken =
       verb === "rollout" || verb === "set" ? args[2] : args[1];
@@ -726,8 +1034,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     if (!type || !name) throw new Error("error: specify a known resource/name");
     if (verb === "delete") {
       const dryRun = flag("--dry-run") ?? "none";
-      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
-      if (flag("-o") || flag("--output")) throw new Error("simulation: delete output formats are not implemented");
+      if (!["none", "client", "server"].includes(dryRun))
+        throw new Error("error: invalid --dry-run value");
+      if (flag("-o") || flag("--output"))
+        throw new Error(
+          "simulation: delete output formats are not implemented",
+        );
       const names = embeddedName
         ? [embeddedName, ...args.slice(2)]
         : args.slice(2);
@@ -739,16 +1051,39 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       let failed = false;
       for (const item of names) {
         try {
-          const scope = resourceTypes[type].namespaced ? ` from ${namespace} namespace` : "";
+          const scope = resourceTypes[type].namespaced
+            ? ` from ${namespace} namespace`
+            : "";
           if (dryRun === "client") {
-            getResources(type, resourceTypes[type].namespaced ? namespace : undefined, item);
-            const definition=resourceTypes[type];
-            const kind=definition.kind.toLowerCase()+(definition.apiVersion.includes("/") ? "."+definition.apiVersion.split("/")[0] : "");
+            getResources(
+              type,
+              resourceTypes[type].namespaced ? namespace : undefined,
+              item,
+            );
+            const definition = resourceTypes[type];
+            const kind =
+              definition.kind.toLowerCase() +
+              (definition.apiVersion.includes("/")
+                ? "." + definition.apiVersion.split("/")[0]
+                : "");
             responses.push(`${kind} "${item}" deleted${scope} (dry run)`);
           } else {
-            const response = kubeRequest({ method: "DELETE", path: apiResourcePath(type, resourceTypes[type].namespaced ? namespace : undefined, item) + (dryRun === "server" ? "?dryRun=All" : ""), impersonateUser: impersonate });
+            const response = kubeRequest({
+              method: "DELETE",
+              path:
+                apiResourcePath(
+                  type,
+                  resourceTypes[type].namespaced ? namespace : undefined,
+                  item,
+                ) + (dryRun === "server" ? "?dryRun=All" : ""),
+              impersonateUser: impersonate,
+            });
             apiBody(response);
-            responses.push(response.message! + scope + (dryRun === "server" ? " (server dry run)" : ""));
+            responses.push(
+              response.message! +
+                scope +
+                (dryRun === "server" ? " (server dry run)" : ""),
+            );
           }
         } catch (error) {
           failed = true;
@@ -761,23 +1096,61 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       const patch = flag("-p") ?? flag("--patch");
       if (!patch) throw new Error("error: patch needs -p JSON");
       const patchType = flag("--type") ?? "strategic";
-      const contentTypes: Record<string, string> = { merge: "application/merge-patch+json", json: "application/json-patch+json", strategic: "application/strategic-merge-patch+json" };
-      if (!contentTypes[patchType]) throw new Error('error: --type must be "json", "merge", or "strategic"');
+      const contentTypes: Record<string, string> = {
+        merge: "application/merge-patch+json",
+        json: "application/json-patch+json",
+        strategic: "application/strategic-merge-patch+json",
+      };
+      if (!contentTypes[patchType])
+        throw new Error(
+          'error: --type must be "json", "merge", or "strategic"',
+        );
       const dryRun = flag("--dry-run") ?? "none";
-      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      if (!["none", "client", "server"].includes(dryRun))
+        throw new Error("error: invalid --dry-run value");
       const output = flag("-o") ?? flag("--output");
-      if (output && !["json", "yaml", "name"].includes(output)) throw new Error("simulation: patch output supports json, yaml, or name");
-      const original = getResources(type, resourceTypes[type].namespaced ? namespace : undefined, name)[0];
+      if (output && !["json", "yaml", "name"].includes(output))
+        throw new Error(
+          "simulation: patch output supports json, yaml, or name",
+        );
+      const original = getResources(
+        type,
+        resourceTypes[type].namespaced ? namespace : undefined,
+        name,
+      )[0];
       let patched: Resource;
       if (dryRun === "client") {
         const document = JSON.parse(patch);
-        patched = patchType === "merge" ? mergePatch(original, document) : patchType === "json" ? jsonPatch(original, document) : strategicPatch(original.kind, original, document);
+        patched =
+          patchType === "merge"
+            ? mergePatch(original, document)
+            : patchType === "json"
+              ? jsonPatch(original, document)
+              : strategicPatch(original.kind, original, document);
       } else {
-        const response = kubeRequest({ method: "PATCH", path: apiResourcePath(type, resourceTypes[type].namespaced ? namespace : undefined, name) + (dryRun === "server" ? "?dryRun=All" : ""), body: JSON.parse(patch), contentType: contentTypes[patchType], impersonateUser: impersonate });
+        const response = kubeRequest({
+          method: "PATCH",
+          path:
+            apiResourcePath(
+              type,
+              resourceTypes[type].namespaced ? namespace : undefined,
+              name,
+            ) + (dryRun === "server" ? "?dryRun=All" : ""),
+          body: JSON.parse(patch),
+          contentType: contentTypes[patchType],
+          impersonateUser: impersonate,
+        });
         patched = apiBody(response) as Resource;
       }
-      const unchanged = printResourceJson(patched) === printResourceJson(original);
-      return result(output === "json" ? printResourceJson(patched) : output === "yaml" ? stringify(patched) : `${identifier(patched)}${output === "name" ? "" : " patched" + (unchanged ? " (no change)" : "")}`);
+      const unchanged =
+        printResourceJson(patched) === printResourceJson(original);
+      return result(
+        output === "json"
+          ? printResourceJson(patched)
+          : output === "yaml"
+            ? stringify(patched)
+            : `${identifier(patched)}${output === "name" ? "" : " patched" + (unchanged ? " (no change)" : "")}`,
+      );
     }
     const object = getResources(
       type,
@@ -786,7 +1159,13 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     )[0];
     if (verb === "rollout" && args[1] === "status") {
       const ready = object.status?.readyReplicas ?? 0;
-      if (type === "deployments" && name === "payment-api" && namespace === "payments" && ready === (object.spec?.replicas ?? 1)) verifyRollout();
+      if (
+        type === "deployments" &&
+        name === "payment-api" &&
+        namespace === "payments" &&
+        ready === (object.spec?.replicas ?? 1)
+      )
+        verifyRollout();
       return result(
         ready === (object.spec?.replicas ?? 1)
           ? `deployment "${name}" successfully rolled out`
@@ -801,42 +1180,103 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       updated.metadata[key] ??= {};
       const changes = args.slice(embeddedName ? 2 : 3);
       if (flag("--list") === "true") {
-        if (changes.length) throw new Error("error: --list does not accept updates");
-        return result(Object.entries(updated.metadata[key]!).map(([k,v])=>`${k}=${v}`).join("\n"));
+        if (changes.length)
+          throw new Error("error: --list does not accept updates");
+        return result(
+          Object.entries(updated.metadata[key]!)
+            .map(([k, v]) => `${k}=${v}`)
+            .join("\n"),
+        );
       }
-      if (!changes.length) throw new Error(`error: at least one ${verb} update is required`);
+      if (!changes.length)
+        throw new Error(`error: at least one ${verb} update is required`);
       for (const change of changes) {
         const equals = change.indexOf("=");
         const remove = equals < 0 && change.endsWith("-");
-        const name = remove ? change.slice(0,-1) : change.slice(0,equals);
-        if (!name || (equals < 0 && !remove)) throw new Error(`error: ${verb} update expects key=value or key-`);
+        const name = remove ? change.slice(0, -1) : change.slice(0, equals);
+        if (!name || (equals < 0 && !remove))
+          throw new Error(`error: ${verb} update expects key=value or key-`);
         const previous = updated.metadata[key]![name];
         if (remove) delete updated.metadata[key]![name];
         else {
-          const value = change.slice(equals+1);
-          if (previous !== undefined && previous !== value && flag("--overwrite") !== "true")
-            throw new Error(`error: '${name}' already has a value (${previous}), and --overwrite is false`);
-          Object.defineProperty(updated.metadata[key]!,name,{value,writable:true,enumerable:true,configurable:true});
+          const value = change.slice(equals + 1);
+          if (
+            previous !== undefined &&
+            previous !== value &&
+            flag("--overwrite") !== "true"
+          )
+            throw new Error(
+              `error: '${name}' already has a value (${previous}), and --overwrite is false`,
+            );
+          Object.defineProperty(updated.metadata[key]!, name, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
         }
       }
       // Send null for removals so the API removes the field rather than preserving it.
       const delta: Record<string, string | null> = {};
       for (const change of changes) {
-        const equals = change.indexOf("="), name = equals < 0 ? change.slice(0,-1) : change.slice(0,equals);
-        Object.defineProperty(delta,name,{value: equals < 0 ? null : change.slice(equals+1),enumerable:true});
+        const equals = change.indexOf("="),
+          name = equals < 0 ? change.slice(0, -1) : change.slice(0, equals);
+        Object.defineProperty(delta, name, {
+          value: equals < 0 ? null : change.slice(equals + 1),
+          enumerable: true,
+        });
       }
       const dryRun = flag("--dry-run") ?? "none";
-      if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      if (!["none", "client", "server"].includes(dryRun))
+        throw new Error("error: invalid --dry-run value");
       const output = flag("-o") ?? flag("--output");
-      if (output && !["json","yaml","name"].includes(output)) throw new Error("simulation: metadata output supports json, yaml, or name");
-      if (dryRun !== "client") updated = apiBody(kubeRequest({method:"PATCH",path:apiResourcePath(type,resourceTypes[type].namespaced ? namespace : undefined,name)+(dryRun === "server" ? "?dryRun=All" : ""),body:{metadata:{[key]:delta}},contentType:"application/merge-patch+json",impersonateUser:impersonate})) as Resource;
-      return result(output === "json" ? printResourceJson(updated) : output === "yaml" ? stringify(updated) : identifier(updated)+(output === "name" ? "" : ` ${verb === "label" ? "labeled" : "annotated"}` + (dryRun === "server" ? " (server dry run)" : dryRun === "client" ? " (dry run)" : "")));
+      if (output && !["json", "yaml", "name"].includes(output))
+        throw new Error(
+          "simulation: metadata output supports json, yaml, or name",
+        );
+      if (dryRun !== "client")
+        updated = apiBody(
+          kubeRequest({
+            method: "PATCH",
+            path:
+              apiResourcePath(
+                type,
+                resourceTypes[type].namespaced ? namespace : undefined,
+                name,
+              ) + (dryRun === "server" ? "?dryRun=All" : ""),
+            body: { metadata: { [key]: delta } },
+            contentType: "application/merge-patch+json",
+            impersonateUser: impersonate,
+          }),
+        ) as Resource;
+      return result(
+        output === "json"
+          ? printResourceJson(updated)
+          : output === "yaml"
+            ? stringify(updated)
+            : identifier(updated) +
+              (output === "name"
+                ? ""
+                : ` ${verb === "label" ? "labeled" : "annotated"}` +
+                  (dryRun === "server"
+                    ? " (server dry run)"
+                    : dryRun === "client"
+                      ? " (dry run)"
+                      : "")),
+      );
     }
     if (verb === "rollout" && args[1] === "restart" && type === "deployments") {
       updated = structuredClone(object);
       updated.spec!.template!.metadata ??= {};
-      updated.spec!.template!.metadata.annotations = { ...updated.spec!.template!.metadata.annotations, "kubectl.kubernetes.io/restartedAt": new Date(clusterTime()).toISOString() };
-      return result(writeObject(updated, "PATCH").replace(/ configured$/, " restarted"));
+      updated.spec!.template!.metadata.annotations = {
+        ...updated.spec!.template!.metadata.annotations,
+        "kubectl.kubernetes.io/restartedAt": new Date(
+          clusterTime(),
+        ).toISOString(),
+      };
+      return result(
+        writeObject(updated, "PATCH").replace(/ configured$/, " restarted"),
+      );
     }
     if (verb === "scale" && type === "deployments") {
       const replicas = Number(flag("--replicas"));
@@ -846,23 +1286,73 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     } else if (verb === "set" && args[1] === "env" && type === "deployments") {
       updated = structuredClone(object);
       const assignments = args.slice(embeddedName ? 3 : 4);
-      if (!assignments.length) throw new Error("error: set env requires assignments or NAME-");
+      if (!assignments.length)
+        throw new Error("error: set env requires assignments or NAME-");
       for (const container of updated.spec!.template!.spec.containers) {
         for (const assignment of assignments) {
           const equals = assignment.indexOf("=");
           const remove = equals < 0 && assignment.endsWith("-");
-          const key = remove ? assignment.slice(0,-1) : assignment.slice(0,equals);
-          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || (equals < 0 && !remove)) throw new Error("error: invalid environment assignment");
-          container.env = (container.env ?? []).filter(e => e.name !== key);
-          if (!remove) container.env.push({name:key,value:assignment.slice(equals+1)});
+          const key = remove
+            ? assignment.slice(0, -1)
+            : assignment.slice(0, equals);
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || (equals < 0 && !remove))
+            throw new Error("error: invalid environment assignment");
+          container.env = (container.env ?? []).filter((e) => e.name !== key);
+          if (!remove)
+            container.env.push({
+              name: key,
+              value: assignment.slice(equals + 1),
+            });
         }
       }
       const dryRun = flag("--dry-run") ?? "none";
-      if (!["none","client","server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
-      if (dryRun !== "client") updated = apiBody(kubeRequest({method:"PATCH",path:apiResourcePath(type,namespace,name)+(dryRun === "server" ? "?dryRun=All" : ""),contentType:"application/strategic-merge-patch+json",impersonateUser:impersonate,body:{spec:{template:{spec:{containers:updated.spec!.template!.spec.containers.map(c=>({...c,env:[{$patch:"replace"},...(c.env ?? [])]}))}}}}})) as Resource;
+      if (!["none", "client", "server"].includes(dryRun))
+        throw new Error("error: invalid --dry-run value");
+      if (dryRun !== "client")
+        updated = apiBody(
+          kubeRequest({
+            method: "PATCH",
+            path:
+              apiResourcePath(type, namespace, name) +
+              (dryRun === "server" ? "?dryRun=All" : ""),
+            contentType: "application/strategic-merge-patch+json",
+            impersonateUser: impersonate,
+            body: {
+              spec: {
+                template: {
+                  spec: {
+                    containers: updated.spec!.template!.spec.containers.map(
+                      (c) => ({
+                        ...c,
+                        env: [{ $patch: "replace" }, ...(c.env ?? [])],
+                      }),
+                    ),
+                  },
+                },
+              },
+            },
+          }),
+        ) as Resource;
       const output = flag("-o") ?? flag("--output");
-      if (output && !["json","yaml","name"].includes(output)) throw new Error("simulation: environment output supports json, yaml, or name");
-      return result(output === "json" ? printTypedResourceJson(updated) : output === "yaml" ? stringify(updated) : identifier(updated)+(output === "name" ? "" : " updated"+(dryRun === "server" ? " (server dry run)" : dryRun === "client" ? " (dry run)" : "")));
+      if (output && !["json", "yaml", "name"].includes(output))
+        throw new Error(
+          "simulation: environment output supports json, yaml, or name",
+        );
+      return result(
+        output === "json"
+          ? printTypedResourceJson(updated)
+          : output === "yaml"
+            ? stringify(updated)
+            : identifier(updated) +
+              (output === "name"
+                ? ""
+                : " updated" +
+                  (dryRun === "server"
+                    ? " (server dry run)"
+                    : dryRun === "client"
+                      ? " (dry run)"
+                      : "")),
+      );
     } else if (
       verb === "set" &&
       args[1] === "image" &&
@@ -880,7 +1370,24 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     return result(writeObject(updated, "PATCH"));
   }
   if (verb === "logs") {
-    rejectFlags(flags, ["-n", "--namespace"]);
+    rejectFlags(flags, ["-n", "--namespace", "-c", "--container", "--tail"]);
+    const taskName = (args[1] ?? "").replace(/^pods?\//, "");
+    if (taskPodLogs(namespace, taskName) !== undefined) {
+      const response = kubeRequest({
+        method: "GET",
+        path: `/api/v1/namespaces/${namespace}/pods/${taskName}/log?container=${encodeURIComponent(flag("-c") ?? flag("--container") ?? "")}`,
+      });
+      const logs = apiBody(response) as string;
+      return result(
+        flag("--tail")
+          ? logs
+              .trimEnd()
+              .split("\n")
+              .slice(-Number(flag("--tail")))
+              .join("\n")
+          : logs,
+      );
+    }
     const [type, name] = (args[1] ?? "").split("/");
     const pod =
       type === "deployment"
@@ -905,12 +1412,6 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     );
   }
   if (validOcCommand(raw) && S.cluster.user === "operator") return null;
-  if (
-    S.cluster.user === "operator" &&
-    S.cluster.namespace === "default" &&
-    !raw.includes("|")
-  )
-    return null;
   throw new Error(
     `simulation: oc ${verb} is not implemented; use oc --help or oc api-resources`,
   );
@@ -969,7 +1470,15 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
             : "",
       );
     }
-  } else if (first[0] === "roxctl") response = await roxctlCommand(first);
+  } else if (first[0] === "sleep") {
+    if (first.length < 2) throw new Error("sleep: missing operand");
+    const duration = first.slice(1).reduce((total, value) => total + durationMs(/^\d+(?:\.\d+)?$/.test(value) ? value + "s" : value), 0);
+    advanceEmulatorTime(duration);
+    reconcileFixtureControllers();
+    response = result("");
+  } else if (first[0] === "git") response = await gitCommand(first);
+  else if (first[0] === "tkn") response = await tknCommand(first);
+  else if (first[0] === "roxctl") response = await roxctlCommand(first);
   else if (first[0] === "skopeo") response = await skopeoCommand(first);
   else if (first[0] === "podman") response = podmanCommand(first);
   else if (textTools.includes(first[0])) response = await textCommand(first);
@@ -979,6 +1488,8 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
     const supported = [
       ...textTools,
       "oc",
+      "git",
+      "tkn",
       "roxctl",
       "podman",
       "skopeo",
@@ -986,6 +1497,7 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
       "pwd",
       "mkdir",
       "history",
+      "sleep",
       "man",
     ];
     response = result(
@@ -1057,16 +1569,28 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
     );
   for (const [index, stage] of stages.entries()) {
     if (!index) continue;
-    if (!response.stdout && (response.stderr || (response.error && response.exitCode !== 1)))
+    if (
+      !response.stdout &&
+      (response.stderr || (response.error && response.exitCode !== 1))
+    )
       return response;
     if (response.pager)
       throw new Error("shell: more/less must be the final pipeline command");
-    const filtered: Result | null = stage[0] === "podman" ? podmanCommand(stage, response.stdout) : stage[0] === "skopeo" ? await skopeoCommand(stage, response.stdout) : await textCommand(stage, response.stdout);
+    const filtered: Result | null =
+      stage[0] === "podman"
+        ? podmanCommand(stage, response.stdout)
+        : stage[0] === "skopeo"
+          ? await skopeoCommand(stage, response.stdout)
+          : await textCommand(stage, response.stdout);
     if (!filtered)
       throw new Error(
         `simulation: pipeline tool ${stage[0]} is not implemented`,
       );
-    response = {...filtered, stderr: (response.stderr??"")+(filtered.stderr??"")};
+    response = {
+      ...filtered,
+      stderr: (response.stderr ?? "") + (filtered.stderr ?? ""),
+      stderrIsHelp: response.stderrIsHelp,
+    };
   }
   if (destination) {
     if (response.pager)
@@ -1080,7 +1604,7 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
       }
     }
     writeVirtualFile(destination, previous + response.stdout);
-    return {...response, stdout:""};
+    return { ...response, stdout: "" };
   }
   return response;
 }

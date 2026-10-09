@@ -38,5 +38,11 @@ export const G = {
   tabIndex: 0,
   histPointer: -1,
   podShell: false,
+  podShellTarget: null as {
+    name: string;
+    namespace: string;
+    uid: string;
+    container?: string;
+  } | null,
   stopLoop: false,
 };

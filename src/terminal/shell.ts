@@ -24,12 +24,6 @@ export function openTerminal() {
   G.terminalOpen = true;
   $("shellshade").hidden = false;
 
-  if (!$("termOutput").children.length) {
-    print(
-      `Connected to OpenShift training bastion. Context: prod-east\nYou have a real-feeling command prompt in a bounded OFFLINE simulation.\nType help or use TAB to explore. Nothing is sent to any cluster.`,
-      "meta",
-    );
-  }
   $("termInput").value = "";
   suggest();
   setTimeout(() => $("termInput").focus(), 25);
@@ -62,6 +56,7 @@ export function yes(s: string) {
 
 export function switchPrompt() {
   G.podShell = false;
+  G.podShellTarget = null;
   $("termPrompt").textContent =
     S.cluster.user +
     "@bastion:" +

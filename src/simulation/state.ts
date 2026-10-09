@@ -1,3 +1,4 @@
+import {initialApplicationNetwork,reconcileServices} from "../network/services.js";
 import type { ClueId } from "../security/evidence.js";
 import { evaluateFindings } from "../security/findings.js";
 import type { DomainEvent } from "./events.js";
@@ -85,6 +86,8 @@ export function makeState() {
     seenIssue: false,
   };
   state.cluster.resources.push(...buildIncidentResources(state));
+  state.cluster.resources.push(...initialApplicationNetwork());
+  reconcileServices(state.cluster.resources);
   state.cluster.incidentStored = true;
   return state;
 }

@@ -170,13 +170,16 @@ test("offline Kubernetes REST discovery and resource reads match CLI state; erro
 test("REST writes evaluate real RBAC/admission and reconcile resources visible through oc", async () => {
   resetState();
   const namespace = {
-    apiVersion: "v1",
-    kind: "Namespace",
+    apiVersion: "project.openshift.io/v1",
+    kind: "ProjectRequest",
     metadata: { name: "api-lab" },
   };
   assert.equal(
-    kubeRequest({ method: "POST", path: "/api/v1/namespaces", body: namespace })
-      .code,
+    kubeRequest({
+      method: "POST",
+      path: "/apis/project.openshift.io/v1/projectrequests",
+      body: namespace,
+    }).code,
     201,
   );
   const denied = kubeRequest({
@@ -212,10 +215,10 @@ test("REST returns the admitted Pod and the same SCC refusal as the domain serve
   resetState();
   kubeRequest({
     method: "POST",
-    path: "/api/v1/namespaces",
+    path: "/apis/project.openshift.io/v1/projectrequests",
     body: {
-      apiVersion: "v1",
-      kind: "Namespace",
+      apiVersion: "project.openshift.io/v1",
+      kind: "ProjectRequest",
       metadata: { name: "api-lab" },
     },
   });
@@ -240,4 +243,17 @@ test("REST returns the admitted Pod and the same SCC refusal as the domain serve
     "restricted-v3",
   );
   assert.equal(admitted.body.status.containerStatuses[0].ready, true);
+});
+
+test("head and tail accept the native historical numeric shorthand in pipelines", async () => {
+  const { textCommand } =
+    await import("../.test-build/src/terminal/text-tools.js");
+  assert.equal(
+    (await textCommand(["head", "-2"], "one\ntwo\nthree\n")).stdout,
+    "one\ntwo\n",
+  );
+  assert.equal(
+    (await textCommand(["tail", "-2"], "one\ntwo\nthree\n")).stdout,
+    "two\nthree\n",
+  );
 });

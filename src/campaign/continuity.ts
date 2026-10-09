@@ -7,7 +7,7 @@ export const campaignCluster = "prod-east";
 export function campaignHealth() {
   const ch = chapters[S.campaign.active];
   const pods = S.cluster.resources.filter(
-    (p) => p.kind === "Pod" && p.metadata.namespace === ch.namespace,
+    (p) => p.kind === "Pod" && p.metadata.namespace === ch.namespace && !["Succeeded","Failed"].includes(String(p.status?.phase)),
   );
   const ready = pods.filter((p) =>
     (p.status?.containerStatuses as { ready: boolean }[] | undefined)?.every(

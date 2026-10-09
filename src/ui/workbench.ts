@@ -63,8 +63,9 @@ function updateLocalStatus() {
         : progressStatus.state === "error"
           ? "Local save unavailable"
           : "Autosave enabled";
-  el("localStatus").textContent = `${offline} · ${saved}`;
-  el("localStatus").title = offlineStatus.error || progressStatus.error;
+  el("localStatus").textContent = saved;
+  el("localStatus").title =
+    offlineStatus.error || progressStatus.error || offline;
 }
 export function registerWorkbench() {
   for (const id of ["caseNotes", "bastionNotes"])
@@ -103,7 +104,7 @@ export function registerWorkbench() {
       if (view === "inventory")
         openDetail(
           heading +
-            `<div class="storyInventory"><img class="inventoryKey" src="${import.meta.env.BASE_URL}art/keycard.webp" alt="Physical access badge"><ul><li>Worker investigation pass: ${S.story.inventory.includes("worker-pass") ? "Issued by Mira" : "Talk to Rhea, then Mira"}</li><li>Maintenance keycard: ${S.story.inventory.includes("maintenance-keycard") ? "Acquired · records archive unlocked" : "Search the operator hub locker"}</li></ul></div><p>These badges open story rooms. They do not change cluster RBAC or SCC grants.</p><p>All lab manifests, policy files and audit logs are available at the bastion. Use <code>cd</code>, <code>ls</code> and <code>cat README.md</code> there.</p><pre class="journal">${esc(listDirectory("/home/operator", true))}</pre>`,
+            `<div class="storyInventory"><img class="inventoryKey" src="${import.meta.env.BASE_URL}art/keycard.webp" alt="Physical access badge"><ul><li>Worker investigation pass: ${S.story.inventory.includes("worker-pass") ? "Issued by Mira" : "Talk to Rhea, then Mira"}</li><li>Maintenance keycard: ${S.story.inventory.includes("maintenance-keycard") ? "Acquired · records archive unlocked" : "Search the operator hub locker"}</li><li>Sealed administrator key: ${S.story.inventory.includes("admin-access-key") ? "Acquired · read credentials/platform-admin.txt at the bastion" : "Search the records archive cabinet"}</li></ul></div><p>The administrator key reveals a separate login credential. After logging in, its cluster-admin binding changes API access. Physical badges open story rooms. They do not change cluster RBAC or SCC grants.</p><p>All lab manifests, policy files and audit logs are available at the bastion. Use <code>cd</code>, <code>ls</code> and <code>cat README.md</code> there.</p><pre class="journal">${esc(listDirectory("/home/operator", true))}</pre>`,
         );
       else
         openDetail(

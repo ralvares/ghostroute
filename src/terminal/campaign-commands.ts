@@ -42,7 +42,7 @@ export function campaignCommand(raw: string) {
       );
       if (ch.id === "05")
         print(
-          "Dedicated exception: oc login -u platform-admin -p training; oc apply -f scc.yaml; oc adm policy add-scc-to-user rs-vendor -z vendor -n " +
+          "Dedicated exception: recover the sealed archive key, read credentials/platform-admin.txt and use its login command; oc apply -f scc.yaml; oc adm policy add-scc-to-user rs-vendor -z vendor -n " +
             ch.namespace +
             "; oc rollout restart deployment/vendor -n " +
             ch.namespace,

@@ -382,6 +382,14 @@ export function resourceTable(
         ),
       ];
       break;
+    case "Endpoints":
+      definitions=columns(["Name","Endpoints","Age"]);
+      cells=(r)=>[...base(r),(r.subsets as any[]|undefined)?.flatMap(s=>(s.addresses??[]).flatMap((address:any)=>(s.ports??[]).map((p:any)=>address.ip+":"+p.port))).join(",")||"<none>",a(r)];
+      break;
+    case "EndpointSlice":
+      definitions=columns(["Name","AddressType","Ports","Endpoints","Age"]);
+      cells=(r)=>[...base(r),r.addressType,(r.ports as any[]|undefined)?.map(p=>p.port??"*").join(",")||"<unset>",(r.endpoints as any[]|undefined)?.flatMap(e=>e.addresses??[]).join(",")||"<none>",a(r)];
+      break;
     case "Service":
       definitions = columns(
         ["Name", "Type", "Cluster-IP", "External-IP", "Port(s)", "Age"],

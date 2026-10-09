@@ -1,3 +1,4 @@
+import {primaryLabel} from "../network/user-defined.js";
 import type { Resource } from "./cluster-model.js";
 
 function same(a: unknown, b: unknown): boolean {
@@ -11,7 +12,10 @@ export function validateResourceUpdate(old: Resource, next: Resource) {
   const invalid = (field: string, message = "field is immutable"): never => {
     throw new Error(`Error from server (Invalid): ${next.kind} "${next.metadata.name}" is invalid: ${field}: ${message}`);
   };
-  if (old.kind === "RoleBinding" && !same(old.roleRef, next.roleRef)) invalid("roleRef", "cannot change roleRef");
+  if(old.kind === "Namespace" && (Object.hasOwn(old.metadata.labels??{},primaryLabel)!==Object.hasOwn(next.metadata.labels??{},primaryLabel)||old.metadata.labels?.[primaryLabel]!==next.metadata.labels?.[primaryLabel])) invalid("metadata.labels["+primaryLabel+"]");
+  if(["UserDefinedNetwork","ClusterUserDefinedNetwork"].includes(old.kind) && !same(old.kind==="ClusterUserDefinedNetwork"?old.spec?.network:old.spec,old.kind==="ClusterUserDefinedNetwork"?next.spec?.network:next.spec)) invalid("spec","network spec is immutable");
+  if (["PipelineRun", "TaskRun"].includes(old.kind) && !same(old.spec,next.spec)) invalid("spec", "run spec is immutable; create a new run");
+  if (["RoleBinding","ClusterRoleBinding"].includes(old.kind) && !same(old.roleRef, next.roleRef)) invalid("roleRef", "cannot change roleRef");
   if (old.kind === "Deployment" && !same(old.spec?.selector, next.spec?.selector)) invalid("spec.selector");
   if (old.kind === "Service" && next.spec?.clusterIP !== undefined && !same(old.spec?.clusterIP, next.spec.clusterIP)) invalid("spec.clusterIP");
   if (["ConfigMap", "Secret"].includes(old.kind) && old.immutable === true) {
@@ -23,7 +27,7 @@ export function validateResourceUpdate(old: Resource, next: Resource) {
     const previous = structuredClone(old.spec ?? {}), current = structuredClone(next.spec ?? {});
     for (const spec of [previous, current]) {
       for (const container of spec.containers ?? []) delete (container as { image?: string }).image;
-      for (const container of spec.initContainers ?? []) delete container.image;
+      for (const container of spec.initContainers ?? []) delete (container as {image?:string}).image;
       delete spec.activeDeadlineSeconds;
       delete spec.tolerations;
       delete spec.schedulingGates;

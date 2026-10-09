@@ -9,7 +9,7 @@ export function radio(who: string, msg: string) {
   $("radioText").textContent = msg;
   $("radioPortrait").replaceChildren();
   const portrait = document.createElement("img");
-  portrait.src = `${import.meta.env.BASE_URL}art/${who === "RHEA" ? "rhea" : "mira"}.webp`;
+  portrait.src = `${import.meta.env.BASE_URL}art/${["RHEA","MIRA","KAI","VALE"].includes(who) ? who.toLowerCase() : "mira"}.webp`;
   portrait.alt = "";
   $("radioPortrait").appendChild(portrait);
   $("radio").hidden = false;

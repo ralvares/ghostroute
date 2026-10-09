@@ -77,7 +77,9 @@ grants; impersonated identities do not inherit the training operator grant.
 `simulation/pod-exec.ts` implements only recorded diagnostics against actual
 resource readiness, listening ports, network attachment and policy state.
 It does not launch a process, stream a native exec connection, resolve general
-service DNS, validate TLS, or contact an external destination.
+external DNS recursion, validate TLS, or contact an external destination.
+Authored Service names and ClusterIPs resolve to selector-matched ready Pods,
+including named target ports and the shared NetworkPolicy evaluator.
 
 `simulation/pod-addresses.ts` owns address allocation and checkpoint collision
 repair. Existing Pods retain their network attachment when a UDN is created;
@@ -86,7 +88,7 @@ addresses are compared within a domain. `simulation/secrets.ts` consumes
 stringData into base64 data and upgrades old checkpoints; environment consumers
 retain their startup snapshot. Chapter CSI proof checks the matching mount.
 
-`campaign/models.ts` reconciles recorded EgressIP allocation only from an eligible
+`simulation/engine.ts` reconciles recorded EgressIP allocation only from an eligible
 node's reserved-address inventory and reports ResourceQuota used/hard values.
 Registry restrictions are evaluated at image pull, separately from admission.
 `campaign/catalog.ts` supplies reproducible failed and repaired workloads,
@@ -511,7 +513,8 @@ this implemented contract.
 - `security/rhacs/default-policies.ts` retains the complete upstream 4.11.3
   default inventory. `policies.ts` owns BUILD/DEPLOY criterion evaluation and
   policy summaries. Enabled unsupported criteria raise a limitation. Runtime
-  policies remain inventory; image/deployment checks do not claim to run them.
+  policies remain separate from BUILD/DEPLOY paths. `runtime.ts` evaluates the
+  supported process criteria and exec notification policy against observations.
   The Chapter 18 policy adds deployment hardening. `cluster.rhacs` stores policy
   overrides, custom policies and the last 50 receipts, with save upgrade support.
 - `terminal/roxctl.ts` owns command/flag validation and output. Tables use the
@@ -519,10 +522,15 @@ this implemented contract.
   JSON/CSV, severity filters, category filters and failure status stay independent
   of the story UI. Global endpoint/credential flags refer to the fictional local
   Central context; they never establish network connections.
-- `campaign/models.ts` evaluates PipelineRun images with `pipelineGate`, the same
-  BUILD policy function used by interactive image checks. Status retains scan,
-  policy check, digest, exit code and skipped signing. Attestation data cannot
-  override a policy failure or a digest mismatch. Signing is authored behavior.
+- `release/repository.ts` owns distinct working/index/local/remote Git revisions.
+  `terminal/git.ts` is the client; SHA-1 objects use Git blob/tree/commit encoding.
+  `release/tekton.ts` consumes pushed source and creates native-shaped
+  PipelineRun, TaskRun and step Pod objects. Conditions, child references, step
+  exit codes and skippedTasks replace earlier invented PipelineRun scan fields.
+  The shared BUILD evaluator remains the release gate; signing is authored.
+- `gitops/controller.ts` owns AppProject/source validation and single-directory
+  Application reconciliation against the same RBAC/admission API. Its private
+  retry/managed-key/log state stays under `cluster.gitops`, outside native CRDs.
 - `security/registry.ts` owns the authored revocation authority. The Chapter 09
   leaked token cannot authenticate. `cluster.registry` persists fictional bastion
   logins and push/pull receipts. `terminal/podman.ts` implements catalog-backed
@@ -560,3 +568,141 @@ separate. Non-authored images and unimplemented transports/operations fail.
 Offline fetches ignore Vary for cached static build assets under the application
 origin/scope. Preview/CDN `Vary: Origin` otherwise makes CORS script/style reloads
 miss their installed responses. No authenticated API responses are cached.
+
+
+## Reusable engine ownership and new contracts (2026-10-09)
+
+The dependency direction is stage fixtures and CLI clients → API → admission,
+storage and controllers → committed events → story/world/UI. New chapters use
+ordinary resource definitions and inspect their outcomes; core controllers do
+not consult the active chapter. `terminal/resource-generators.ts` owns pure
+`expose` generators. The CLI submits generated resources through `kubeRequest`,
+so dry runs, RBAC, admission and endpoint reconciliation remain shared behavior.
+`extract` uses authorized API reads and the same virtual filesystem as shell
+commands. A connected shell retains its Pod UID; replacements cannot inherit
+an existing session. Session termination is visible to the player.
+
+`terminal/oc-reference.ts` resolves native 4.22 help independently of execution.
+The full nested command inventory is in `docs/reference`; the lazily loaded
+reference chunk is precached with the build. Help does not modify cluster state
+or imply operational support. Unsupported flags and operations remain explicit.
+
+`simulation/engine.ts` owns workload validation, network reachability and bounded
+controller reconciliation independently of chapter selection. `campaign/models.ts`
+only evaluates narrative proof, importing/re-exporting the core helpers for
+compatibility. `security/bootstrap-rbac.ts` seeds inspectable grants;
+`security/rbac.ts` evaluates identity, group and ServiceAccount subjects and
+resource/subresource verbs. `rbac-admission.ts` prevents privilege escalation
+through Role creation and binding unheld grants. `project-request.ts` models
+self-provisioning as a transient ProjectRequest plus Namespace and requester
+admin binding. `ownedNamespaces` is bookkeeping, never authorization.
+
+`network/services.ts` owns selector-driven Endpoints/EndpointSlices and bounded
+Route admission. It is a pure resource reconciler used at startup and after
+mutations. Service status does not guarantee application reachability. HTTP/TLS
+routing, weighted backends, external DNS and load-balancer controllers are not
+implemented. Route records currently teach host/backend/port/TLS configuration;
+Pod diagnostics resolve authored Service DNS names and ClusterIPs. EndpointSlice
+names carry a deterministic simulator suffix; controller process IDs are authored.
+
+`network/user-defined.ts` owns primary Layer2/Layer3 UDN/CUDN label and namespace
+selection, immutable network configuration, NADs and native condition shapes.
+The CNI name uses upstream namespace_name or cluster_udn_name. Network-status
+uses the NAD reference namespace/name; internal reachability uses the CNI name.
+One IPv4 subnet is supported; dual-stack, secondary UDN, Localnet/EVPN and full
+network deletion/finalizer behavior remain unimplemented. Linux Pod user
+namespaces are separate: SCC selection checks hostUsers and
+`simulation/user-namespaces.ts` persists stable 64K host ID mappings per sandbox.
+SCC validation includes init containers, required SCC, volume allowlists,
+capabilities, group ranges, MCS defaults and supported SELinux strategies; exact
+provider ordering and every upstream error variant are not claimed.
+
+`security/rhacs/runtime.ts` owns native-shaped baselines, collector observations
+and alerts in `cluster.rhacs.runtime`. Learning, locking and configured runtime
+Pod termination share Pod identity and Deployment replacement. Supported runtime
+criteria: process name, arguments, ancestor, UID, namespace and unexpected process
+execution; the exec policy observes completed authorized API exec requests. Other
+runtime criteria stay inventory. Completed API audit alerts do not retroactively
+block a request. Collector IDs, process paths, PIDs and messages are deterministic
+fixtures. Native process provenance is never asserted. `ui/rhacs-runtime.ts` is
+the RHACS computer view, with explicit baseline/enforcement controls.
+
+New `rhacs.alert` and `rhacs.baseline` domain events update notices and saves.
+Mutating API requests buffer observations in isolated state. Subscribers receive
+these events only after commit, alongside existing cluster request events.
+The filesystem exposes read-only alerts/processes/baselines JSON from that same
+state. Normal exec alerts are notifications, not permanent mission failure gates.
+
+`terminal/timemachine.ts` is the custom plugin adapter. It reads virtual NDJSON,
+ignores failed writes, and reconstructs only retained successful object state.
+`forensics/demo-audit.ts` preserves selected unmodified historical demo events
+at pinned source commit 6954a942a4d1a19b172f510e10e5838fa7ede6ad. Reference events
+remain distinct from live prod-east audit and runtime evidence. The port supports
+snapshots and direct history; recursive lineage and full upstream formatting
+remain pending. Explicit time zones preserve deterministic replay.
+
+Pages uses configure-pages' base_path before building, allowing the configured
+custom domain to serve from `/`. `public/CNAME` retains gameplay.ralvares.com.
+HTTPS enforcement is enabled in repository Pages settings.
+
+
+## Secret and runtime lifecycle ownership
+
+`security/external-secrets.ts` owns Periodic/OnChange/CreatedOnce refresh,
+owner references, target key merging, deletion policy and native ESO status.
+`provider-fixtures.ts` is the adapter to authored Fake/Vault records.
+`eso-hash.ts` implements the pinned native SHA3-224 ObjectHash representation.
+`security/secret-crds.ts` supplies pinned native ClusterSecretStore and
+SecretProviderClassPodStatus schemas and discovery.
+
+`secret-consumers.ts` owns kubelet startup environment, refreshed Secret-volume
+files, pinned subPath data, CSI installation prerequisites, provider mounts and
+Pod status bindings. Private `cluster.podRuntime` stores environment/file
+snapshots; `cluster.externalSecrets` stores refresh fingerprints, times and
+managed keys. Saves preserve both; obsolete Pod entries are cleaned up.
+`simulation/clock.ts` owns virtual time. `sleep` advances it and invokes
+reconciliation, while API sequencing retains deterministic timestamps.
+
+`simulation/runtime-class.ts` owns RuntimeClass admission defaults, selector
+conflict rejection and bounded node/runtime-handler selection. SCC remains the
+independent next admission gate. Kata's VM boundary is represented through
+authored capabilities, not a live VM process. Runtime/Secret failures are
+visible through the same Pod state and mission alerts as CLI reads.
+
+`terminal/native-reference.ts` resolves roxctl/tkn native help and aliases,
+preserving stdout/stderr separately. Help reads never mutate the API or stage.
+`ToolResult.stderrIsHelp` affects presentation only, not pipeline semantics.
+Connected rsh sessions retain namespace, Pod UID and selected container.
+
+The learning contract matrix is `docs/LEARNING_CONTRACTS.md`. New stages must
+author resource fixtures and verify core outcomes rather than implement their
+own success branches.
+
+### Installed platform inventory and CSI lifecycle
+
+`operators/installation.ts` owns preinstalled namespace/controller/driver and
+KataConfig resources. `operators/crds.ts` preserves the native Kata 1.11.0 and
+Compliance 1.8.2 schema sets. Engine revision 5 upgrades installed inventory
+without deleting tenant progress. System controller Pods remain inspectable
+through the API and health map and are omitted from the investigation floor.
+
+`security/csi-lifecycle.ts` owns per-volume rotation clocks (private
+`podRuntime.csiRefresh`), atomic provider projections, native SPCPS versions,
+Secret sync RBAC/owner references, rotation warning Events and Secret garbage
+collection. Driver arguments are the rotation configuration authority. Native
+Secret consumers keep startup environment and pinned subPath snapshots.
+Metadata can be synchronized for a controller-created object without pruning
+other API storage records.
+
+`operators/compliance.ts` owns recorded Profile/Rule inventory, TailoredProfile
+validation/ConfigMap output, supported remediation application and scan/rescan
+CheckResult snapshots. It reads recorded posture, not the remediation boolean
+alone. Completed results remain stable until native rescan annotation requests
+another evaluation. All resources and warnings are shared with the terminal.
+
+The interface places Trace Vision and Case Board above the world. The physical
+bastion opens a viewport-sized console with bundled JetBrains Mono and a shared
+notebook. Shell startup writes no synthetic client banner. Scene-only color
+adjustments preserve live labels and evidence indicators. The desktop camera
+fits the whole room, with smaller actors whose feet keep their existing floor
+coordinates; mobile retains the following camera.

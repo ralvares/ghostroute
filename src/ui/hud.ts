@@ -1,3 +1,4 @@
+import {updateMissionAlert} from "./mission-alert.js";
 import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
@@ -10,6 +11,7 @@ export function updateHUD() {
   $("stageName").textContent = stage;
   document.title = stage + " — OpenShift Security Adventure";
   updateWorkbench();
+  updateMissionAlert();
   updateHealthMap();
   if (S.campaign.active) {
     const chapter = currentChapter();

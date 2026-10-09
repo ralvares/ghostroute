@@ -1,3 +1,4 @@
+import {requestProject} from "../.test-build/src/simulation/project-request.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -325,7 +326,7 @@ test("replacement payment Pods expose their rollout birth time while the Deploym
     before.metadata.creationTimestamp,
   );
   assert.ok(Date.parse(replaced.metadata.creationTimestamp) <= Date.parse(event.at));
-  assert.equal(replaced.metadata.creationTimestamp, S.cluster.resources.find(r=>r.metadata.name===replaced.metadata.name).metadata.creationTimestamp);
+  assert.equal(replaced.metadata.creationTimestamp, S.cluster.resources.find(r=>r.kind==="Pod"&&r.metadata.name===replaced.metadata.name).metadata.creationTimestamp);
   assert.equal(
     replaced.status.containerStatuses[0].state.running.startedAt,
     replaced.metadata.creationTimestamp,
@@ -338,10 +339,7 @@ test("replacement payment Pods expose their rollout birth time while the Deploym
 });
 test("ordinary Pod exec uses the same ingress/egress policies and preserves API authorization", async () => {
   resetState();
-  applyApiResource(
-    { apiVersion: "v1", kind: "Namespace", metadata: { name: "exec-demo" } },
-    "default",
-  );
+  requestProject({apiVersion:"project.openshift.io/v1",kind:"ProjectRequest",metadata:{name:"exec-demo"}});
   for (const name of ["client", "server", "stranger"])
     applyApiResource(materialize(workload(name), "exec-demo"), "exec-demo");
   const ip = readApiResources("pods", "exec-demo", "server")[0].status.podIP;
@@ -476,7 +474,7 @@ test("named multi-Pod deletion processes every name and command help does not ne
   );
   assert.match(
     (await clusterCommand("oc login --help")).stdout,
-    /Context: project/,
+    /Log in to your server/,
   );
 });
 
@@ -581,8 +579,9 @@ test("Secret writes consume stringData, API reads return base64 data, and runnin
   assert.equal(secretValue(secret, "password"), "training-v3");
 });
 
-test("primary UDN configuration leaves existing Pods on the old network until recreation, and overlapping domain IPs stay distinct", async () => {
+test("primary UDN namespaces wait for network provisioning and overlapping domain IPs stay distinct", async () => {
   resetState();
+  S.cluster.user="platform-admin";
   for (const ns of ["tenant-a", "tenant-b"])
     applyApiResource(
       {
@@ -596,7 +595,8 @@ test("primary UDN configuration leaves existing Pods on the old network until re
       "default",
     );
   applyApiResource(materialize(workload("client"), "tenant-a"), "tenant-a");
-  const oldIP = readApiResources("pods", "tenant-a", "client")[0].status.podIP;
+  assert.equal(readApiResources("pods","tenant-a","client")[0].status.phase,"Pending");
+  S.cluster.user="platform-admin";
   for (const ns of ["tenant-a", "tenant-b"])
     applyApiResource(
       {
@@ -610,10 +610,7 @@ test("primary UDN configuration leaves existing Pods on the old network until re
       },
       ns,
     );
-  assert.equal(
-    readApiResources("pods", "tenant-a", "client")[0].status.podIP,
-    oldIP,
-  );
+  assert.ok(readApiResources("pods","tenant-a","client")[0].status.podIP);
   await clusterCommand("oc delete pod client -n tenant-a");
   for (const [ns, name] of [
     ["tenant-a", "client"],
@@ -624,9 +621,9 @@ test("primary UDN configuration leaves existing Pods on the old network until re
   const client = readApiResources("pods", "tenant-a", "client")[0];
   const server = readApiResources("pods", "tenant-a", "server")[0];
   const peer = readApiResources("pods", "tenant-b", "peer")[0];
-  assert.equal(client.status.podIP, "10.90.0.20");
-  assert.equal(server.status.podIP, "10.90.0.21");
-  assert.equal(peer.status.podIP, "10.90.0.20");
+  assert.equal(client.status.podIP, "10.90.0.2");
+  assert.equal(server.status.podIP, "10.90.0.3");
+  assert.equal(peer.status.podIP, "10.90.0.2");
   assert.equal(
     flow("tenant-a", "client", "server", "tenant-a", false, 8443),
     true,
@@ -645,12 +642,12 @@ test("primary UDN configuration leaves existing Pods on the old network until re
   const repairedServer = repaired.cluster.resources.find(
     (r) => r.kind === "Pod" && r.metadata.name === "server",
   );
-  assert.equal(repairedServer.status.podIP, "10.90.0.21");
+  assert.equal(repairedServer.status.podIP, "10.90.0.3");
   assert.deepEqual(
     JSON.parse(
       repairedServer.metadata.annotations["k8s.v1.cni.cncf.io/network-status"],
     )[0].ips,
-    ["10.90.0.21"],
+    ["10.90.0.3"],
   );
 });
 

@@ -42,14 +42,17 @@ with sync_playwright() as p:
     elif w['scene']=='operations':walk(110,350);walk(650,330)
     else:walk(1055,425);walk(500,330)
    expect(page.locator('#detailsBody')).to_contain_text('Interview recorded');page.locator('#campaignLead').click();page.locator('#detailDone').click()
-  lobby();walk(1055,425);walk(760,350);expect(page.locator('#detailsBody')).to_contain_text('ARCHIVE DISCOVERY');page.locator('#detailDone').click()
+  lobby();walk(1055,425);
+  if ch['id']=='02':
+   walk(950,475);expect(page.locator('#detailsBody')).to_contain_text('administrator key recovered');page.locator('#recordLead').click();page.locator('#detailDone').click()
+  walk(760,350);expect(page.locator('#detailsBody')).to_contain_text('ARCHIVE DISCOVERY');page.locator('#detailDone').click()
   open_bastion(page);command('cd ~/campaign/'+ch['id'],'cd')
   field=page.locator('#termInput');field.fill('cat bri');field.press('Tab');expect(field).to_have_value('cat briefing.txt ');field.press('Enter');expect(page.locator('.termline').last).to_contain_text('TENANT: '+ch['namespace'])
   command('cat evidence.json','authored-training-fixture');command('less handover.txt','REPORT:');expect(page.locator('#terminalPager')).to_be_visible();page.locator('#terminalPager').press('q');command('case conclude '+ch['conclusion'],'Case remains open')
   if ch['id']=='09':
    command('oc get pods -n rs-09','ImagePullBackOff')
    command('cat credentials.txt','revoked')
-   command('oc login -u platform-admin -p training','Logged in')
+   command('oc login -u platform-admin -p training-admin-7f2b9a64c183','Logged in')
    command("oc get secret registry-leaked -n rs-09 -o jsonpath='{.data.\\.dockerconfigjson}' | base64 -d",'auths')
    command('oc login -u operator -p training','Logged in')
    command("printf '%s' training-registry-v1-revoked | podman login registry.example.test --username release-bot --password-stdin",'unauthorized')
@@ -60,14 +63,14 @@ with sync_playwright() as p:
   for f in ch['files']:
    if ch['id']=='05' and f['name']=='vendor.yaml':continue
    if ch['id']=='25' and f['name']=='app.yaml':
-    command('oc login -u platform-admin -p training','Logged in');command('oc adm policy add-scc-to-user rs-profile -z profiled -n '+ch['namespace'],'added');user='platform-admin'
+    command('oc login -u platform-admin -p training-admin-7f2b9a64c183','Logged in');command('oc adm policy add-scc-to-user rs-profile -z profiled -n '+ch['namespace'],'added');user='platform-admin'
    desired='platform-admin' if f['admin'] else 'operator'
-   if desired!=user:command('oc login -u '+desired+' -p training','Logged in');user=desired
+   if desired!=user:command('oc login -u '+desired+(' -p training-admin-7f2b9a64c183' if desired=='platform-admin' else ' -p training'),'Logged in');user=desired
    if ch['id']=='07' and f['name']=='consumer.yaml':command('oc delete pod app -n '+ch['namespace'],'deleted')
    if ch['id']=='16' and f['name'] in ['client.yaml','server.yaml']:command('oc delete pod '+f['name'].split('.')[0]+' -n '+ch['namespace'],'deleted')
    command('oc apply -f '+f['name']+' -n '+f['namespace'],re.compile('created|configured'))
   if ch['id']=='05':
-   command('oc login -u platform-admin -p training','Logged in');command('oc adm policy add-scc-to-user rs-vendor -z vendor -n '+ch['namespace'],'added');command('oc login -u operator -p training','Logged in');command('oc rollout restart deployment/vendor -n '+ch['namespace'],'restarted')
+   command('oc login -u platform-admin -p training-admin-7f2b9a64c183','Logged in');command('oc adm policy add-scc-to-user rs-vendor -z vendor -n '+ch['namespace'],'added');command('oc login -u operator -p training','Logged in');command('oc rollout restart deployment/vendor -n '+ch['namespace'],'restarted')
   if ch['id']=='04':
    page.locator('#closeTerm').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');open_bastion(page);command('case test diagnose','PASS ·');command('oc delete pod broken -n '+ch['namespace'],'deleted')
   if ch['id']=='18':
@@ -77,18 +80,47 @@ with sync_playwright() as p:
    command('roxctl deployment check -f ~/rhacs/payments-v1.yaml -o json','breaking policies found')
    command('roxctl deployment check -f ~/rhacs/payments-v2.yaml -o json','"TOTAL": 0')
    command('oc apply -f ~/rhacs/pipeline-v1.yaml','created')
-   command("oc get pipelinerun vulnerable-release -n rs-18 -o json | jq '.status.scanExitCode'",'1')
-   command('oc apply -f ~/rhacs/attestation-v2.yaml','configured')
+   command("oc get taskrun vulnerable-release-scan -n rs-18 -o json | jq '.status.steps[0].terminated.exitCode'",'1')
+   command('tkn pr describe vulnerable-release -n rs-18','Failed')
+   expect(page.locator('#bastionMissionAlert')).to_contain_text('RELEASE BLOCKED')
+   page.locator('#closeTerm').click();expect(page.locator('#missionAlert')).to_be_visible();page.locator('#missionAlert button').click();expect(page.locator('#radioName')).to_have_text('KAI');page.locator('#radioClose').click();open_bastion(page)
+   command('git clone https://git.example.test/payments/payment-api.git ~/projects/payment-api','done.')
+   command('cd ~/projects/payment-api','cd')
+   command('git status','working tree clean')
+   command('cat ~/source/fixes/pom.xml > pom.xml','cat')
+   command('git diff','2.17.1')
    command('oc apply -f ~/rhacs/pipeline-v2.yaml','created')
-   command("oc get pipelinerun repaired-release -n rs-18 -o json | jq '.status.signed'",'true')
+   command('tkn pr describe repaired-release -n rs-18','Failed')
+   command('git add pom.xml','git add')
+   command("git commit -m 'Repair vulnerable dependency'",'Repair vulnerable dependency')
+   command('git push origin main','main -> main')
+   command('tkn pr describe --last -n rs-18','Succeeded')
+   expect(page.locator('#bastionMissionAlert')).to_contain_text('PROMOTION PENDING')
+   command('cat ~/source/fixes/payment-api.yaml > deploy/payment-api.yaml','cat')
+   command('git add deploy/payment-api.yaml','git add')
+   command("git commit -m 'Promote reviewed release'",'Promote reviewed release')
+   command('git push origin main','main -> main')
+   command('oc get applications -n openshift-gitops','Synced')
+   command('oc logs argocd-application-controller-0 -n openshift-gitops','sync')
+   expect(page.locator('#bastionMissionAlert')).to_be_hidden()
    command('clear','clear')
-   command("oc get pipelinerun vulnerable-release -n rs-18 -o json | jq -r '.status | \"Vulnerable release: \\(.conditions[0].reason); scan exit \\(.scanExitCode); signed \\(.signed)\"'",'CentralPolicyGateFailed')
-   command("oc get pipelinerun repaired-release -n rs-18 -o json | jq -r '.status | \"Repaired release: \\(.conditions[0].reason); scan exit \\(.scanExitCode); signed \\(.signed)\"'",'CentralPolicyGatePassed')
+   command('tkn pr list -n rs-18','Failed')
+   command('tkn tr list -n rs-18','Succeeded')
    shot('rhacs-release-gate')
-   command('oc apply -f attestation.yaml -n rs-18','configured')
+   command('tkn pr logs --last -n rs-18','Pushing signature')
+   command('oc get applications -n openshift-gitops','Synced')
+   shot('gitops-promotion')
+   command('cd ~/campaign/18','cd')
+  if ch['id']=='20':
+   command('case test consumer','FAIL ·')
+   command('oc rollout restart deployment/legacy-consumer -n rs-20','restarted')
+   shot('external-secret-consumer')
+  if ch['id']=='19':
+   command('oc exec app -n rs-19 -- cat /mnt/secrets-store/password','training-v2')
+   shot('csi-mounted-secret')
   for probe in ch['probes']:command('case test '+probe,'PASS ·')
   if ch['id']=='27':
-   command('oc login -u platform-admin -p training','Logged in')
+   command('oc login -u platform-admin -p training-admin-7f2b9a64c183','Logged in')
    command('oc delete role release-bot -n payments','deleted')
    command('case test history','FAIL ·')
    command('oc apply -f ~/campaign/03/release-bot.yaml -n payments','created')

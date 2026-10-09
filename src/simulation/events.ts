@@ -7,7 +7,10 @@ export type EventType =
   | "evidence.collected"
   | "security.reevaluated"
   | "simulation.reset"
-  | "cluster.request";
+  | "cluster.request"
+  | "controller.reconciled"
+  | "rhacs.alert"
+  | "rhacs.baseline";
 
 export interface DomainEvent {
   readonly sequence: number;

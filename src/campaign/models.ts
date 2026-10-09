@@ -1,9 +1,13 @@
+import {consumerFile, consumerEnvironment} from "../security/secret-consumers.js";
+import {reconcileNetworks} from "../network/user-defined.js";
+import {reconcileGitOps} from "../gitops/controller.js";
+import {reconcileTekton,succeeded} from "../release/tekton.js";
 import {registryAuthorized, registryHost, leakedToken, privatePullFailure} from "../security/registry.js";
 import {pipelineGate} from "../security/rhacs/policies.js";
 import { networkPolicyDirection } from "../security/network-policy.js";
 import { normalizeSecret, secretValue } from "../simulation/secrets.js";
 import { podNetworkDomain } from "../simulation/pod-addresses.js";
-import { coreResources } from "../simulation/cluster-api.js";
+import { coreResources,reconcileNetworkPods } from "../simulation/cluster-api.js";
 import { chapters } from "./catalog.js";
 import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
@@ -11,487 +15,8 @@ import type { Resource, PodSpec } from "../simulation/cluster-model.js";
 import { roleAllows } from "../security/rbac.js";
 import { admitPod } from "../security/scc.js";
 
-export function resource(
-  kind: string,
-  name: string,
-  namespace = S.cluster.namespace,
-) {
-  return [...S.cluster.resources, ...coreResources(), ...S.cluster.sccs].find(
-    (r) =>
-      r.kind === kind &&
-      r.metadata.name === name &&
-      (!r.metadata.namespace || r.metadata.namespace === namespace),
-  );
-}
-export function valueAt(value: any, path: string): any {
-  const parts = path.split(".");
-  for (let i = 0; i < parts.length; i++) {
-    if (value == null) return undefined;
-    if (Object.hasOwn(value, parts.slice(i).join(".")))
-      return value[parts.slice(i).join(".")];
-    value = value[parts[i]];
-  }
-  return value;
-}
-export function quantity(text: string | undefined, kind: string) {
-  if (!text) return 0;
-  const match = text.match(/^(\d+(?:\.\d+)?)(m|Ki|Mi|Gi)?$/);
-  if (!match)
-    throw new Error(
-      "simulation: supported quantities are decimal CPU/m or memory Ki/Mi/Gi",
-    );
-  return (
-    Number(match[1]) *
-    (match[2] === "m"
-      ? 0.001
-      : match[2] === "Ki"
-        ? 1024
-        : match[2] === "Mi"
-          ? 1024 ** 2
-          : match[2] === "Gi"
-            ? 1024 ** 3
-            : 1)
-  );
-}
-function match(labels: Record<string, string> | undefined, selector: any) {
-  if (!selector) return true;
-  if (selector.matchExpressions)
-    throw new Error(
-      "simulation: this campaign models matchLabels selectors only",
-    );
-  return Object.entries(selector.matchLabels ?? {}).every(
-    ([key, val]) => labels?.[key] === val,
-  );
-}
-function nsLabels(namespace: string) {
-  return {
-    "kubernetes.io/metadata.name": namespace,
-    ...resource("Namespace", namespace)?.metadata.labels,
-  };
-}
-const ready = (pod: Resource | undefined) =>
-  !!pod &&
-  ((pod.status?.containerStatuses as { ready: boolean }[] | undefined)?.every(
-    (c) => c.ready,
-  ) ??
-    false);
-
-/** Registry policy is enforced while pulling images, after API admission. */
-export function registryPullFailure(image: string) {
-  const sources = resource("Image", "cluster")?.spec?.registrySources;
-  if (!sources) return "";
-  const first = image.split("/")[0];
-  const qualified =
-    image.includes("/") && /[.:]|^localhost$/.test(first)
-      ? image
-      : "docker.io/" + (image.includes("/") ? "" : "library/") + image;
-  const matches = (entry: string) =>
-    qualified.startsWith(entry + "/") || qualified.split(":")[0] === entry;
-  const denied =
-    sources.blockedRegistries?.some(matches) ||
-    (sources.allowedRegistries && !sources.allowedRegistries.some(matches));
-  return denied
-    ? `Source image rejected: image docker://${qualified} is rejected by runtime registry policy`
-    : "";
-}
-
-/** Bounded admission models; failures are evaluated, never manufactured from command names. */
-export function validateCampaignPod(pod: Resource) {
-  const namespace = pod.metadata.namespace!;
-  const spec = pod.spec as PodSpec;
-  const limit = S.cluster.resources.find(
-    (r) => r.kind === "LimitRange" && r.metadata.namespace === namespace,
-  );
-  const constraint = S.cluster.resources.find(
-    (r) =>
-      r.kind === "K8sRequiredLabels" &&
-      r.spec?.match?.namespaces?.includes(namespace),
-  );
-  if (
-    constraint &&
-    constraint.spec?.parameters.labels.some(
-      (l: { key: string }) => !pod.metadata.labels?.[l.key],
-    )
-  )
-    throw new Error(
-      'Error from server (Forbidden): admission constraint "' +
-        constraint.metadata.name +
-        '" requires owner labels',
-    );
-  for (const c of spec.containers) {
-    const defaults = limit?.spec?.limits?.[0];
-    if (defaults) {
-      c.resources = {
-        requests: { ...defaults.defaultRequest, ...c.resources?.requests },
-        limits: { ...defaults.default, ...c.resources?.limits },
-      };
-      for (const dimension of ["cpu", "memory"])
-        if (
-          quantity(c.resources.limits?.[dimension], dimension) >
-            quantity(defaults.max?.[dimension], dimension) &&
-          defaults.max?.[dimension]
-        )
-          throw new Error(
-            "Error from server (Forbidden): maximum " +
-              dimension +
-              " usage per Container exceeded by LimitRange",
-          );
-    }
-  }
-  const quotas = S.cluster.resources.filter(
-    (r) => r.kind === "ResourceQuota" && r.metadata.namespace === namespace,
-  );
-  const others = [...S.cluster.resources, ...coreResources()].filter(
-    (r) =>
-      r.kind === "Pod" &&
-      r.metadata.namespace === namespace &&
-      r.metadata.name !== pod.metadata.name,
-  );
-  for (const quota of quotas) {
-    const hard = quota.spec?.hard ?? {};
-    if (hard.pods && others.length + 1 > Number(hard.pods))
-      throw new Error(
-        "Error from server (Forbidden): exceeded quota: " +
-          quota.metadata.name +
-          ", requested: pods=1",
-      );
-    for (const bucket of ["requests", "limits"] as const)
-      for (const dimension of ["cpu", "memory"]) {
-        const key = bucket + "." + dimension;
-        if (!hard[key]) continue;
-        const total = [...others, pod]
-          .flatMap((p) => p.spec?.containers ?? [])
-          .reduce(
-            (sum, c) =>
-              sum +
-              quantity(
-                c.resources?.[bucket as "requests" | "limits"]?.[dimension],
-                dimension,
-              ),
-            0,
-          );
-        if (total > quantity(hard[key], dimension))
-          throw new Error(
-            "Error from server (Forbidden): exceeded quota: " +
-              quota.metadata.name +
-              ", " +
-              key,
-          );
-      }
-  }
-}
-export function schedulingFailure(pod: Resource) {
-  const spec = pod.spec as PodSpec,
-    ns = pod.metadata.namespace!;
-  if (spec.runtimeClassName) {
-    if (!resource("RuntimeClass", spec.runtimeClassName))
-      return "RuntimeClass is not installed in the recorded training cluster";
-    if (
-      resource("Node", spec.nodeName ?? "")?.metadata.labels?.[
-        "roadshow.virtualization"
-      ] !== "true"
-    )
-      return "No recorded virtualization-capable node satisfies RuntimeClass kata";
-  }
-  const attachment = pod.metadata.annotations?.["k8s.v1.cni.cncf.io/networks"];
-  if (attachment) {
-    const network = resource("NetworkAttachmentDefinition", attachment, ns);
-    if (!network) return "NetworkAttachmentDefinition is absent";
-    const config = JSON.parse(network.spec?.config ?? "{}");
-    if (
-      config.vlanId === 200 &&
-      resource("Node", spec.nodeName ?? "")?.metadata.labels?.[
-        "roadshow.vlan200"
-      ] !== "true"
-    )
-      return "No recorded VLAN-200 capability on requested node";
-  }
-  return "";
-}
-
-/** MatchLabels, literal ports and IPv4 /24 or /0 subset used by these lab fixtures. */
-function peerMatches(
-  peer: any,
-  target: Resource | undefined,
-  namespace: string,
-  external: boolean,
-) {
-  if (peer.networks || peer.ipBlock) {
-    const ranges = peer.networks ?? [peer.ipBlock.cidr];
-    if (
-      ranges.some((r: string) => !["0.0.0.0/0", "203.0.113.0/24"].includes(r))
-    )
-      throw new Error(
-        "simulation: campaign IP peers support the documented /0 and external /24 fixtures",
-      );
-    return (
-      ranges.includes("0.0.0.0/0") ||
-      (external && ranges.includes("203.0.113.0/24"))
-    );
-  }
-  if (external) return false;
-  return (
-    (!peer.namespaceSelector ||
-      match(nsLabels(namespace), peer.namespaceSelector)) &&
-    (!peer.podSelector || match(target?.metadata.labels, peer.podSelector)) &&
-    (!peer.namespaces || match(nsLabels(namespace), peer.namespaces)) &&
-    (!peer.pods || match(target?.metadata.labels, peer.pods.podSelector))
-  );
-}
-function tenantDirection(
-  namespace: string,
-  pod: Resource,
-  peer: Resource | undefined,
-  peerNs: string,
-  port: number,
-  direction: "ingress" | "egress",
-  external = false,
-) {
-  return networkPolicyDirection(S.cluster.resources, pod, peer ?? (peerNs ? {apiVersion:"v1",kind:"Pod",metadata:{name:"recorded-peer",namespace:peerNs}} : undefined), direction, port, "TCP", external ? "203.0.113.77" : undefined);
-}
-export function flow(
-  namespace: string,
-  sourceName: string,
-  destName: string,
-  destNamespace = namespace,
-  external = false,
-  port = 8443,
-) {
-  const source = resource("Pod", sourceName, namespace),
-    dest = resource("Pod", destName, destNamespace);
-  if (!ready(source) || (!external && !ready(dest))) return false;
-  if (!external && podNetworkDomain(source) !== podNetworkDomain(dest))
-    return false;
-  let adminAllowed = false;
-  const admins = S.cluster.resources
-    .filter(
-      (r) =>
-        r.kind === "AdminNetworkPolicy" &&
-        match(nsLabels(namespace), r.spec?.subject?.namespaces),
-    )
-    .sort((a, b) => Number(a.spec?.priority) - Number(b.spec?.priority));
-  for (const admin of admins) {
-    const rule = admin.spec?.egress?.find((rule: any) =>
-      rule.to?.some((peer: any) =>
-        peerMatches(peer, dest, destNamespace, external),
-      ),
-    );
-    if (!rule) continue;
-    if (rule.action === "Deny") return false;
-    if (rule.action === "Allow") {
-      adminAllowed = true;
-      break;
-    }
-    if (rule.action === "Pass") break;
-  }
-  const egress = adminAllowed
-    ? true
-    : tenantDirection(
-        namespace,
-        source!,
-        dest,
-        destNamespace,
-        port,
-        "egress",
-        external,
-      );
-  if (egress === false) return false;
-  if (egress === undefined) {
-    const baseline = S.cluster.resources.find(
-      (r) =>
-        r.kind === "BaselineAdminNetworkPolicy" &&
-        match(nsLabels(namespace), r.spec?.subject?.namespaces),
-    );
-    const action = baseline?.spec?.egress?.find((r: any) =>
-      r.to?.some((p: any) => peerMatches(p, dest, destNamespace, external)),
-    )?.action;
-    if (action === "Deny") return false;
-  }
-  if (
-    !external &&
-    tenantDirection(
-      destNamespace,
-      dest!,
-      source,
-      namespace,
-      port,
-      "ingress",
-    ) === false
-  )
-    return false;
-  return true;
-}
-export function reconcileFixtureControllers() {
-  for (const egress of S.cluster.resources.filter(
-    (r) => r.kind === "EgressIP",
-  )) {
-    egress.status = {
-      items: (egress.spec?.egressIPs ?? []).flatMap((ip: string) => {
-        const node = S.cluster.resources.find(
-          (r) =>
-            r.kind === "Node" &&
-            Object.hasOwn(
-              r.metadata.labels ?? {},
-              "k8s.ovn.org/egress-assignable",
-            ) &&
-            (
-              r.metadata.annotations?.[
-                "ghostroute.training/reserved-egress-addresses"
-              ] ?? ""
-            )
-              .split(",")
-              .includes(ip),
-        );
-        return node ? [{ node: node.metadata.name, egressIP: ip }] : [];
-      }),
-    };
-  }
-  for (const quota of S.cluster.resources.filter(
-    (r) => r.kind === "ResourceQuota",
-  )) {
-    const hard = quota.spec?.hard ?? {};
-    const pods = [...S.cluster.resources, ...coreResources()].filter(
-      (r) =>
-        r.kind === "Pod" &&
-        r.metadata.namespace === quota.metadata.namespace &&
-        !["Succeeded", "Failed"].includes(String(r.status?.phase)),
-    );
-    const used: Record<string, string> = {};
-    for (const key of Object.keys(hard)) {
-      if (key === "pods") {
-        used[key] = String(pods.length);
-        continue;
-      }
-      const match = key.match(/^(requests|limits)\.(cpu|memory)$/);
-      if (!match) continue;
-      const [, bucket, dimension] = match;
-      const total = pods
-        .flatMap((p) => p.spec?.containers ?? [])
-        .reduce(
-          (sum, c) =>
-            sum +
-            quantity(
-              c.resources?.[bucket as "requests" | "limits"]?.[dimension],
-              dimension,
-            ),
-          0,
-        );
-      if (dimension === "cpu")
-        used[key] = Number.isInteger(total)
-          ? String(total)
-          : `${Math.round(total * 1000)}m`;
-      else {
-        const unit =
-          total &&
-          [
-            ["Gi", 1024 ** 3],
-            ["Mi", 1024 ** 2],
-            ["Ki", 1024],
-          ].find(([, size]) => total % Number(size) === 0);
-        used[key] = unit
-          ? `${total / Number(unit[1])}${unit[0]}`
-          : String(total);
-      }
-    }
-    quota.status = { hard: structuredClone(hard), used };
-  }
-  for (const external of S.cluster.resources.filter(
-    (r) => r.kind === "ExternalSecret",
-  )) {
-    const ns = external.metadata.namespace!,
-      store = resource("SecretStore", external.spec?.secretStoreRef?.name, ns);
-    const provider = resource("ConfigMap", "provider-record", ns);
-    const valid =
-      !!store &&
-      provider?.data?.version === "2" &&
-      external.spec?.data?.length === 1 &&
-      external.spec?.data?.[0]?.remoteRef?.key === "database";
-    external.status = {
-      conditions: [
-        {
-          type: "Ready",
-          status: valid ? "True" : "False",
-          reason: valid
-            ? "RecordedProviderSynced"
-            : "RecordedProviderUnavailable",
-        },
-      ],
-      syncedResourceVersion: valid ? "2" : "",
-    };
-    if (valid) {
-      const name = external.spec?.target?.name ?? external.metadata.name;
-      let secret = resource("Secret", name, ns);
-      if (!secret) {
-        secret = {
-          apiVersion: "v1",
-          kind: "Secret",
-          metadata: { name, namespace: ns },
-        };
-        S.cluster.resources.push(secret);
-      }
-      secret.stringData = { password: provider!.data!.value };
-      normalizeSecret(secret);
-      secret.metadata.annotations = { "roadshow.provider-version": "2" };
-    }
-  }
-  for (const scan of S.cluster.resources.filter(
-    (r) => r.kind === "ComplianceScan",
-  )) {
-    const ns = scan.metadata.namespace!,
-      profile = resource("TailoredProfile", scan.spec?.profile, ns),
-      fix = resource("ComplianceRemediation", "audit-enabled", ns);
-    const hidden = profile?.disableRules?.some(
-      (r: any) => r.name === "audit-enabled",
-    );
-    scan.status = {
-      phase: "DONE",
-      result: fix?.spec?.apply && !hidden ? "COMPLIANT" : "NON-COMPLIANT",
-      source: "recorded-fixture",
-      excludedRules: profile?.disableRules ?? [],
-    };
-  }
-  for (const run of S.cluster.resources.filter(
-    (r) => r.kind === "PipelineRun",
-  )) {
-    const ns = run.metadata.namespace!,
-      pipe = resource("Pipeline", run.spec?.pipelineRef?.name, ns),
-      att = resource("ConfigMap", "attestation", ns);
-    const digest = run.spec?.params?.find(
-      (p: any) => p.name === "digest",
-    )?.value;
-    let gate: ReturnType<typeof pipelineGate> | undefined;
-    let gateError: string | undefined;
-    try {
-      gate = pipelineGate(run.spec?.params?.find((p:any)=>p.name === "image")?.value ?? "registry.example.test/owned:arbitrary-uid");
-    } catch (error) { gateError = (error as Error).message; }
-    const valid =
-      !!gate && gate.exitCode === 0 && gate.digest === digest &&
-      pipe?.spec?.tasks?.[1]?.runAfter?.includes("build") &&
-      pipe?.spec?.tasks?.[2]?.runAfter?.includes("scan") &&
-      pipe.spec.tasks[2].when?.[0]?.values?.includes("0") &&
-      att?.data?.scanHigh === "0" &&
-      att.data.digest === digest &&
-      att.data.signed === "true";
-    run.status = {
-      conditions: [
-        {
-          type: "Succeeded",
-          status: valid ? "True" : "False",
-          reason: valid ? "CentralPolicyGatePassed" : "CentralPolicyGateFailed",
-        },
-      ],
-      source: "authored-central",
-      image: gate?.image.ref,
-      digest: gate?.digest,
-      scan: gate?.scan,
-      policyCheck: gate?.policy,
-      scanExitCode: gate?.exitCode ?? 1,
-      gateError,
-      steps: [{name:"build",status:"Completed"},{name:"scan",status:gate && gate.exitCode === 0 ? "Completed" : "Failed"},{name:"sign",status:valid ? "Completed" : "Skipped"}],
-      signed: !!valid,
-    };
-  }
-}
+import {resource, valueAt, quantity, match, nsLabels, ready, registryPullFailure, validateCampaignPod, schedulingFailure, flow, reconcileFixtureControllers} from "../simulation/engine.js";
+export {resource, valueAt, quantity, match, nsLabels, ready, registryPullFailure, validateCampaignPod, schedulingFailure, flow, reconcileFixtureControllers} from "../simulation/engine.js";
 export function evaluateProbe(
   model: string,
   namespace: string,
@@ -739,16 +264,16 @@ export function evaluateProbe(
     case "udn-local":
       passed =
         !!get("UserDefinedNetwork", "primary") &&
-        podNetworkDomain(get("Pod", "client")) === namespace + "/primary" &&
-        podNetworkDomain(get("Pod", "server")) === namespace + "/primary" &&
+        podNetworkDomain(get("Pod", "client")) === namespace + "_primary" &&
+        podNetworkDomain(get("Pod", "server")) === namespace + "_primary" &&
         flow(namespace, "client", "server");
       detail = "Recorded local domain permits intended service.";
       break;
     case "udn-cross":
       passed =
-        podNetworkDomain(get("Pod", "client")) === namespace + "/primary" &&
+        podNetworkDomain(get("Pod", "client")) === namespace + "_primary" &&
         podNetworkDomain(resource("Pod", "peer", namespace + "-peer")) ===
-          namespace + "-peer/primary" &&
+          namespace + "-peer_primary" &&
         !!get("UserDefinedNetwork", "primary") &&
         !flow(namespace, "client", "peer", namespace + "-peer");
       detail = "Separate primary domains prevent the cross-tenant path.";
@@ -784,20 +309,27 @@ export function evaluateProbe(
     }
     case "pipeline-clean":
       passed =
-        get("PipelineRun", "release")?.status?.signed === true &&
+        S.cluster.resources.some(r=>r.kind==="PipelineRun" && r.metadata.namespace===namespace && succeeded(r)) && data("attestation").scanHigh === "0" &&
         data("promotion-review").supportEnvImport === "disabled" &&
         data("promotion-review").configurationSource === "versioned-reviewed" &&
         data("promotion-review").owner === "Kai and Mira";
       detail =
         "Recorded clean artifact passes scan-before-sign and digest binding; the original unreviewed support import is disabled.";
       break;
+    case "gitops-release": {
+      const app=resource("Application","payment-api","openshift-gitops"),deployment=resource("Deployment","payment-api","payments");
+      const image=deployment?.spec?.template?.spec.containers.find(c=>c.name==="payment-api")?.image;
+      passed=(app?.status?.sync as any)?.status==="Synced" && (app?.status?.health as any)?.status==="Healthy" && image==="registry.example.test/payments:v1.8.3";
+      detail="The pushed deployment manifest is synced and the repaired payment-api rollout is healthy. CI success alone does not promote the manifest.";
+      break;
+    }
     case "pipeline-high": {
       const pipe = get("Pipeline", "secure-release");
       passed =
         !!pipe &&
-        pipe.spec?.tasks?.[2]?.runAfter?.includes("scan") &&
-        pipe.spec.tasks[2].when?.[0]?.values?.length === 1 &&
-        pipe.spec.tasks[2].when[0].values[0] === "0" &&
+        pipe.spec?.tasks?.[3]?.runAfter?.includes("scan") &&
+        pipe.spec.tasks[3].when?.[0]?.values?.length === 1 &&
+        pipe.spec.tasks[3].when[0].values[0] === "0" &&
         pipelineGate("registry.example.test/payments:v1.8.2").exitCode === 1;
       detail =
         "The authored vulnerable image fails the same Central BUILD policy check used by roxctl, blocking signing.";
@@ -825,7 +357,7 @@ export function evaluateProbe(
           "database",
         )?.spec?.parameters?.objects?.includes("secret/data/database") &&
         data("provider-record").version === "2" &&
-        data("provider-record").auth === "namespace-serviceaccount";
+        data("provider-record").auth === "namespace-serviceaccount" && consumerFile(app!, "app", "/mnt/secrets-store/password") === "training-v2";
       detail =
         "Synthetic provider path, authentication record and mounted projection checked.";
       break;
@@ -838,15 +370,17 @@ export function evaluateProbe(
         "CSI-only mapping has no sync request or Kubernetes Secret copy.";
       break;
     case "eso-sync":
-      passed =
-        get("ExternalSecret", "database")?.status?.syncedResourceVersion ===
-          "2" &&
-        get("Secret", "database")?.metadata.annotations?.[
-          "roadshow.provider-version"
-        ] === "2" &&
-        secretValue(get("Secret", "database"), "password") === "training-v2";
-      detail = "Local fixture reconciliation synchronized provider version 2.";
+      passed = !!get("SecretStore", "vault") && (get("ExternalSecret", "database")?.status?.conditions as any[])?.some(c => c.type === "Ready" && c.status === "True") && secretValue(get("Secret", "database"), "password") === "training-v2";
+      detail = "The reconciled Secret contains the scoped provider value; an environment consumer still needs a new container.";
       break;
+    case "eso-consumer": {
+      const consumer = S.cluster.resources.find(r => r.kind === "Pod" && r.metadata.namespace === namespace && r.metadata.labels?.app === "legacy-consumer");
+      passed = !!consumer && ready(consumer) && consumerEnvironment(consumer, "app").DB_PASSWORD === "training-v2" && consumerFile(consumer, "app", "/run/secrets/password") === "training-v2";
+      const env = consumer ? consumerEnvironment(consumer, "app").DB_PASSWORD : undefined;
+      const file = consumer ? consumerFile(consumer, "app", "/run/secrets/password") : undefined;
+      detail = `Startup DB_PASSWORD: ${env ?? "<missing>"}. Mounted /run/secrets/password: ${file ?? "<missing>"}. ` + (passed ? "The restarted consumer sees the current credential." : "Secret updates do not replace a running container's environment. Verify the Secret, then restart deployment/legacy-consumer and repeat this check.");
+      break;
+    }
     case "eso-scoped":
       passed =
         get("ExternalSecret", "database")?.spec?.data?.length === 1 &&
@@ -885,16 +419,16 @@ export function evaluateProbe(
     case "compliance-effective":
       passed =
         get("ComplianceScan", "district")?.status?.result === "COMPLIANT" &&
-        !get("TailoredProfile", "district")?.disableRules?.some(
-          (r: any) => r.name === "audit-enabled",
+        !get("TailoredProfile", "district")?.spec?.disableRules?.some(
+          (r: any) => r.name === "rhcos4-service-auditd-enabled",
         );
       detail =
         "Recorded applicable audit control is remediated rather than excluded.";
       break;
     case "compliance-exception":
       passed =
-        get("TailoredProfile", "district")?.disableRules?.length === 1 &&
-        !!get("TailoredProfile", "district")?.disableRules?.[0]?.rationale;
+        get("TailoredProfile", "district")?.spec?.disableRules?.length === 1 &&
+        !!get("TailoredProfile", "district")?.spec?.disableRules?.[0]?.rationale;
       detail = "Narrow USB exception remains explicit with a rationale.";
       break;
     case "kata-ready":

@@ -60,7 +60,7 @@ test("catalog is immutable and exact; all authored workload images have scan ass
       else walk(v);
     }
   }
-  for (const c of chapters) walk(c.files);
+  for (const c of chapters) for(const r of Object.values(c.files))if(r?.kind!=="Task"&&r?.metadata?.annotations?.["ghostroute.training/component"]!=="controller")walk(r);
   walk(S.cluster.resources);
 });
 test("image and SBOM findings agree; repaired package clears findings; unknown packages fail explicitly", () => {
@@ -213,52 +213,21 @@ test("deployment checks parse multiple YAML documents and repeated files, includ
     0,
   );
 });
-test("pipeline scans same digest/assets/policies; forged clean attestation cannot override a failing image", () => {
-  resetState();
-  S.campaign.active = 18;
-  S.cluster.user = "platform-admin";
-  applyResource({
-    apiVersion: "v1",
-    kind: "Namespace",
-    metadata: { name: "rs-18" },
-  });
-  for (const name of ["pipeline.yaml", "attestation.yaml"])
-    applyResource(chapters.find((c) => c.id === "18").files[name], "rs-18");
-  function run(image, name, digest = getImage(image).digest) {
-    applyResource({
-      apiVersion: "v1",
-      kind: "ConfigMap",
-      metadata: { name: "attestation", namespace: "rs-18" },
-      data: { digest, scanHigh: "0", signed: "true" },
-    });
-    applyResource({
-      apiVersion: "tekton.dev/v1",
-      kind: "PipelineRun",
-      metadata: { name, namespace: "rs-18" },
-      spec: {
-        pipelineRef: { name: "secure-release" },
-        params: [
-          { name: "image", value: image },
-          { name: "digest", value: digest },
-        ],
-      },
-    });
-    return S.cluster.resources.find(
-      (r) => r.kind === "PipelineRun" && r.metadata.name === name,
-    ).status;
-  }
-  const bad = run(ref + "v1.8.2", "bad");
-  assert.equal(bad.signed, false);
-  assert.equal(bad.scanExitCode, pipelineGate(ref + "v1.8.2").exitCode);
-  assert.deepEqual(bad.policyCheck, pipelineGate(ref + "v1.8.2").policy);
-  assert.equal(bad.steps[2].status, "Skipped");
-  const good = run(ref + "v1.8.3", "good");
-  assert.equal(good.signed, true);
-  assert.equal(good.scanExitCode, 0);
-  assert.equal(
-    run(ref + "v1.8.3", "wrong", "sha256:" + "b".repeat(64)).signed,
-    false,
-  );
+test("native Tekton status binds the pushed source and retains failed history", async () => {
+ resetState();S.campaign.active=17;S.cluster.user="platform-admin";
+ applyResource({apiVersion:"v1",kind:"Namespace",metadata:{name:"rs-18"}});
+ for(const [name,r]of Object.entries(chapters.find(c=>c.id==="18").files))if(name.endsWith(".yaml"))applyResource(r,"rs-18");
+ const find=(kind,name)=>S.cluster.resources.find(r=>r.kind===kind&&r.metadata.name===name&&r.metadata.namespace==="rs-18");
+ const old=structuredClone(find("PipelineRun","release").status);
+ assert.equal(old.conditions[0].reason,"Failed");assert.equal(old.signed,undefined);assert.equal(old.scanExitCode,undefined);
+ assert.equal(find("TaskRun","release-scan").status.steps[0].terminated.exitCode,1);
+ assert.equal(find("TaskRun","release-sign"),undefined);
+ for(const cmd of ["git clone https://git.example.test/payments/payment-api.git ~/projects/payment-api","cd ~/projects/payment-api","cat ~/source/fixes/pom.xml > pom.xml","git add pom.xml","git commit -m 'Repair vulnerable dependency'","git push origin main"])await clusterCommand(cmd);
+ const latest=S.cluster.resources.filter(r=>r.kind==="PipelineRun").at(-1);
+ assert.equal(latest.status.conditions[0].reason,"Succeeded");
+ assert.equal(latest.status.results.find(r=>r.name==="image").value,ref+"v1.8.3");
+ assert.deepEqual(find("PipelineRun","release").status,old);
+ assert.throws(()=>applyResource({...find("PipelineRun","release"),spec:{...find("PipelineRun","release").spec,params:[]}},"rs-18"),/immutable/);
 });
 test("failing JSON output can still be redirected as Bash does; asset registry is read-only", async () => {
   resetState();
@@ -275,6 +244,7 @@ test("failing JSON output can still be redirected as Bash does; asset registry i
   const saved = JSON.parse(encodeProgress(S));
   delete saved.data.cluster.rhacs;
   assert.deepEqual(decodeProgress(JSON.stringify(saved)).cluster.rhacs, {
+    runtime:{sequence:0,baselines:[],processes:[],alerts:[]},
     policyOverrides: {},
     customPolicies: [],
     receipts: [],

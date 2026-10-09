@@ -1,0 +1,5 @@
+{
+  "stdout": "Name:              release\nNamespace:         rs-18\nPipeline Ref:      secure-release\nService Account:   release-runner\n\nStatus\n\nSTARTED     DURATION   STATUS\n1 day ago   3s         Failed\n\nMessage\n\nTaskRun release-scan failed\nTaskRun(s) cancelled: release-scan\n\nParams\n\n NAME       VALUE\n repo-url   https://git.example.test/payments/payment-api.git\n revision   main\n\nWorkspaces\n\n NAME     SUB PATH   WORKSPACE BINDING\n source   ---        VolumeClaimTemplate\n\nTaskruns\n\n NAME            TASK NAME   STARTED     DURATION   STATUS\n release-scan    scan        1 day ago   1s         Failed\n release-build   build       1 day ago   1s         Succeeded\n release-fetch   fetch       1 day ago   1s         Succeeded\n\nSkipped Tasks\n\n NAME\n sign\n",
+  "stderr": "",
+  "code": 0
+}

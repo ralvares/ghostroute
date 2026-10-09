@@ -41,6 +41,7 @@ export function validateCustomResource(resource: Resource, schema: any) {
     );
   };
   function visit(value: any, rule: any, path: string): any {
+    if (rule.type === undefined && rule["x-kubernetes-preserve-unknown-fields"]) return structuredClone(value);
     if (value === null && rule.nullable) return value;
     const type = Array.isArray(value)
       ? "array"

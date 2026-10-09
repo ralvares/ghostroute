@@ -94,7 +94,11 @@ function sprite(
   if (image) ctx.drawImage(image, x - width / 2, y - height, width, height);
 }
 export function drawBackground(_t: number) {
+  ctx.save();
+  // Lift scene shadows while keeping bright signs and live evidence restrained.
+  ctx.filter = "brightness(1.22) saturate(0.7)";
   ctx.drawImage(artwork[scenes[S.world.scene].art], 0, 0, W, H);
+  ctx.restore();
 }
 export function drawPod(o: WorldObject, _t: number) {
   const labPod =
@@ -133,7 +137,7 @@ export function drawNPC(o: WorldObject, _t: number) {
   ) {
     const frame = miraAtlas.frames[Math.floor(actor.step * 4) % 4],
       rect = frame.sourceRect,
-      scale = miraAtlas.scaleRecommendation;
+      scale = miraAtlas.scaleRecommendation * 0.68;
     ctx.drawImage(
       artwork["mira-run"],
       rect.x,
@@ -146,18 +150,18 @@ export function drawNPC(o: WorldObject, _t: number) {
       rect.height * scale,
     );
   } else
-    sprite(o.art ?? (o.id === "rhea" ? "rhea" : "mira"), o.x, o.y + 23, 66, 99);
+    sprite(o.art ?? (o.id === "rhea" ? "rhea" : "mira"), o.x, o.y + 23, 45, 67);
 }
 export function drawAvatar(_t: number) {
   // Ground stays fixed: articulated sprite cells move the boots, never the whole body.
   ctx.fillStyle = "#0009";
   ctx.beginPath();
-  ctx.ellipse(S.x, S.y + 22, 22, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(S.x, S.y + 22, 15, 6, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = G.traceOn ? "#80d8e8" : "#88dfbf";
   ctx.lineWidth = 1.4;
   ctx.beginPath();
-  ctx.ellipse(S.x, S.y + 22, 26, 11, 0, 0, Math.PI * 2);
+  ctx.ellipse(S.x, S.y + 22, 18, 8, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.save();
   ctx.translate(S.x, S.y + 25);
@@ -165,7 +169,7 @@ export function drawAvatar(_t: number) {
   if (G.walking && !reduced) {
     const frame = walkAtlas.frames[Math.floor(S.step * 8) % 8],
       rect = frame.sourceRect,
-      scale = walkAtlas.scaleRecommendation;
+      scale = walkAtlas.scaleRecommendation * 0.68;
     ctx.drawImage(
       artwork["operator-walk"],
       rect.x,
@@ -177,7 +181,7 @@ export function drawAvatar(_t: number) {
       rect.width * scale,
       rect.height * scale,
     );
-  } else ctx.drawImage(artwork.operator, -21.5, -98, 43, 98);
+  } else ctx.drawImage(artwork.operator, -14.5, -67, 29, 67);
   ctx.restore();
 }
 export function drawProp(o: WorldObject) {
@@ -379,14 +383,19 @@ export function drawLabels(t: number) {
 export function draw(t: number) {
   G.frame++;
   const narrow = window.innerWidth <= 520;
-  const vw = narrow ? 760 : W;
   const bounds = C.getBoundingClientRect();
+  // Desktop shows the whole room; narrow screens keep the investigator-following camera.
+  const vw = narrow
+    ? 760
+    : Math.max(W, Math.round((H * bounds.width) / Math.max(1, bounds.height)));
   const vh = narrow
     ? H
     : Math.round((vw * bounds.height) / Math.max(1, bounds.width));
   if (C.width !== vw) C.width = vw;
   if (C.height !== vh) C.height = vh;
-  G.cameraX = narrow ? Math.max(0, Math.min(W - vw, S.x - vw / 2)) : 0;
+  G.cameraX = narrow
+    ? Math.max(0, Math.min(W - vw, S.x - vw / 2))
+    : (W - vw) / 2;
   G.cameraY = Math.max(0, Math.min(H - vh, Math.max(570 - vh, S.y - vh + 45)));
   C.dataset.cameraX = String(G.cameraX);
   C.dataset.cameraY = String(G.cameraY);
@@ -396,6 +405,9 @@ export function draw(t: number) {
       ? "arrived"
       : "running"
     : "none";
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#253745";
+  ctx.fillRect(0, 0, C.width, C.height);
   ctx.setTransform(1, 0, 0, 1, -G.cameraX, -G.cameraY);
   drawBackground(t);
 

@@ -1,3 +1,4 @@
+import {clusterCommand} from "../.test-build/src/terminal/cluster-shell.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parse } from "yaml";
@@ -43,7 +44,7 @@ function setup() {
   };
   S.story.inventory = ["worker-pass", "maintenance-keycard"];
 }
-function applyFiles(ch) {
+async function applyFiles(ch) {
   for (const name of Object.keys(ch.files).filter(
     (f) =>
       f.endsWith(".yaml") &&
@@ -54,7 +55,7 @@ function applyFiles(ch) {
     );
     const def = Object.values(resourceTypes).find((d) => d.kind === input.kind);
     S.cluster.user =
-      !def.namespaced || ["Role", "RoleBinding"].includes(input.kind)
+      !def.namespaced || input.metadata.namespace === "openshift-gitops" || ["Role", "RoleBinding"].includes(input.kind)
         ? "platform-admin"
         : "operator";
     if (ch.id === "05" && name === "vendor.yaml") continue;
@@ -76,6 +77,10 @@ function applyFiles(ch) {
     restartDeployment("vendor", ch.namespace);
   }
   S.cluster.user = "operator";
+  if(ch.id === "18"){
+    for(const cmd of ["git clone https://git.example.test/payments/payment-api.git ~/projects/payment-api","cd ~/projects/payment-api","cat ~/source/fixes/pom.xml > pom.xml","git add pom.xml","git commit -m 'Repair vulnerable dependency'","git push origin main","cat ~/source/fixes/payment-api.yaml > deploy/payment-api.yaml","git add deploy/payment-api.yaml","git commit -m 'Promote reviewed release'","git push origin main","cd /home/operator/"+chapterRoot()])await clusterCommand(cmd);
+  }
+  if (ch.id === "20") restartDeployment("legacy-consumer", ch.namespace);
   if (ch.id === "04") {
     assert.match(runCampaignProbe("diagnose"), /^PASS/);
     deleteResource("pods", "broken", ch.namespace);
@@ -87,13 +92,13 @@ function gather(ch) {
   for (const name of ["briefing.txt", "evidence.json", "handover.txt"])
     observeCampaignCommand("cat /home/operator/" + chapterRoot() + name, true);
 }
-test("27 chapters can be completed in order through the real resource/admission models", () => {
+test("27 chapters can be completed in order through the real resource/admission models", async () => {
   setup();
   assert.equal(chapters.length, 27);
   while (S.campaign.active < chapters.length - 1) {
     const ch = advanceCampaign();
     assert.throws(() => concludeCampaign(ch.conclusion), /Case remains open/);
-    applyFiles(ch);
+    await applyFiles(ch);
     gather(ch);
     if (ch.id === "27") {
       S.cluster.user = "platform-admin";
@@ -123,7 +128,7 @@ test("27 chapters can be completed in order through the real resource/admission 
   assert.ok(
     S.cluster.resources
       .filter((r) => r.kind === "Pod")
-      .every((r) => r.status.containerStatuses.every((c) => c.ready)),
+      .every((r) => ["Failed","Succeeded"].includes(r.status.phase) || r.status.containerStatuses.every((c) => c.ready)),
     "No failed Pod is left running after the journey",
   );
   assert.ok(
@@ -136,10 +141,10 @@ test("27 chapters can be completed in order through the real resource/admission 
   assert.equal(restore.campaign.reports.length, 26);
   assert.throws(() => advanceCampaign(), /complete/);
 });
-test("proof expires after mutation; field work and evidence cannot be skipped", () => {
+test("proof expires after mutation; field work and evidence cannot be skipped", async () => {
   setup();
   const ch = advanceCampaign();
-  applyFiles(ch);
+  await applyFiles(ch);
   runCampaignProbe("start");
   runCampaignProbe("root");
   assert.throws(() => concludeCampaign(ch.conclusion), /Interview/);
@@ -159,7 +164,7 @@ test("proof expires after mutation; field work and evidence cannot be skipped", 
   concludeCampaign(ch.conclusion);
   assert.throws(() => concludeCampaign(ch.conclusion), /already closed/);
 });
-test("locked/invalid campaign saves reject, while earlier saves resume Chapter 01", () => {
+test("locked/invalid campaign saves reject, while earlier saves resume Chapter 01", async () => {
   resetState();
   assert.throws(() => advanceCampaign(), /current case/);
   const old = JSON.parse(encodeProgress(S));
@@ -178,9 +183,9 @@ function atChapter(id) {
   }
   return ch;
 }
-test("network policy union, ANP priority, Pass and destination ingress stay independent", () => {
+test("network policy union, ANP priority, Pass and destination ingress stay independent", async () => {
   const ch = atChapter("14");
-  applyFiles(ch);
+  await applyFiles(ch);
   const ns = ch.namespace;
   applyResource(
     {
@@ -249,9 +254,9 @@ test("network policy union, ANP priority, Pass and destination ingress stay inde
     "BANP fallback denies when no tenant egress policy applies",
   );
 });
-test("quota aggregates Pods, while missing Secret and node capabilities produce runtime/scheduling failures", () => {
+test("quota aggregates Pods, while missing Secret and node capabilities produce runtime/scheduling failures", async () => {
   const ch = atChapter("06");
-  applyFiles(ch);
+  await applyFiles(ch);
   const ns = ch.namespace;
   const copy = structuredClone(resource("Pod", "app", ns));
   delete copy.status;
@@ -260,7 +265,7 @@ test("quota aggregates Pods, while missing Secret and node capabilities produce 
   copy.metadata = { name: "third" };
   assert.throws(() => applyResource(copy, ns), /exceeded quota/);
   const secret = atChapter("07");
-  applyFiles(secret);
+  await applyFiles(secret);
   const current = resource("Pod", "app", secret.namespace);
   assert.equal(
     current.metadata.annotations["roadshow.secret-version"],
@@ -292,7 +297,7 @@ test("quota aggregates Pods, while missing Secret and node capabilities produce 
     false,
   );
   const vlan = atChapter("17");
-  applyFiles(vlan);
+  await applyFiles(vlan);
   const wrong = structuredClone(resource("Pod", "app", vlan.namespace));
   wrong.metadata = { ...wrong.metadata, name: "wrong" };
   wrong.spec.nodeName = "worker-01";
@@ -302,9 +307,9 @@ test("quota aggregates Pods, while missing Secret and node capabilities produce 
     "Pending",
   );
 });
-test("recorded pipeline and secret-provider results fail when their live binding disappears", () => {
+test("recorded pipeline and secret-provider results fail when their live binding disappears", async () => {
   const ch = atChapter("18");
-  applyFiles(ch);
+  await applyFiles(ch);
   assert.match(runCampaignProbe("clean"), /^PASS/);
   const att = structuredClone(
     resource("ConfigMap", "attestation", ch.namespace),
@@ -313,9 +318,11 @@ test("recorded pipeline and secret-provider results fail when their live binding
   applyResource(att, ch.namespace);
   assert.match(runCampaignProbe("clean"), /^FAIL/);
   const eso = atChapter("20");
-  applyFiles(eso);
+  await applyFiles(eso);
   assert.match(runCampaignProbe("sync"), /^PASS/);
   deleteResource("secretstores", "vault", eso.namespace);
+  assert.match(runCampaignProbe("sync"), /^FAIL/, "a retained Secret and last successful Ready condition do not establish current provider availability");
+  await clusterCommand("sleep 61");
   assert.equal(
     resource("ExternalSecret", "database", eso.namespace).status.conditions[0]
       .status,
@@ -327,20 +334,20 @@ test("recorded pipeline and secret-provider results fail when their live binding
     "retained old Secret cannot prove an available provider",
   );
 });
-test("hidden compliance failures and overbroad syscall profiles cannot pass negative proof", () => {
+test("hidden compliance failures and overbroad syscall profiles cannot pass negative proof", async () => {
   const ch = atChapter("23");
-  applyFiles(ch);
+  await applyFiles(ch);
   const profile = structuredClone(
     resource("TailoredProfile", "district", ch.namespace),
   );
-  profile.disableRules.push({
-    name: "audit-enabled",
+  profile.spec.disableRules.push({
+    name: "rhcos4-service-auditd-enabled",
     rationale: "hide failure",
   });
   applyResource(profile, ch.namespace);
   assert.match(runCampaignProbe("applicable"), /^FAIL/);
   const spo = atChapter("25");
-  applyFiles(spo);
+  await applyFiles(spo);
   const seccomp = structuredClone(
     resource("SeccompProfile", "app", spo.namespace),
   );

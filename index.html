@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#050c13" />
+    <meta name="theme-color" content="#182330" />
     <title>The Ghost Route — OpenShift Security Adventure</title>
   </head>
   <body>
@@ -22,7 +22,10 @@
         <button class="navtab" data-nav="journey">Journey</button>
       </nav>
       <div class="topright">
-        <div class="episode"><b id="episodeLabel">CHAPTER 01 / 27</b><span id="episodeTitle">The Ghost Route</span></div>
+        <div class="episode">
+          <b id="episodeLabel">CHAPTER 01 / 27</b
+          ><span id="episodeTitle">The Ghost Route</span>
+        </div>
         <div class="progress">
           <b id="missionProgress">0%</b><span>MISSION PROGRESS</span>
         </div>
@@ -42,6 +45,16 @@
           ><button id="sceneBack" class="btnquiet compact" hidden>
             Leave this room
           </button>
+        </div>
+        <div class="investigationTools" aria-label="Investigation tools">
+          <div class="control">
+            <button class="actionbtn" id="traceBtn" type="button">
+              Trace Vision <kbd>SPACE</kbd></button
+            ><button class="actionbtn" id="caseBtn" type="button">
+              Case Board <span class="key" id="evidenceCount">0 / 5</span>
+            </button>
+          </div>
+          <span class="toolGuide">Explore · talk · collect evidence</span>
         </div>
         <div
           id="changeNotice"
@@ -119,14 +132,14 @@
           <section class="notesDock" aria-label="Investigator notebook">
             <div class="notesHeading">
               <label for="caseNotes">Case notebook</label
-              ><span id="localStatus">Local autosave enabled</span>
+              ><span id="localStatus">Autosave on</span>
             </div>
             <textarea
               id="caseNotes"
               maxlength="50000"
-              placeholder="Write leads, evidence, and commands here. Your notes follow you to the bastion…"
+              placeholder="What changed? Who had access? Keep your evidence and next commands here…"
             ></textarea>
-            <p>Talk to witnesses → gather evidence → return to the bastion.</p>
+            <p>Your notes follow you to the bastion.</p>
           </section>
           <section class="intelDock" aria-label="Live investigation health">
             <section
@@ -141,7 +154,7 @@
                     data-health-view="application"
                     aria-pressed="true"
                   >
-                    App</button
+                    Application</button
                   ><button data-health-view="cluster" aria-pressed="false">
                     Cluster
                   </button>
@@ -158,7 +171,7 @@
           hidden
           role="dialog"
           aria-modal="true"
-          aria-label="Training bastion terminal"
+          aria-label="Bastion terminal"
         >
           <div class="bastionPanel">
             <div id="bastionHealth" class="bastionHealth"></div>
@@ -251,7 +264,7 @@
         </section>
         <section id="casepanel" hidden aria-label="Evidence case board">
           <div class="panelhead">
-            <h2>Caseboard</h2>
+            <h2>Case Board</h2>
             <button
               class="cross"
               id="closeCase"
@@ -270,18 +283,11 @@
         </section>
       </div>
       <footer class="below">
-        <div class="control">
-          <button class="actionbtn" id="traceBtn" type="button">
-            Trace Vision <kbd>SPACE</kbd></button
-          ><button class="actionbtn" id="caseBtn" type="button">
-            Caseboard <span class="key" id="evidenceCount">0 / 5</span>
-          </button>
-        </div>
         <div class="tinyhelp">
           <kbd>W A S D</kbd> move <span>·</span> <kbd>E</kbd> interact
           <span>·</span> <kbd>T</kbd> use bastion nearby
         </div>
-        <p class="copyright">OFFLINE TRAINING · OPENSHIFT 4.22</p>
+        <p class="copyright">OPENSHIFT 4.22</p>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

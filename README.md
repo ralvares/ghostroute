@@ -2,7 +2,7 @@
 
 **A payment succeeds. A second request leaves the cluster. Nobody approved its destination.**
 
-[Play the adventure](https://ralvares.github.io/ghostroute/)
+[Play the adventure](https://gameplay.ralvares.com/)
 
 Mira calls you to RHACS Central before the morning release. Checkout is still
 working, the dashboard is mostly green, and the application team wants to ship.
@@ -12,6 +12,11 @@ follow you through the entire journey: **who changed the telemetry, how did it
 happen, and what will stop it happening again?**
 
 ![Enter the cluster district and gather leads from its people.](docs/screenshots/cluster-district.png)
+
+The bastion keeps the standard client help and output. Trace Vision and the
+Case Board sit above the world; your notebook stays beside the larger console.
+
+![Native OpenShift client help at the bastion.](docs/screenshots/bastion-native-help.png)
 
 ## One investigation, one changing cluster
 
@@ -57,7 +62,11 @@ still carry a vulnerable dependency or an unsafe manifest. You scan the image
 and its SPDX SBOM with `roxctl`, inspect the findings, and compare the repaired
 version. The pipeline applies the same Central policies you tested at the
 bastion. The unsafe artifact stops; the repaired artifact proceeds with its
-own digest. You also close the unreviewed configuration import. The first
+own digest. Local edits do not change that build: you must commit and push the
+source. The webhook starts Tekton, and TaskRun logs show exactly where the gate
+stopped. A passing build still does not promote itself. You review the Deployment
+manifest, commit and push its new image, and watch Argo CD reconcile the same
+payment-api in prod-east. You also close the unreviewed configuration import. The first
 incident now has an explanation and controls that address its cause.
 
 The remaining journey tests whether those controls survive change: rotating
@@ -118,6 +127,92 @@ Base64 can reveal a Secret's content; it is not encryption.
 
 ![The release gate blocks a vulnerable artifact before signing.](docs/screenshots/release-gate.png)
 
+### A copied credential and a mounted credential have different lifetimes
+
+A CSI volume maps its `secretProviderClass` to a same-namespace
+SecretProviderClass. That class names the Vault role, remote path, key and
+mounted filename. Read the resulting file from the Pod; verify the driver and
+node registration before blaming SCC for a mount failure. The chapter requests
+no Kubernetes Secret copy. The preinstalled driver also supports optional
+`secretObjects` sync and two-minute rotation; inspect environment and mounted
+files separately when the provider credential changes.
+
+![Read the mapped provider credential from the CSI volume.](docs/screenshots/csi-mounted-secret.png)
+
+The next consumer requires a Kubernetes Secret. ESO updates that copy, and its
+normal Secret-volume file follows the new value. The running container's
+environment remains the value captured at startup. Inspect both before
+restarting the consumer; a restart cannot repair a failed provider mapping.
+
+![Compare the Secret consumer's startup environment with its mounted file before restarting.](docs/screenshots/external-secret-consumer.png)
+
+### The doors, addresses and identities are connected
+
+Deployment metadata labels and Pod template labels are distinct. A Deployment
+selector must match its template. Services select Pods by their actual labels;
+Endpoints and EndpointSlices reflect their readiness and resolved target ports.
+A Route can be admitted while its Service has no healthy backend. Use the
+bastion to establish the whole path:
+
+```sh
+oc get deployments -n payments --show-labels
+oc get deployments -n payments -L app -o wide
+oc get pods -n payments -l app=payment-api --show-labels
+oc get services -n payments -o wide
+oc get endpointslices -n payments -l kubernetes.io/service-name=payment-api -o yaml
+oc get routes -n payments -o yaml
+oc exec payment-api-7d9cd-ab12 -n payments -- curl -I http://ledger:8443/health
+```
+
+`-L labels` selects the literal label key `labels`; it does not print every label.
+`--show-labels` does. Use a current Pod name after a rollout.
+
+Project provisioning uses `oc new-project`. Direct Namespace creation requires
+a cluster grant. Permissions come from inspectable Roles and bindings, and
+revocation takes effect immediately. A sealed envelope in the records archive
+contains a separate emergency credential. Finding it gives you the opportunity
+to administer the cluster; it does not make your normal operator identity an
+administrator.
+
+### The sensor remembers what the replacement Pod cannot
+
+Authorized `oc exec` and `oc rsh` produce the enabled default exec-policy alert.
+Process baselines learn names while unlocked. At the RHACS computer you can lock
+a baseline and separately enable Pod termination for deviations. A Java process
+launching a shell can produce its own policy violation. Runtime enforcement
+removes the offending Pod; its Deployment creates a replacement. The retained
+alert keeps the old Pod UID and process ancestry. Restarting does not repair
+vulnerable application code.
+
+```sh
+cat rhacs/alerts.json | jq '.alerts[] | {policy: .policy.name, deployment: .deployment.name, enforcement: .enforcement}'
+cat rhacs/processes.json | jq '.processes[] | {pod: .podId, uid: .podUid, process: .signal}'
+cat rhacs/baselines.json | less
+```
+
+The reusable runtime engine is implemented; Chapter 20's current mandatory
+case remains the bounded support-exec correlation exercise. A mandatory web
+exploit-to-source-repair chapter is not yet implemented. Runtime messages and
+collector signals are authored offline evidence with upstream protobuf field
+shapes, not a live Collector capture.
+
+Your [auditing demo](https://github.com/ralvares/security-demos/tree/6954a942a4d1a19b172f510e10e5838fa7ede6ad/use_cases/auditing)
+contributes a separate historical reference archive and a TypeScript adaptation
+of its custom timemachine plugin. It does not execute Python or Bash. The 34
+selected original events preserve their timestamps, identities and source IPs;
+they are not presented as events from prod-east.
+
+```sh
+cat forensics/README.md
+oc timemachine --auditlog-file ~/forensics/reference-audit.log get deployments -n frontend --time 2025-12-10T06:31:00Z -o json
+cat forensics/reference-audit.log | jq 'select(.user.username == "system:serviceaccount:payments:visa-processor") | {time: .requestReceivedTimestamp, sourceIPs, verb, objectRef}'
+```
+
+Real installations need the custom plugin installed. Current port scope:
+retained-object snapshots, explicit time zones, successful writes, direct
+object history, selectors and JSON/YAML/table output. Recursive ownership
+lineage and full upstream history formatting remain outside this adapter.
+
 ## The 27 stages
 
 Each stage carries the investigation forward. Interviews, dossiers and terminal
@@ -145,15 +240,17 @@ in `prod-east` throughout the journey.
 | 16 · Two Cities, One Address Book | Tenants need separate network domains. | Primary user-defined networks and domain-specific addressing. |
 | 17 · The Cable Behind the Wall | A secondary attachment creates another possible path. | NetworkAttachmentDefinition, worker capabilities and attachment boundaries. |
 | 18 · The Assembly Line | An unsafe release can be signed and shipped again. | Image/SPDX scans, CVEs, deployment checks, Central policy gates and digest binding. |
-| 19 · Borrowed Secrets | An application needs a scoped external secret projection. | CSI mapping, provider scope and mounted secrets. |
-| 20 · The Copy That Must Change | An external credential rotates while a Kubernetes copy goes stale. | External Secrets reconciliation and consumer lifecycle. |
+| 19 · Borrowed Secrets | An application needs a scoped external secret projection. | Same-namespace SecretProviderClass mapping, driver registration, provider authorization and reading the mounted file. |
+| 20 · The Copy That Must Change | An external credential rotates while a running consumer retains its startup value. | ESO refresh policy and ownership; mounted file updates versus startup environment; consumer restart after rotation. |
 | 21 · One Event Is Not a Story | A runtime event could be support work or suspicious behavior. | Context from Pod, namespace, caller, time and runtime evidence. |
 | 22 · The Alarm That Cried Fire | Normal bursts drown out sustained abnormal activity. | Duration-aware detection thresholds and useful correlation. |
 | 23 · The Green Report | A green result hides an unresolved applicable failure. | Remediation, justified tailoring and honest compliance evidence. |
-| 24 · A Room Inside a Room | An untrusted workload needs a stronger execution boundary. | Kata isolation, runtime prerequisites and SCC admission. |
+| 24 · A Room Inside a Room | An untrusted workload needs a stronger execution boundary. | Kata VM isolation; RuntimeClass admission, node eligibility, installed runtime handler and independent SCC admission. |
 | 25 · The Smallest Set of Moves | A workload has more syscall access than its normal behavior needs. | Workload-specific seccomp profiles and recording versus enforcement. |
 | 26 · The Front-Door Covenant | New workloads can bypass the team's ownership standards. | Scoped admission constraints and bounded exceptions. |
 | 27 · The City That Remembers | The team must operate safely after the investigator leaves. | Rechecking earlier controls, evidence handover, ownership and exception expiry. |
+
+Each learning claim has an observable acceptance contract in [LEARNING_CONTRACTS.md](docs/LEARNING_CONTRACTS.md), including component versions, commands, negative checks and current engine boundaries.
 
 Concepts are adapted from the [OpenShift security framework](https://github.com/ralvares/openshift-security-framework).
 [CAMPAIGN.md](CAMPAIGN.md) maps stages to its source labs;
@@ -241,6 +338,6 @@ npm test
 npm run build -- --base=/ghostroute/
 ```
 
-The published game is [ralvares.github.io/ghostroute](https://ralvares.github.io/ghostroute/).
+The published game is [ralvares.github.io/ghostroute](https://gameplay.ralvares.com/).
 Use `/` for a user site or custom domain. Cached updates activate when the
 complete new build is available; reload to use it. Local progress is retained.

@@ -1,5 +1,24 @@
-import {getImage} from "../security/rhacs/images.js";
-import {validCentral} from "../security/rhacs/types.js";
+import { operatorCrds } from "../operators/crds.js";
+import { installedOperatorFixtures } from "../operators/installation.js";
+import { secretCrds } from "../security/secret-crds.js";
+import { createRuntime } from "../security/rhacs/runtime-state.js";
+import { csiInstallationFixtures } from "../security/secret-consumers.js";
+import {
+  initialApplicationNetwork,
+  reconcileServices,
+} from "../network/services.js";
+import { networkCrds } from "../network/crds.js";
+import {
+  bootstrapRbac,
+  projectAdminBinding,
+} from "../security/bootstrap-rbac.js";
+import { createGitOpsState } from "../gitops/state.js";
+import { gitopsCrds } from "../gitops/crds.js";
+import { createTektonState } from "../release/state.js";
+import { releaseCrds } from "../release/crds.js";
+import { createRepository, validRepository } from "../release/repository.js";
+import { getImage } from "../security/rhacs/images.js";
+import { validCentral } from "../security/rhacs/types.js";
 import { projectIncident } from "./incident-controller.js";
 import { buildIncidentResources } from "./incident-resources.js";
 import { normalizeSecret } from "./secrets.js";
@@ -68,11 +87,130 @@ export function decodeProgress(text: string): SimulationState {
   )
     throw new Error("Unsupported progress file. Expected game save version 1.");
   if (saved.data.cluster) {
+    if (!saved.data.cluster.engineRevision) {
+      saved.data.cluster.resources.push(...structuredClone(networkCrds));
+      saved.data.cluster.engineRevision = 1;
+    }
+    if (
+      !saved.data.cluster.resources?.some(
+        (r: any) =>
+          r.kind === "ClusterRole" && r.metadata.name === "cluster-admin",
+      )
+    ) {
+      saved.data.cluster.resources.push(...bootstrapRbac());
+      for (const namespace of saved.data.cluster.ownedNamespaces ?? [])
+        if (
+          namespace !== "payments" &&
+          saved.data.cluster.resources.some(
+            (r: any) => r.kind === "Namespace" && r.metadata.name === namespace,
+          )
+        )
+          saved.data.cluster.resources.push(
+            projectAdminBinding(namespace, "operator"),
+          );
+    }
+    if (saved.data.cluster.engineRevision < 2) {
+      for (const fixture of initialApplicationNetwork())
+        if (
+          !saved.data.cluster.resources.some(
+            (r: any) =>
+              r.kind === fixture.kind &&
+              r.metadata.name === fixture.metadata.name &&
+              r.metadata.namespace === fixture.metadata.namespace,
+          )
+        )
+          saved.data.cluster.resources.push(fixture);
+      reconcileServices(saved.data.cluster.resources);
+      saved.data.cluster.engineRevision = 2;
+    }
+    saved.data.cluster.userNamespaces ??= { sequence: 0, allocations: {} };
+    saved.data.cluster.clockOffsetMs ??= 0;
+    saved.data.cluster.podRuntime ??= {};
+    saved.data.cluster.externalSecrets ??= {};
+    if (saved.data.cluster.engineRevision < 3) {
+      for (const fixture of csiInstallationFixtures())
+        if (
+          !saved.data.cluster.resources.some(
+            (r: any) =>
+              r.kind === fixture.kind &&
+              r.metadata.name === fixture.metadata.name,
+          )
+        )
+          saved.data.cluster.resources.push(fixture);
+      const capable = saved.data.cluster.resources.find(
+        (r: any) => r.kind === "Node" && r.metadata.name === "worker-02",
+      );
+      if (capable) {
+        capable.metadata.labels["feature.node.kubernetes.io/runtime.kata"] =
+          "true";
+        capable.status.runtimeHandlers = [
+          { name: "kata", features: { userNamespaces: false } },
+        ];
+      }
+      saved.data.cluster.engineRevision = 3;
+    }
+    if (saved.data.cluster.engineRevision < 4) {
+      for (const crd of secretCrds)
+        if (
+          !saved.data.cluster.resources.some(
+            (r: any) =>
+              r.kind === "CustomResourceDefinition" &&
+              r.metadata.name === crd.metadata.name,
+          )
+        )
+          saved.data.cluster.resources.push(structuredClone(crd));
+      saved.data.cluster.engineRevision = 4;
+    }
+    if (saved.data.cluster.engineRevision < 5) {
+      for (const fixture of installedOperatorFixtures())
+        if (
+          !saved.data.cluster.resources.some(
+            (r: any) =>
+              r.kind === fixture.kind &&
+              r.metadata.name === fixture.metadata.name &&
+              r.metadata.namespace === fixture.metadata.namespace,
+          )
+        )
+          saved.data.cluster.resources.push(fixture);
+      for (const crd of operatorCrds) {
+        const existing = saved.data.cluster.resources.find(
+          (r: any) =>
+            r.kind === "CustomResourceDefinition" &&
+            r.metadata.name === crd.metadata.name,
+        );
+        if (existing)
+          Object.assign(existing, structuredClone(crd), {
+            metadata: { ...existing.metadata, ...crd.metadata },
+          });
+      }
+      for (const profile of saved.data.cluster.resources.filter(
+        (r: any) => r.kind === "TailoredProfile" && !r.spec && r.disableRules,
+      )) {
+        profile.spec = {
+          title: profile.metadata.name,
+          description: "Imported tailoring",
+          extends: profile.extends,
+          disableRules: profile.disableRules.map((r: any) => ({
+            ...r,
+            name:
+              r.name === "usb-storage"
+                ? "rhcos4-kernel-module-usb-storage-disabled"
+                : r.name === "audit-enabled"
+                  ? "rhcos4-service-auditd-enabled"
+                  : r.name,
+          })),
+        };
+        delete profile.extends;
+        delete profile.disableRules;
+      }
+      saved.data.cluster.engineRevision = 5;
+    }
     saved.data.cluster.incidentStored ??= false;
     saved.data.cluster.rhacs ??= makeState().cluster.rhacs;
+    saved.data.cluster.rhacs.runtime ??= createRuntime();
     saved.data.cluster.registry ??= makeState().cluster.registry;
   }
-  saved.data.incidentNetwork ??= {dns:true,ledger:true,external:true};
+  saved.data.incidentNetwork ??= { dns: true, ledger: true, external: true };
   if (saved.data.deployment) saved.data.deployment.desiredReplicas ??= 2;
   saved.data.story ??= { inventory: [], discoveries: [] };
   saved.data.story.notes ??= "";
@@ -157,6 +295,25 @@ export function decodeProgress(text: string): SimulationState {
       )
         saved.data.cluster.resources.push(fixture);
     }
+  if (saved.data.cluster) {
+    const upgradeRelease = !saved.data.cluster.tekton,
+      upgradeGitOps = !saved.data.cluster.gitops;
+    saved.data.cluster.sourceRepository ??= createRepository();
+    saved.data.cluster.tekton ??= createTektonState();
+    saved.data.cluster.gitops ??= createGitOpsState();
+    for (const crd of [
+      ...(upgradeRelease ? releaseCrds : []),
+      ...(upgradeGitOps ? gitopsCrds : []),
+    ])
+      if (
+        !saved.data.cluster.resources.some(
+          (r: any) => r.metadata?.name === crd.metadata.name,
+        )
+      )
+        saved.data.cluster.resources.push(structuredClone(crd));
+    if (!validRepository(saved.data.cluster.sourceRepository))
+      throw new Error("Progress file contains invalid source repository data.");
+  }
   // Version 1 saves made before filesystem navigation retain their incident.
   if (saved.data.cluster) {
     saved.data.cluster.apiStorage ??= makeState().cluster.apiStorage;
@@ -177,19 +334,43 @@ export function decodeProgress(text: string): SimulationState {
     object[key] = new Set(object[key]);
   }
   // Upgrade only the previous authored owned-image identity, preserving player files and progress.
-  const oldOwnedDigest="sha256:"+"a".repeat(64);
-  const ownedRef="registry.example.test/owned:arbitrary-uid";
-  const ownedDigest=getImage(ownedRef).digest;
-  for(const resource of saved.data.cluster.resources??[]){
-    const pod=resource.spec?.template?.spec??resource.spec;
-    for(const container of pod?.containers??[])if(container.image===ownedRef+"@"+oldOwnedDigest)container.image=ownedRef+"@"+ownedDigest;
-    if(resource.kind==="ConfigMap" && resource.metadata.name==="attestation" && resource.data?.issuer==="training-release" && resource.data.digest===oldOwnedDigest)resource.data.digest=ownedDigest;
-    if(resource.kind==="PipelineRun" && resource.spec?.pipelineRef?.name==="secure-release"){
-      const ref=resource.spec.params?.find((p:any)=>p.name==="image")?.value;
-      if(!ref||ref===ownedRef)for(const param of resource.spec.params??[])if(param.name==="digest"&&param.value===oldOwnedDigest)param.value=ownedDigest;
+  const oldOwnedDigest = "sha256:" + "a".repeat(64);
+  const ownedRef = "registry.example.test/owned:arbitrary-uid";
+  const ownedDigest = getImage(ownedRef).digest;
+  for (const resource of saved.data.cluster.resources ?? []) {
+    const pod = resource.spec?.template?.spec ?? resource.spec;
+    for (const container of pod?.containers ?? [])
+      if (container.image === ownedRef + "@" + oldOwnedDigest)
+        container.image = ownedRef + "@" + ownedDigest;
+    if (
+      resource.kind === "ConfigMap" &&
+      resource.metadata.name === "attestation" &&
+      resource.data?.issuer === "training-release" &&
+      resource.data.digest === oldOwnedDigest
+    )
+      resource.data.digest = ownedDigest;
+    if (
+      resource.kind === "PipelineRun" &&
+      resource.spec?.pipelineRef?.name === "secure-release"
+    ) {
+      const ref = resource.spec.params?.find(
+        (p: any) => p.name === "image",
+      )?.value;
+      if (!ref || ref === ownedRef)
+        for (const param of resource.spec.params ?? [])
+          if (param.name === "digest" && param.value === oldOwnedDigest)
+            param.value = ownedDigest;
     }
   }
-  for(const [key,text]of Object.entries(saved.data.cluster.files??{}))if(typeof text==="string" && (text.includes(ownedRef)||text.includes("training-release")))saved.data.cluster.files[key]=text.replaceAll(oldOwnedDigest,ownedDigest);
+  for (const [key, text] of Object.entries(saved.data.cluster.files ?? {}))
+    if (
+      typeof text === "string" &&
+      (text.includes(ownedRef) || text.includes("training-release"))
+    )
+      saved.data.cluster.files[key] = text.replaceAll(
+        oldOwnedDigest,
+        ownedDigest,
+      );
   const state = makeState();
   const keys = Object.keys(state).filter((key) => !derived.has(key));
   if (
@@ -244,20 +425,30 @@ export function decodeProgress(text: string): SimulationState {
   if (
     data.story.notes.length > 50000 ||
     !data.story.inventory.every((item) =>
-      ["maintenance-keycard", "worker-pass"].includes(item),
+      ["maintenance-keycard", "worker-pass", "admin-access-key"].includes(item),
     ) ||
     !data.story.discoveries.every((item) =>
-      ["keycard", "access", "audit", "release", "image", "boundary"].includes(
-        item,
-      ),
+      [
+        "keycard",
+        "access",
+        "audit",
+        "release",
+        "image",
+        "boundary",
+        "admin-key",
+      ].includes(item),
     ) ||
     !["cluster", "soc"].includes(data.story.mira.scene) ||
     !isScene(data.world.scene) ||
     !data.world.visited.every(isScene) ||
     data.cluster.version !== "4.22" ||
     !validCentral(data.cluster.rhacs) ||
-    !Object.values(data.cluster.registry.sessions).every(s=>s && typeof s.username === "string" && typeof s.token === "string") ||
-    ![...data.cluster.registry.pulled,...data.cluster.registry.pushed].every(s=>typeof s === "string") ||
+    !Object.values(data.cluster.registry.sessions).every(
+      (s) => s && typeof s.username === "string" && typeof s.token === "string",
+    ) ||
+    ![...data.cluster.registry.pulled, ...data.cluster.registry.pushed].every(
+      (s) => typeof s === "string",
+    ) ||
     !["operator", "platform-admin"].includes(data.cluster.user) ||
     [...data.evidence].some((item) => !clues.has(item)) ||
     [...data.policies].some(
@@ -315,7 +506,14 @@ export function decodeProgress(text: string): SimulationState {
   state.y = Math.max(105, Math.min(594, state.y));
   if (!state.cluster.incidentStored) {
     for (const seed of buildIncidentResources(state))
-      if (!state.cluster.resources.some(r => r.kind === seed.kind && r.metadata.name === seed.metadata.name && r.metadata.namespace === seed.metadata.namespace))
+      if (
+        !state.cluster.resources.some(
+          (r) =>
+            r.kind === seed.kind &&
+            r.metadata.name === seed.metadata.name &&
+            r.metadata.namespace === seed.metadata.namespace,
+        )
+      )
         state.cluster.resources.push(seed);
     state.cluster.incidentStored = true;
   }

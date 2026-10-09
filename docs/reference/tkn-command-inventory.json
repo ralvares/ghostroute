@@ -1,0 +1,1427 @@
+{
+  "client": "0.46.1",
+  "binarySha256": "25677484a078bcc498b71807448ea0c10aa080e56e5faf8357d16e84e0bbde5b",
+  "scope": "Public native help pages; capture does not establish operational support",
+  "pages": 75,
+  "commands": [
+    {
+      "path": "tkn",
+      "subcommands": [
+        "bundle",
+        "clustertriggerbinding",
+        "customrun",
+        "eventlistener",
+        "hub",
+        "pipeline",
+        "pipelinerun",
+        "task",
+        "taskrun",
+        "triggerbinding",
+        "triggertemplate",
+        "completion",
+        "version"
+      ],
+      "aliases": [],
+      "flags": [
+        "--help"
+      ]
+    },
+    {
+      "path": "tkn bundle",
+      "subcommands": [
+        "list",
+        "push"
+      ],
+      "aliases": [
+        "bundle",
+        "tkb",
+        "bundles"
+      ],
+      "flags": [
+        "--help",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn clustertriggerbinding",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list"
+      ],
+      "aliases": [
+        "clustertriggerbinding",
+        "ctb",
+        "clustertriggerbindings"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn customrun",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list"
+      ],
+      "aliases": [
+        "customrun",
+        "cr",
+        "customruns"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn eventlistener",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list",
+        "logs"
+      ],
+      "aliases": [
+        "eventlistener",
+        "el",
+        "eventlisteners"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn hub",
+      "subcommands": [
+        "check-upgrade",
+        "downgrade",
+        "get",
+        "info",
+        "install",
+        "reinstall",
+        "search",
+        "upgrade"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--help",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn pipeline",
+      "subcommands": [
+        "delete",
+        "describe",
+        "export",
+        "list",
+        "logs",
+        "sign",
+        "start",
+        "verify"
+      ],
+      "aliases": [
+        "pipeline",
+        "p",
+        "pipelines"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun",
+      "subcommands": [
+        "cancel",
+        "delete",
+        "describe",
+        "export",
+        "list",
+        "logs"
+      ],
+      "aliases": [
+        "pipelinerun",
+        "pr",
+        "pipelineruns"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn task",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list",
+        "logs",
+        "sign",
+        "start",
+        "verify"
+      ],
+      "aliases": [
+        "task",
+        "t",
+        "tasks"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn taskrun",
+      "subcommands": [
+        "cancel",
+        "delete",
+        "describe",
+        "export",
+        "list",
+        "logs"
+      ],
+      "aliases": [
+        "taskrun",
+        "tr",
+        "taskruns"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn triggerbinding",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list"
+      ],
+      "aliases": [
+        "triggerbinding",
+        "tb",
+        "triggerbindings"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn triggertemplate",
+      "subcommands": [
+        "delete",
+        "describe",
+        "list"
+      ],
+      "aliases": [
+        "triggertemplate",
+        "tt",
+        "triggertemplates"
+      ],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn completion",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--help"
+      ]
+    },
+    {
+      "path": "tkn version",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--check",
+        "--component",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn bundle list",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--cache-dir",
+        "--help",
+        "--no-cache",
+        "--no-color",
+        "--output",
+        "--remote-bearer",
+        "--remote-password",
+        "--remote-skip-tls",
+        "--remote-username",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn bundle push",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--annotate",
+        "--ctime",
+        "--filenames",
+        "--help",
+        "--label",
+        "--no-color",
+        "--remote-bearer",
+        "--remote-password",
+        "--remote-skip-tls",
+        "--remote-username"
+      ]
+    },
+    {
+      "path": "tkn clustertriggerbinding delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn clustertriggerbinding describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn clustertriggerbinding list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn customrun delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn customrun describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--fzf",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn customrun list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--label",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--reverse",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn eventlistener delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn eventlistener describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn eventlistener list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn eventlistener logs",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--tail"
+      ]
+    },
+    {
+      "path": "tkn hub check-upgrade",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn hub downgrade",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--to",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn hub get",
+      "subcommands": [
+        "pipeline",
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--from",
+        "--help",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub info",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--from",
+        "--help",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub install",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--from",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub reinstall",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--from",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub search",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--categories",
+        "--help",
+        "--kinds",
+        "--limit",
+        "--match",
+        "--output",
+        "--platforms",
+        "--tags",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn hub upgrade",
+      "subcommands": [
+        "task"
+      ],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--to",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn pipeline delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--prs",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipeline describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipeline export",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipeline list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipeline logs",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--all",
+        "--context",
+        "--follow",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--prefix",
+        "--timestamps"
+      ]
+    },
+    {
+      "path": "tkn pipeline sign",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--file-name",
+        "--help",
+        "--key-file",
+        "--kms-key",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipeline start",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--context",
+        "--dry-run",
+        "--exit-with-pipelinerun-error",
+        "--filename",
+        "--finally-timeout",
+        "--help",
+        "--kubeconfig",
+        "--labels",
+        "--last",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--param",
+        "--pipeline-timeout",
+        "--pod-template",
+        "--prefix-name",
+        "--resolvertype",
+        "--serviceaccount",
+        "--showlog",
+        "--skip-optional-workspace",
+        "--task-serviceaccount",
+        "--tasks-timeout",
+        "--use-param-defaults",
+        "--use-pipelinerun",
+        "--workspace"
+      ]
+    },
+    {
+      "path": "tkn pipeline verify",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--key-file",
+        "--kms-key",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun cancel",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--context",
+        "--grace",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--ignore-running",
+        "--keep",
+        "--keep-since",
+        "--kubeconfig",
+        "--label",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--pipeline",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--fzf",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun export",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--label",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--reverse",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn pipelinerun logs",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--all",
+        "--context",
+        "--exit-with-pipelinerun-error",
+        "--follow",
+        "--fzf",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--log-failed",
+        "--long",
+        "--namespace",
+        "--no-color",
+        "--prefix",
+        "--task",
+        "--timestamps"
+      ]
+    },
+    {
+      "path": "tkn task delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template",
+        "--trs"
+      ]
+    },
+    {
+      "path": "tkn task describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn task list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn task logs",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--all",
+        "--context",
+        "--follow",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--timestamps"
+      ]
+    },
+    {
+      "path": "tkn task sign",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--file-name",
+        "--help",
+        "--key-file",
+        "--kms-key",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn task start",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--context",
+        "--dry-run",
+        "--filename",
+        "--help",
+        "--image",
+        "--kubeconfig",
+        "--labels",
+        "--last",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--param",
+        "--pod-template",
+        "--prefix-name",
+        "--remote-bearer",
+        "--remote-password",
+        "--remote-skip-tls",
+        "--remote-username",
+        "--serviceaccount",
+        "--showlog",
+        "--skip-optional-workspace",
+        "--timeout",
+        "--use-param-defaults",
+        "--use-taskrun",
+        "--workspace"
+      ]
+    },
+    {
+      "path": "tkn task verify",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--key-file",
+        "--kms-key",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn taskrun cancel",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color"
+      ]
+    },
+    {
+      "path": "tkn taskrun delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--ignore-running",
+        "--ignore-running-pipelinerun",
+        "--keep",
+        "--keep-since",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--task",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn taskrun describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--fzf",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn taskrun export",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn taskrun list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--label",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--reverse",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn taskrun logs",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--all",
+        "--context",
+        "--follow",
+        "--fzf",
+        "--help",
+        "--kubeconfig",
+        "--last",
+        "--limit",
+        "--namespace",
+        "--no-color",
+        "--prefix",
+        "--step",
+        "--timestamps"
+      ]
+    },
+    {
+      "path": "tkn triggerbinding delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn triggerbinding describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn triggerbinding list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn triggertemplate delete",
+      "subcommands": [],
+      "aliases": [
+        "delete",
+        "rm"
+      ],
+      "flags": [
+        "--all",
+        "--allow-missing-template-keys",
+        "--context",
+        "--force",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn triggertemplate describe",
+      "subcommands": [],
+      "aliases": [
+        "describe",
+        "desc"
+      ],
+      "flags": [
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn triggertemplate list",
+      "subcommands": [],
+      "aliases": [
+        "list",
+        "ls"
+      ],
+      "flags": [
+        "--all-namespaces",
+        "--allow-missing-template-keys",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--no-color",
+        "--no-headers",
+        "--output",
+        "--show-managed-fields",
+        "--template"
+      ]
+    },
+    {
+      "path": "tkn hub check-upgrade task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn hub downgrade task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--to",
+        "--type"
+      ]
+    },
+    {
+      "path": "tkn hub get pipeline",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--from",
+        "--help",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub get task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--from",
+        "--help",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub info task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--from",
+        "--help",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub install task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--from",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub reinstall task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--from",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--type",
+        "--version"
+      ]
+    },
+    {
+      "path": "tkn hub upgrade task",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--api-server",
+        "--context",
+        "--help",
+        "--kubeconfig",
+        "--namespace",
+        "--to",
+        "--type"
+      ]
+    }
+  ]
+}

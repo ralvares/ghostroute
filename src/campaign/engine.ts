@@ -1,3 +1,4 @@
+import {projectAdminBinding} from "../security/bootstrap-rbac.js";
 import { stringify } from "yaml";
 import { S } from "../simulation/state.js";
 import { chapters, materialize, object, workload } from "./catalog.js";
@@ -45,7 +46,7 @@ export function registerCampaignFiles() {
             .join("; "),
         "Search: " + ch.artifact.title + " in " + ch.artifact.scene,
         "Read evidence.json and handover.txt. Inspect manifests before applying them.",
-        "Training identities: operator / platform-admin; local password training.",
+        "Operator password: training. Administrator credentials are sealed in the records archive cabinet; read credentials/platform-admin.txt after collecting the key.",
         "Use the manifest's metadata.namespace when present; otherwise target " +
           ch.namespace + ". Roles, RBAC bindings and cluster controls require platform-admin.",
         ...Object.entries(ch.files).map(([name,value]) => [name,typeof value === "object" ? scopeResource(value,ch.namespace) : value] as const).filter(([name,value]) => name.endsWith(".yaml") && typeof value === "object" && value.metadata?.namespace && value.metadata.namespace !== ch.namespace)
@@ -144,13 +145,16 @@ export function advanceCampaign() {
     node.metadata.labels = {
       ...node.metadata.labels,
       "roadshow.virtualization": "true",
+      "feature.node.kubernetes.io/runtime.kata": "true",
       "roadshow.vlan200": "true",
     };
+    applyResource(projectAdminBinding(ch.namespace,"operator"),ch.namespace);
     S.cluster.user = "operator";
     for (const item of ch.seed)
       applyResource(scopeResource(item, ch.namespace), ch.namespace);
     if (ch.id === "16") {
       const peer = ch.namespace + "-peer";
+      S.cluster.user = "platform-admin";
       applyResource(
         object("Namespace", peer, {
           metadata: {
@@ -172,6 +176,8 @@ export function advanceCampaign() {
         },
         peer,
       );
+      applyResource(projectAdminBinding(peer,"operator"),peer);
+      S.cluster.user = "operator";
       applyResource(scopeResource(workload("peer"), peer), peer);
     }
   } finally {
@@ -203,8 +209,19 @@ export function observeCampaignCommand(raw: string, successfulOutput: boolean) {
   }
 }
 export function fingerprint() {
-  // Reads/audit append do not stale proof. Any resource or control change does.
-  return JSON.stringify([S.cluster.resources, S.cluster.sccs]);
+  // An unchanged periodic refresh must not invalidate evidence while the investigator reads it.
+  const stable = S.cluster.resources.map(resource => {
+    // CRD schemas are large. API-owned identity/generation/revision changes
+    // identify schema updates without serializing megabytes on every HUD check.
+    if (resource.kind === "CustomResourceDefinition") return {kind: resource.kind, metadata: resource.metadata};
+    const {resourceVersion, ...metadata} = resource.metadata;
+    if (resource.kind === "ExternalSecret" && resource.status) {
+      const {refreshTime, ...status} = resource.status;
+      return {...resource, metadata, status};
+    }
+    return {...resource, metadata};
+  });
+  return JSON.stringify([stable, S.cluster.sccs]);
 }
 export function campaignChecks() {
   const ch = currentChapter(),

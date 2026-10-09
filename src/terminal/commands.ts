@@ -1,3 +1,5 @@
+import { observeProcess } from "../security/rhacs/runtime.js";
+import { executePodFixture } from "../simulation/pod-exec.js";
 import { policyFiles } from "../simulation/resources.js";
 import {
   removeTelemetry,
@@ -99,6 +101,17 @@ async function executeCommand(cmd: string) {
     if (S !== incident) return;
     if (handled?.legacyCommand) raw = handled.legacyCommand;
     else if (handled) {
+      if (handled.podShell) {
+        G.podShell = true;
+        G.podShellTarget = handled.podShell;
+        $("termPrompt").textContent = "sh-5.1$";
+        $("termTitle").textContent =
+          handled.podShell.name + " — simulated /bin/sh";
+        yes(
+          `Connected to ${handled.podShell.name} Pod in ${handled.podShell.namespace} namespace. Type help; exit returns to bastion.`,
+        );
+        return;
+      }
       if (raw.startsWith("oc login") || raw.startsWith("cd")) switchPrompt();
       updateHUD();
       if (!handled.error && handled.stdout) {
@@ -134,7 +147,10 @@ async function executeCommand(cmd: string) {
           handled.stdout.replace(/\n$/, ""),
           handled.error && !raw.startsWith("roxctl ") ? "error" : "reply",
         );
-      if (handled.stderr) printError(handled.stderr.trimEnd());
+      if (handled.stderr) {
+        if (handled.stderrIsHelp) print(handled.stderr.trimEnd());
+        else printError(handled.stderr.trimEnd());
+      }
       if (handled.pager && !handled.error)
         openPager(handled.stdout, handled.pager);
       return;
@@ -448,15 +464,54 @@ async function executeCommand(cmd: string) {
 
 export function podCmd(raw: string) {
   const txt = raw.trim();
+  const target = G.podShellTarget;
+  const pod = S.cluster.resources.find(
+    (p) => p.kind === "Pod" && p.metadata.uid === target?.uid,
+  );
+  if (!pod) {
+    switchPrompt();
+    printError("command terminated: the connected Pod no longer exists");
+    return;
+  }
+  if (
+    target?.namespace !== "payments" ||
+    pod.metadata.labels?.app !== "payment-api" ||
+    !!target?.container && target.container !== pod.spec?.containers?.[0].name
+  ) {
+    const command = tokenize(txt).map((t) => t.value);
+    const output = executePodFixture(pod, { command, container: target?.container });
+    if (output.exitCode !== 127 && !output.stderr?.startsWith("simulation:"))
+      observeProcess(pod, command, target?.container);
+    if (!S.cluster.resources.includes(pod)) {
+      switchPrompt();
+      printError(
+        "command terminated: Pod was terminated by RHACS runtime enforcement",
+      );
+      return;
+    }
+    if (output.stdout) print(output.stdout.trimEnd());
+    if (output.stderr) printError(output.stderr.trimEnd());
+    return;
+  }
   if (!validPodCommand(txt)) {
     printError(
       "error: unsupported Pod syntax or destination in this offline episode. Type help.",
     );
     return;
   }
+  if (pod) {
+    observeProcess(pod, txt.split(/\s+/));
+    if (!S.cluster.resources.includes(pod)) {
+      switchPrompt();
+      printError(
+        "command terminated: Pod was terminated by RHACS runtime enforcement",
+      );
+      return;
+    }
+  }
   if (/^env(?:\s|$)/.test(txt)) {
     print(
-      `POD_NAME=${S.pods[0].name}\nPOD_NAMESPACE=payments\nLEDGER_URL=https://ledger.payments.svc.cluster.local:8443\n${S.env ? "TELEMETRY_ENDPOINT=https://203.0.113.77/upload" : "# No TELEMETRY_ENDPOINT configured"}`,
+      `POD_NAME=${pod.metadata.name}\nPOD_NAMESPACE=payments\nLEDGER_URL=https://ledger.payments.svc.cluster.local:8443\n${S.env ? "TELEMETRY_ENDPOINT=https://203.0.113.77/upload" : "# No TELEMETRY_ENDPOINT configured"}`,
     );
     return;
   }
@@ -473,7 +528,7 @@ export function podCmd(raw: string) {
       );
     else
       print(
-        "Server: 172.30.0.10\nName: ledger.payments.svc.cluster.local\nAddress: 172.30.121.42",
+        "Server: 172.30.0.10\nName: ledger.payments.svc.cluster.local\nAddress: 172.30.0.11",
       );
     return;
   }

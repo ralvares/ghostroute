@@ -1,0 +1,1686 @@
+{
+  "client": "4.11.3",
+  "binarySha256": "88cc520cd778a7aa4610d6629d633c7807c94f168648fb26b425c5e559a5aa9a",
+  "scope": "Public native help pages; capture does not establish operational support",
+  "pages": 75,
+  "commands": [
+    {
+      "path": "roxctl",
+      "subcommands": [
+        "central",
+        "cluster",
+        "collector",
+        "completion",
+        "declarative-config",
+        "deployment",
+        "image",
+        "sbom",
+        "scanner",
+        "sensor",
+        "version"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central",
+      "subcommands": [
+        "backup",
+        "cert",
+        "crs",
+        "db",
+        "debug",
+        "export",
+        "init-bundles",
+        "login",
+        "machine-to-machine",
+        "migrate-to-operator",
+        "userpki",
+        "whoami"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl cluster",
+      "subcommands": [
+        "delete"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl collector",
+      "subcommands": [
+        "support-packages"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl completion",
+      "subcommands": [],
+      "aliases": [],
+      "flags": []
+    },
+    {
+      "path": "roxctl declarative-config",
+      "subcommands": [
+        "create",
+        "lint"
+      ],
+      "aliases": [],
+      "flags": []
+    },
+    {
+      "path": "roxctl deployment",
+      "subcommands": [
+        "check"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl image",
+      "subcommands": [
+        "check",
+        "sbom",
+        "scan"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl sbom",
+      "subcommands": [
+        "scan"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl scanner",
+      "subcommands": [
+        "download-db",
+        "generate",
+        "upload-db"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl sensor",
+      "subcommands": [
+        "migrate-to-operator"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl version",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--json"
+      ]
+    },
+    {
+      "path": "roxctl central backup",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--certs-only",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central cert",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central crs",
+      "subcommands": [
+        "generate",
+        "list",
+        "revoke"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central db",
+      "subcommands": [
+        "restore"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug",
+      "subcommands": [
+        "authz-trace",
+        "db",
+        "download-diagnostics",
+        "dump",
+        "log"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central export",
+      "subcommands": [
+        "deployments",
+        "images",
+        "nodes",
+        "pods"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central init-bundles",
+      "subcommands": [
+        "fetch-ca",
+        "generate",
+        "list",
+        "revoke"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central login",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central machine-to-machine",
+      "subcommands": [
+        "exchange"
+      ],
+      "aliases": [
+        "machine-to-machine",
+        "m2m"
+      ],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central migrate-to-operator",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--from-dir",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central userpki",
+      "subcommands": [
+        "create",
+        "delete",
+        "list"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central whoami",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl cluster delete",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--name",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl collector support-packages",
+      "subcommands": [
+        "upload"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create",
+      "subcommands": [
+        "access-scope",
+        "auth-provider",
+        "notifier",
+        "permission-set",
+        "role"
+      ],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--namespace",
+        "--secret"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config lint",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--file",
+        "--namespace",
+        "--secret"
+      ]
+    },
+    {
+      "path": "roxctl deployment check",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--categories",
+        "--cluster",
+        "--compact-output",
+        "--direct-grpc",
+        "--endpoint",
+        "--file",
+        "--force",
+        "--force-http1",
+        "--headers",
+        "--headers-as-comments",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--junit-suite-name",
+        "--merge-output",
+        "--namespace",
+        "--no-color",
+        "--no-header",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--required-headers",
+        "--retries",
+        "--retry-delay",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context",
+        "--verbose"
+      ]
+    },
+    {
+      "path": "roxctl image check",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--categories",
+        "--cluster",
+        "--compact-output",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--headers",
+        "--headers-as-comments",
+        "--help",
+        "--image",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--junit-suite-name",
+        "--merge-output",
+        "--namespace",
+        "--no-color",
+        "--no-header",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--required-headers",
+        "--retries",
+        "--retry-delay",
+        "--send-notifications",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl image sbom",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--cluster",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--image",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--namespace",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retries",
+        "--retry-delay",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl image scan",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--cluster",
+        "--compact-output",
+        "--direct-grpc",
+        "--endpoint",
+        "--fail",
+        "--force",
+        "--force-http1",
+        "--headers",
+        "--headers-as-comments",
+        "--help",
+        "--image",
+        "--include-snoozed",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--merge-output",
+        "--namespace",
+        "--no-color",
+        "--no-header",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--required-headers",
+        "--retries",
+        "--retry-delay",
+        "--server-name",
+        "--severity",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl sbom scan",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--compact-output",
+        "--content-type",
+        "--direct-grpc",
+        "--endpoint",
+        "--fail",
+        "--file",
+        "--force-http1",
+        "--headers",
+        "--headers-as-comments",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--merge-output",
+        "--no-color",
+        "--no-header",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--required-headers",
+        "--server-name",
+        "--severity",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl scanner download-db",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--scanner-db-file",
+        "--server-name",
+        "--skip-central",
+        "--skip-variants",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context",
+        "--version"
+      ]
+    },
+    {
+      "path": "roxctl scanner generate",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--cluster-type",
+        "--direct-grpc",
+        "--enable-pod-security-policies",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--istio-support",
+        "--no-color",
+        "--output-dir",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--scanner-image",
+        "--scanner-v4-db-image",
+        "--scanner-v4-image",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl scanner upload-db",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--scanner-db-file",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl sensor migrate-to-operator",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--from-dir",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--namespace",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central crs generate",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--max-clusters",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context",
+        "--valid-for",
+        "--valid-until"
+      ]
+    },
+    {
+      "path": "roxctl central crs list",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central crs revoke",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central db restore",
+      "subcommands": [
+        "cancel",
+        "status"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--interrupt",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug authz-trace",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug db",
+      "subcommands": [
+        "stats"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug download-diagnostics",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--clusters",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--output-dir",
+        "--output-file-name",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--since",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context",
+        "--with-compliance-operator",
+        "--with-database-only"
+      ]
+    },
+    {
+      "path": "roxctl central debug dump",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--logs",
+        "--no-color",
+        "--output-dir",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug log",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--level",
+        "--modules",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central export deployments",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central export images",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central export nodes",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central export pods",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central init-bundles fetch-ca",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--output",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central init-bundles generate",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--output",
+        "--output-secrets",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central init-bundles list",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central init-bundles revoke",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central machine-to-machine exchange",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central userpki create",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--cert",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--role",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central userpki delete",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central userpki list",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--json",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl collector support-packages upload",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--overwrite",
+        "--password",
+        "--plaintext",
+        "--retry-timeout",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create access-scope",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--cluster-label-selector",
+        "--config-map",
+        "--description",
+        "--included",
+        "--name",
+        "--namespace",
+        "--namespace-label-selector"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider",
+      "subcommands": [
+        "iap",
+        "oidc",
+        "openshift-auth",
+        "saml",
+        "userpki"
+      ],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--minimum-access-role",
+        "--name",
+        "--namespace",
+        "--required-attributes",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create notifier",
+      "subcommands": [
+        "generic",
+        "splunk"
+      ],
+      "aliases": [],
+      "flags": [
+        "--name"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create permission-set",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--description",
+        "--name",
+        "--namespace",
+        "--resource-with-access"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create role",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--access-scope",
+        "--config-map",
+        "--description",
+        "--name",
+        "--namespace",
+        "--permission-set"
+      ]
+    },
+    {
+      "path": "roxctl central db restore cancel",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central db restore status",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl central debug db stats",
+      "subcommands": [
+        "reset"
+      ],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider iap",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--audience",
+        "--config-map",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--minimum-access-role",
+        "--name",
+        "--namespace",
+        "--required-attributes",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider oidc",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--claim-mappings",
+        "--client-id",
+        "--client-secret",
+        "--config-map",
+        "--disable-offline-access",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--issuer",
+        "--minimum-access-role",
+        "--mode",
+        "--name",
+        "--namespace",
+        "--required-attributes",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider openshift-auth",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--minimum-access-role",
+        "--name",
+        "--namespace",
+        "--required-attributes",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider saml",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--config-map",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--idp-cert",
+        "--idp-issuer",
+        "--metadata-url",
+        "--minimum-access-role",
+        "--name",
+        "--name-id-format",
+        "--namespace",
+        "--required-attributes",
+        "--sp-issuer",
+        "--sso-url",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create auth-provider userpki",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca-file",
+        "--config-map",
+        "--extra-ui-endpoints",
+        "--groups-key",
+        "--groups-role",
+        "--groups-value",
+        "--minimum-access-role",
+        "--name",
+        "--namespace",
+        "--required-attributes",
+        "--ui-endpoint"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create notifier generic",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--audit-logging",
+        "--extra-fields",
+        "--headers",
+        "--webhook-cacert-file",
+        "--webhook-endpoint",
+        "--webhook-password",
+        "--webhook-skip-tls-verify",
+        "--webhook-username"
+      ]
+    },
+    {
+      "path": "roxctl declarative-config create notifier splunk",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--audit-logging",
+        "--source-types",
+        "--splunk-endpoint",
+        "--splunk-skip-tls-verify",
+        "--splunk-token",
+        "--truncate"
+      ]
+    },
+    {
+      "path": "roxctl central debug db stats reset",
+      "subcommands": [],
+      "aliases": [],
+      "flags": [
+        "--ca",
+        "--direct-grpc",
+        "--endpoint",
+        "--force-http1",
+        "--help",
+        "--insecure",
+        "--insecure-skip-tls-verify",
+        "--no-color",
+        "--password",
+        "--plaintext",
+        "--server-name",
+        "--timeout",
+        "--token-file",
+        "--use-current-k8s-context"
+      ]
+    }
+  ]
+}

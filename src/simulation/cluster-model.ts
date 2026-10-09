@@ -1,9 +1,26 @@
+import {installedOperatorFixtures} from "../operators/installation.js";
+import {operatorCrds} from "../operators/crds.js";
+import {secretCrds} from "../security/secret-crds.js";
+import {networkCrds} from "../network/crds.js";
+import {csiInstallationFixtures} from "../security/secret-consumers.js";
+import {bootstrapRbac} from "../security/bootstrap-rbac.js";
+import {createGitOpsState} from "../gitops/state.js";
+import {gitopsCrds} from "../gitops/crds.js";
+import {createTektonState} from "../release/state.js";
+import {releaseCrds} from "../release/crds.js";
+import {createRepository} from "../release/repository.js";
 import {createRegistry} from "../security/registry.js";
 import {createCentral} from "../security/rhacs/types.js";
 import { defaultSccs } from "./default-sccs.js";
 import { installedCrds } from "./installed-crds.js";
 export interface SecurityContext {
   runAsUser?: number;
+  runAsGroup?: number;
+  runAsNonRoot?: boolean;
+  fsGroup?: number;
+  supplementalGroups?: number[];
+  seLinuxOptions?: {user?:string;role?:string;type?:string;level?:string};
+  procMount?: string;
   privileged?: boolean;
   allowPrivilegeEscalation?: boolean;
   readOnlyRootFilesystem?: boolean;
@@ -13,23 +30,28 @@ export interface SecurityContext {
 export interface ContainerSpec {
   name: string;
   image: string;
+  args?: string[];
+  ports?: {name?:string;containerPort:number;protocol?:string}[];
   securityContext?: SecurityContext;
   env?: {
     name: string;
     value?: string;
-    valueFrom?: { secretKeyRef: { name: string; key: string } };
+    valueFrom?: { secretKeyRef: { name: string; key: string; optional?: boolean } };
   }[];
   resources?: {
     requests?: Record<string, string>;
     limits?: Record<string, string>;
   };
-  volumeMounts?: { name: string; mountPath: string; readOnly?: boolean }[];
+  volumeMounts?: { name: string; mountPath: string; readOnly?: boolean; subPath?: string }[];
 }
 export interface PodSpec {
+  overhead?: Record<string, string>;
+  tolerations?: unknown[];
   runtimeClassName?: string;
   nodeSelector?: Record<string, string>;
   nodeName?: string;
   containers: ContainerSpec[];
+  initContainers?: ContainerSpec[];
   serviceAccountName?: string;
   securityContext?: SecurityContext;
   hostUsers?: boolean;
@@ -49,8 +71,10 @@ export interface Resource {
     namespace?: string;
     creationTimestamp?: string;
     deletionTimestamp?: string;
+    finalizers?: string[];
     annotations?: Record<string, string>;
     labels?: Record<string, string>;
+    ownerReferences?: {apiVersion:string;kind:string;name:string;uid:string;controller?:boolean;blockOwnerDeletion?:boolean}[];
   };
   spec?: Partial<PodSpec> & {
     [key: string]: any;
@@ -123,9 +147,11 @@ export function createCluster() {
         labels: {
           ["node-role.kubernetes.io/" +
           (name === "control-01" ? "control-plane" : "worker")]: "",
+          ...(name === "worker-02" ? {"feature.node.kubernetes.io/runtime.kata": "true"} : {}),
         },
       },
       status: {
+        ...(name === "worker-02" ? {runtimeHandlers: [{name: "kata", features: {userNamespaces: false}}]} : {}),
         conditions: [{ type: "Ready", status: "True" }],
         nodeInfo: {
           kubeletVersion: "v1.35.2",
@@ -160,8 +186,16 @@ export function createCluster() {
   const sccs = structuredClone(defaultSccs);
   return {
     registry: createRegistry(),
+    sourceRepository: createRepository(),
+    tekton: createTektonState(),
+    gitops: createGitOpsState(),
     rhacs: createCentral(),
     version: "4.22",
+    engineRevision:5,
+    clockOffsetMs: 0,
+    podRuntime: {} as Record<string, {env: Record<string, Record<string, string>>; files: Record<string, Record<string, string>>; subPaths: Record<string, string>; csiRefresh?: Record<string, number>}>,
+    externalSecrets: {} as Record<string, {fingerprint: string; time: number; targetData: string; managedKeys?: string[]}>,
+    userNamespaces:{sequence:0,allocations:{} as Record<string,number>},
     incidentStored: false,
     policyRevision: "4.22-a18571de",
     user: "operator",
@@ -171,7 +205,14 @@ export function createCluster() {
     directories: [] as string[],
     resources: [
       ...resources,
-      ...structuredClone(installedCrds),
+      ...csiInstallationFixtures(),
+      ...bootstrapRbac(),
+      ...installedOperatorFixtures(),
+      ...structuredClone(installedCrds.filter(r => !operatorCrds.some(crd=>crd.metadata.name===r.metadata.name))),
+      ...structuredClone(secretCrds),
+      ...structuredClone(networkCrds),
+      ...structuredClone(releaseCrds),
+      ...structuredClone(gitopsCrds),
       {
         apiVersion: "v1",
         kind: "ServiceAccount",

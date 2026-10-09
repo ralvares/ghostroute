@@ -1,3 +1,5 @@
+import {createRuntime} from "./runtime-state.js";
+import type {ProcessBaseline,ProcessIndicator,RuntimeAlert} from "./runtime.js";
 export interface Vulnerability {
   cve: string;
   severity: string;
@@ -50,6 +52,7 @@ export interface Policy {
   [key: string]: unknown;
 }
 export interface CentralState {
+  runtime: {sequence:number;baselines:ProcessBaseline[];processes:ProcessIndicator[];alerts:RuntimeAlert[]};
   policyOverrides: Record<string, Partial<Policy>>;
   customPolicies: Policy[];
   receipts: {
@@ -61,6 +64,7 @@ export interface CentralState {
   }[];
 }
 export const createCentral = (): CentralState => ({
+  runtime: createRuntime(),
   policyOverrides: {},
   customPolicies: [],
   receipts: [],
@@ -115,6 +119,10 @@ export function validCentral(value: CentralState): boolean {
         (p.disabled === undefined || typeof p.disabled === "boolean"),
     ) &&
     value.customPolicies.every(policy) &&
+    Number.isInteger(value.runtime.sequence)&&value.runtime.sequence>=0&&value.runtime.alerts.length<=100&&value.runtime.processes.length<=500&&
+    value.runtime.baselines.every(b=>b&&typeof b.id==="string"&&b.key&&typeof b.key.deploymentId==="string"&&Array.isArray(b.elements)&&b.elements.every(e=>e&&typeof e.element?.processName==="string"))&&
+    value.runtime.alerts.every(a=>a&&typeof a.id==="string"&&policy(a.policy)&&["ACTIVE","RESOLVED"].includes(a.state)&&Array.isArray(a.violations)&&a.violations.length<=40)&&
+    value.runtime.processes.every(p=>p&&typeof p.id==="string"&&typeof p.podUid==="string"&&p.signal&&typeof p.signal.name==="string"&&Array.isArray(p.signal.lineageInfo))&&
     value.receipts.every(
       (r) =>
         r &&

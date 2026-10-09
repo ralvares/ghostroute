@@ -1,3 +1,6 @@
+import {observeExec,observeProcess} from "../security/rhacs/runtime.js";
+import {requestProject} from "./project-request.js";
+import {taskPodLogs} from "../release/tekton.js";
 import {
   applyResource,
   deleteResource,
@@ -196,12 +199,21 @@ function handleRequest(request: ApiRequest): ApiResponse {
                 namespaced: definition.namespaced,
                 kind: definition.kind,
                 verbs:
-                  name === "projects"
+                  name === "projectrequests" ? ["create"] : name === "projects"
                     ? ["get", "list"]
                     : ["get", "list", "create", "update", "patch", "delete"],
               })),
           },
         };
+    }
+    const logs=url.pathname.match(/^\/api\/v1\/namespaces\/([^/]+)\/pods\/([^/]+)\/log$/);
+    if(logs){const namespace=decodeURIComponent(logs[1]),name=decodeURIComponent(logs[2]);if(request.method!=="GET")return status(405,"MethodNotAllowed","Pod logs require GET");
+      if(!authorized("get","pods/log",namespace,name))return status(403,"Forbidden",forbidden("get","pods/log",namespace));
+      if(!getResources("pods",namespace,name)[0])return status(404,"NotFound",`pods "${name}" not found`);
+      const text=taskPodLogs(namespace,name,url.searchParams.get("container")||undefined);
+      if(text===undefined)return status(501,"NotImplemented","simulation: no authored logs for this Pod");
+      auditRequest("get","pods",namespace,name,200);const event=S.cluster.audit.at(-1)!;event.objectRef.subresource="log";event.requestURI=url.pathname;
+      return {code:200,body:text};
     }
     const exec = url.pathname.match(
       /^\/api\/v1\/namespaces\/([^/]+)\/pods\/([^/]+)\/exec$/,
@@ -245,6 +257,8 @@ function handleRequest(request: ApiRequest): ApiResponse {
         return status(400, "BadRequest", "exec requires a command array");
       const body = executePodFixture(pod, options);
       record(101);
+      observeExec(pod,options.command);
+      if(body.exitCode!==127&&!body.stderr?.startsWith("simulation:"))observeProcess(pod,options.command,options.container);
       return { code: 101, body };
     }
     const match = url.pathname.match(
@@ -276,6 +290,13 @@ function handleRequest(request: ApiRequest): ApiResponse {
       );
     const ns = namespace ? decodeURIComponent(namespace) : undefined,
       objectName = name ? decodeURIComponent(name) : undefined;
+    if (type === "projectrequests") {
+      if(request.method !== "POST" || objectName) return status(405,"MethodNotAllowed","ProjectRequest supports create only");
+      const object=request.body as Resource;
+      if(object?.kind!=="ProjectRequest"||object.apiVersion!=="project.openshift.io/v1"||!object.metadata?.name) return status(400,"BadRequest","a ProjectRequest with metadata.name is required");
+      if(url.searchParams.has("dryRun")) return status(501,"NotImplemented","simulation: ProjectRequest dry-run is not implemented");
+      return {code:201,body:requestProject(object),message:`Now using project "${object.metadata.name}" on server "https://api.prod-east.example.test:6443".`};
+    }
     if (request.method === "GET") {
       const unknownQuery = [...url.searchParams.keys()].find(
         (key) =>

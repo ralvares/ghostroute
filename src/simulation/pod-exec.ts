@@ -1,8 +1,12 @@
+import {serviceBackends} from "../network/services.js";
+import {consumerEnvironment, consumerFile} from "../security/secret-consumers.js";
+import {networkPolicyDirection} from "../security/network-policy.js";
+import {userNamespaceRange} from "./user-namespaces.js";
 import { podNetworkDomain } from "./pod-addresses.js";
 import { coreResources } from "./cluster-api.js";
 import { S } from "./state.js";
 import type { Resource } from "./cluster-model.js";
-import { flow } from "../campaign/models.js";
+import { flow } from "../simulation/engine.js";
 
 export interface PodExecOptions {
   command: string[];
@@ -42,6 +46,12 @@ export function executePodFixture(
       `Error from server (BadRequest): container ${container.name} is waiting to start: ${status?.state?.waiting?.reason ?? "container is not running"}`,
     );
   const words = options.command;
+  if (words[0] === "env" && words.length === 1) return {stdout: Object.entries(consumerEnvironment(pod, container.name)).map(([key, value]) => key + "=" + value).join("\n") + "\n", exitCode: 0};
+  if (words[0] === "cat" && words.length === 2) {
+    const value = consumerFile(pod, container.name, words[1]);
+    if (value !== undefined) return {stdout: value, exitCode: 0};
+  }
+  if(words.length===1&&["/bin/sh","sh"].includes(words[0]))return {stdout:"",exitCode:0};
   if (
     words.length === 1 &&
     words[0] === "id" &&
@@ -51,6 +61,12 @@ export function executePodFixture(
       stdout: `uid=${container.securityContext?.runAsUser ?? 1000} gid=0(root) groups=0(root)\n`,
       exitCode: 0,
     };
+  if(words[0]==="id"&&words.length===2&&words[1]==="-u") return {stdout:String(container.securityContext?.runAsUser??1000)+"\n",exitCode:0};
+  if(words[0]==="cat"&&words.length===2&&["/proc/self/uid_map","/proc/self/gid_map"].includes(words[1])) {
+    const isolated=pod.spec?.hostUsers===false;
+    const hostBase=isolated?userNamespaceRange(pod):0;
+    return {stdout:[0,hostBase,isolated?65536:4294967295].map(n=>String(n).padStart(10)).join(" ")+"\n",exitCode:0};
+  }
   let host: string,
     port: number,
     head = false,
@@ -96,8 +112,22 @@ export function executePodFixture(
     );
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     return failure("error: invalid destination port", 2);
+  const namespace=pod.metadata.namespace!;
+  let backend: {pod:Resource;port:number}|undefined;
+  const service=S.cluster.resources.find(r=>r.kind==='Service'&&(r.spec?.clusterIP===host||[r.metadata.name+(r.metadata.namespace===namespace?'':'.'+r.metadata.namespace),r.metadata.name+'.'+r.metadata.namespace,r.metadata.name+'.'+r.metadata.namespace+'.svc',r.metadata.name+'.'+r.metadata.namespace+'.svc.cluster.local'].includes(host)));
+  if(service) {
+    if(!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+      const dns:Resource={apiVersion:'v1',kind:'Pod',metadata:{name:'dns-endpoint',namespace:'openshift-dns',labels:{'dns.operator.openshift.io/daemonset-dns':'default'}}};
+      if(networkPolicyDirection(S.cluster.resources,pod,dns,'egress',53,'UDP')===false)return failure('curl: (6) Could not resolve host: '+host,6);
+    }
+    if(service.spec?.type==='ExternalName')return failure('simulation: ExternalName DNS recursion is not implemented',2);
+    const servicePort=service.spec?.ports?.find((p:any)=>p.port===port&&(p.protocol??'TCP')==='TCP');
+    backend=servicePort?serviceBackends(service,S.cluster.resources,servicePort).find(b=>podNetworkDomain(b.pod)===podNetworkDomain(pod)):undefined;
+    if(!backend)return failure(curl?`curl: (7) Failed to connect to ${host} port ${port}`:`nc: connect to ${host} port ${port} failed: Connection refused`,curl?7:1);
+    port=backend.port;
+  }
   const external = host === "203.0.113.77";
-  if (!external && !/^\d+\.\d+\.\d+\.\d+$/.test(host))
+  if (!external && !service && !/^\d+\.\d+\.\d+\.\d+$/.test(host))
     return failure(
       "simulation: these tenant diagnostics use Pod IPs from oc get pods -o wide; service DNS resolution is not implemented here",
       2,
@@ -107,7 +137,7 @@ export function executePodFixture(
   );
   const target = external
     ? undefined
-    : (addressMatches.find(
+    : backend?.pod ?? (addressMatches.find(
         (r) => podNetworkDomain(r) === podNetworkDomain(pod),
       ) ?? addressMatches[0]);
   if (!external && !target)
@@ -117,7 +147,6 @@ export function executePodFixture(
         : `nc: connect to ${host} port ${port} failed: Connection refused`,
       curl ? 7 : 1,
     );
-  const namespace = pod.metadata.namespace!;
   if (
     !flow(
       namespace,

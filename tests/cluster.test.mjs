@@ -1,3 +1,4 @@
+import {requestProject} from "../.test-build/src/simulation/project-request.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resetState, S } from "../.test-build/src/simulation/state.js";
@@ -14,10 +15,8 @@ import { roleAllows } from "../.test-build/src/security/rbac.js";
 
 function lab() {
   resetState();
-  applyResource(
-    { apiVersion: "v1", kind: "Namespace", metadata: { name: "lab" } },
-    "default",
-  );
+  requestProject({apiVersion:"project.openshift.io/v1",kind:"ProjectRequest",metadata:{name:"lab"}});
+  S.cluster.resources.find(r=>r.kind==="RoleBinding"&&r.metadata.namespace==="lab"&&r.metadata.name==="admin").roleRef.name="edit";
 }
 
 test("namespace creation persists; operator cannot grant SCC or create custom SCC", () => {
@@ -128,12 +127,14 @@ test("anyuid remains separate from privileged; revoking its grant affects new co
     getResources("deployments", "lab", "vendor")[0].status.readyReplicas,
     1,
   );
+  S.cluster.user="operator";
   const privileged = parse(labFiles["workloads/owned-root.yaml"]);
   privileged.spec.containers[0].securityContext.privileged = true;
   assert.throws(
     () => applyResource(privileged, "lab"),
     /Privileged containers are not allowed/,
   );
+  S.cluster.user="platform-admin";
   grantScc("anyuid", "vendor", "lab", true);
   restartDeployment("vendor", "lab");
   assert.equal(
@@ -228,5 +229,6 @@ test("stored RBAC objects grant actual access and stay namespace scoped", () => 
     getResources("secrets", "lab", "example")[0].metadata.name,
     "example",
   );
-  assert.throws(() => getResources("secrets", "payments"), /Forbidden/);
+  assert.doesNotThrow(() => getResources("secrets", "payments"));
+  assert.throws(() => getResources("secrets", "default"), /Forbidden/);
 });

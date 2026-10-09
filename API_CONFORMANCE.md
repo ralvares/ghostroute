@@ -154,3 +154,64 @@ browser Podman/Skopeo/RHACS/SPDX/base64/pager/pipe workflow with offline resume;
 and all 27 journey chapters including negative gates, final history recheck,
 offline restoration and export. Receipts: `artifacts/roxctl/native-comparison.json`,
 `secret-native-comparison.json`, `browser-receipt.json` and `campaign-receipt.json`.
+
+
+## Reusable engine and learning contracts (2026-10-09)
+
+This milestone adds source-derived ESO/consumer/CSI/RuntimeClass lifecycles,
+inspectable RBAC and project provisioning, primary UDN, Service endpoints,
+Git remote revisions, Tekton/Triggers, plain-YAML Argo CD reconciliation,
+RHACS process baselines/enforcement and the retained timemachine adapter.
+`docs/LEARNING_CONTRACTS.md` records every chapter's observable outcome,
+versions, positive/negative proof and bounded scope.
+
+Verification: 227 automated tests; all 27 chapters through actual browser
+movement, interviews, terminal inputs, premature-completion denial, offline
+resume and export; separate browser RHACS lock/enforcement/evidence checks;
+and cold offline first-use native help for oc, roxctl and tkn.
+
+Native CLI references: 249 oc 4.22.0 pages, 75 roxctl 4.11.3 pages and 75
+tkn 0.46.1 pages. Tests compare all 399 pages and preserve their native output
+streams. Native command comparisons: 25 oc printers/generators, six tkn
+PipelineRun/TaskRun descriptions/logs and 33 roxctl image/deployment/policy/SPDX
+stdout/exit cases. Each executable talks only to an isolated authored localhost
+API. These comparisons establish those client outputs, not universal server
+parity. Receipts: `artifacts/campaign/native-oc-tables.json`,
+`artifacts/campaign/native-help-offline.json`, `artifacts/tekton`,
+`artifacts/roxctl/native-comparison.json` and `artifacts/campaign/receipt.json`.
+
+ESO checks cover Periodic/OnChange/CreatedOnce, ownership, target merging,
+provider deletion, native hashes, restored refresh state, environment snapshots,
+Secret-volume projection, subPath pinning and consumer restart. CSI checks cover
+read-only mounting, driver/node registration, same-namespace mapping, authorized
+provider access, mounted file contents and native status/owner records. Kata
+checks separate RuntimeClass admission, semantic overhead quantities, node
+selector conflicts, unassigned scheduling, installed handler prerequisites,
+Linux user-namespace support and SCC rejection. Installed CSI rotation/Secret
+sync and native KataConfig inventory are verified by the subsequent refinement
+checks. Workloads start against prepared runtimes; operator installation is not
+a prerequisite the player must perform.
+
+The original legacy game is unchanged. The graphical world remains the main
+view; terminal access is through the bastion. New consequence advice occupies
+a bounded row above the terminal rather than displacing its grid column.
+
+## Installed-operator and interface refinement
+
+The refinement passes 233 Node tests, including preinstalled operator discovery,
+CSI two-minute rotation/optional Secret sync and consumer garbage collection,
+revoked sync RBAC/rotation failure, native Compliance tailoring/check results,
+remediation and explicit rescan. The full test log is retained locally as
+`/private/tmp/ghostroute-release-final-tests.log`.
+
+Browser checks at 1536×1024, 900×900 and 390×844 verify the room overview,
+visible investigation tools, shared notes, larger terminal and exact native
+`oc --help` output. The console starts with an empty prompt. The native help
+capture contains 249 oc, 75 roxctl and 75 tkn pages. Terminal text remains client
+output, with fixture and capability boundaries documented here rather than a
+synthetic CLI help banner.
+
+The custom domain deployment now uses the configured GitHub Pages base path.
+A live browser at `https://gameplay.ralvares.com/` verified graphical startup,
+physical bastion access and `oc get pods -A` after the domain fix. The accepted
+refinement browser receipts are in `artifacts/ui-refinement/receipt.json`.

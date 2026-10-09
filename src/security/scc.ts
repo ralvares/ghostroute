@@ -10,6 +10,7 @@ export function admitPod(
   profiles: Scc[],
   usable: Set<string>,
   uidRange: [number, number],
+  mcs?: string,
 ) {
   const failures: string[] = [];
   const ordered = [...profiles].sort(
@@ -34,9 +35,9 @@ export function admitPod(
       scc.runAsUser.uidRangeMax ?? uidRange[1],
     ];
     const errors: string[] = [];
-    if (input.hostNetwork || input.hostPID || input.hostIPC)
+    if ((input.hostNetwork && !scc.allowHostNetwork) || (input.hostPID && !scc.allowHostPID) || (input.hostIPC && !scc.allowHostIPC))
       errors.push("host namespaces are not allowed");
-    if (input.volumes?.some((volume) => "hostPath" in volume))
+    if (!scc.allowHostDirVolumePlugin && input.volumes?.some((volume) => "hostPath" in volume))
       errors.push("hostPath volumes are not allowed to be used");
     if (
       scc.userNamespaceLevel === "RequirePodLevel" &&
@@ -44,13 +45,37 @@ export function admitPod(
     )
       errors.push(".spec.hostUsers: Invalid value: true: must be false");
     const spec = structuredClone(input);
-    spec.containers.forEach((container, index) => {
+    const allowedVolumes=scc.volumes as string[]|undefined;
+    for(const volume of input.volumes??[]) for(const type of Object.keys(volume).filter(k=>k!=="name")) if(allowedVolumes&&!allowedVolumes.includes("*")&&!allowedVolumes.includes(type)) errors.push(`.spec.volumes: Invalid value: "${type}": ${type} volumes are not allowed to be used`);
+    const podSecurity=spec.securityContext??={};
+    for(const field of ["fsGroup","supplementalGroups"] as const) {
+      const strategy=scc[field] as {type:string;ranges?:{min:number;max:number}[]}|undefined;
+      if(strategy?.type!=="MustRunAs")continue;
+      const ranges=strategy.ranges?.length?strategy.ranges:[{min:uidRange[0],max:uidRange[1]}];
+      const requested=field==="fsGroup"?(podSecurity.fsGroup===undefined?[]:[podSecurity.fsGroup]):podSecurity.supplementalGroups??[];
+      for(const value of requested) if(!ranges.some(r=>value>=r.min&&value<=r.max))errors.push(`.spec.securityContext.${field}: Invalid value: ${value}: is not an allowed group`);
+      if(field==="fsGroup")podSecurity.fsGroup??=ranges[0].min;
+      else if(podSecurity.supplementalGroups===undefined)podSecurity.supplementalGroups=[ranges[0].min];
+    }
+    const selinux=scc.seLinuxContext as {type:string;seLinuxOptions?:SecurityContext["seLinuxOptions"]}|undefined;
+    const requiredSelinux=selinux?.type==="MustRunAs"?{...(mcs?{level:mcs}:{}),...selinux.seLinuxOptions}:undefined;
+    if(requiredSelinux) {
+      for(const [field,value] of Object.entries(requiredSelinux))if(podSecurity.seLinuxOptions?.[field as keyof NonNullable<SecurityContext["seLinuxOptions"]>]!==undefined&&podSecurity.seLinuxOptions[field as keyof NonNullable<SecurityContext["seLinuxOptions"]>]!==value)errors.push(`.spec.securityContext.seLinuxOptions.${field}: Invalid value: SELinux context must match the SCC`);
+      podSecurity.seLinuxOptions={...podSecurity.seLinuxOptions,...requiredSelinux};
+    }
+    if ((input.hostUsers === false || scc.userNamespaceLevel === "RequirePodLevel") && (input.hostNetwork || input.hostPID || input.hostIPC)) errors.push(".spec.hostUsers: Invalid value: false: cannot use host namespaces with a user namespace");
+    [...spec.containers,...(spec.initContainers??[])].forEach((container, index) => {
       const requested: SecurityContext = {
         ...spec.securityContext,
         ...container.securityContext,
       };
-      const path = `.containers[${index}]`;
+      // Pod-only group fields are not valid Container SecurityContext fields.
+      delete requested.fsGroup;
+      delete requested.supplementalGroups;
+      const path = index < spec.containers.length ? `.containers[${index}]` : `.initContainers[${index-spec.containers.length}]`;
       const uid = requested.runAsUser;
+      if(requiredSelinux)for(const [field,value]of Object.entries(requiredSelinux))if(requested.seLinuxOptions?.[field as keyof NonNullable<SecurityContext["seLinuxOptions"]>]!==undefined&&requested.seLinuxOptions[field as keyof NonNullable<SecurityContext["seLinuxOptions"]>]!==value)errors.push(`${path}.seLinuxOptions.${field}: Invalid value: SELinux context must match the SCC`);
+      if(requested.procMount==="Unmasked"&&scc.userNamespaceLevel!=="RequirePodLevel")errors.push(`${path}.procMount: Invalid value: "Unmasked": requires a pod user namespace`);
       if (
         uid !== undefined &&
         scc.runAsUser.type === "MustRunAsRange" &&
@@ -124,7 +149,7 @@ export function admitPod(
           `${path}.seccompProfile: Forbidden: seccomp profile is not allowed`,
         );
       for (const capability of requested.capabilities?.add ?? [])
-        if (!scc.allowedCapabilities?.includes(capability))
+        if (!scc.allowedCapabilities?.includes(capability) && !scc.allowedCapabilities?.includes("*"))
           errors.push(
             `${path}.capabilities.add: Invalid value: "${capability}": capability may not be added`,
           );
@@ -145,6 +170,8 @@ export function admitPod(
           ...requested.capabilities,
           drop: ["ALL"],
         };
+      else if(scc.requiredDropCapabilities?.length)container.securityContext.capabilities={...requested.capabilities,drop:[...new Set([...(requested.capabilities?.drop??[]),...scc.requiredDropCapabilities])]};
+      if(requiredSelinux)container.securityContext.seLinuxOptions={...requested.seLinuxOptions,...requiredSelinux};
       if (name.includes("-v"))
         container.securityContext.seccompProfile ??= { type: "RuntimeDefault" };
     });

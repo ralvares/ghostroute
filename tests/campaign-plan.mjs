@@ -1,6 +1,7 @@
 // Test plan from the authored catalog. No browser state is injected.
 import { chapters, materialize } from "../.test-build/src/campaign/catalog.js";
-import { resourceTypes } from "../.test-build/src/simulation/resource-types.js";
+import { resourceTypes, refreshResourceTypes } from "../.test-build/src/simulation/resource-types.js";
+refreshResourceTypes();
 console.log(
   JSON.stringify(
     chapters.slice(1).map((ch) => ({
@@ -22,7 +23,7 @@ console.log(
           namespace: materialize(value,ch.namespace).metadata.namespace ?? ch.namespace,
           admin:
             !Object.values(resourceTypes).find((d) => d.kind === value.kind)
-              .namespaced || ["Role", "RoleBinding"].includes(value.kind),
+              .namespaced || value.metadata?.namespace === "openshift-gitops" || ["Role", "RoleBinding"].includes(value.kind),
         })),
     })),
   ),

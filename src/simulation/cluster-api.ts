@@ -1,3 +1,8 @@
+import {collectCsiSecrets} from "../security/csi-lifecycle.js";
+import {matchesLabels} from "../security/network-policy.js";
+import {userNamespaceRange} from "./user-namespaces.js";
+import {validateNetwork,awaitingPrimaryNetwork} from "../network/user-defined.js";
+import {validateRbacGrant} from "../security/rbac-admission.js";
 import {privatePullFailure, registryImageKnown} from "../security/registry.js";
 import { projectIncident } from "./incident-controller.js";
 import { defaultNetworkPolicy } from "../security/network-policy.js";
@@ -16,8 +21,10 @@ import {
   validateCustomSchema,
 } from "./custom-resource.js";
 import { jsonPathValues, simulationEpoch } from "./resource-table.js";
-export const clusterTime = () =>
-  simulationEpoch + S.cluster.audit.length * 1000;
+export {emulatorTime as clusterTime} from "./clock.js";
+import {emulatorTime as clusterTime} from "./clock.js";
+import {admitRuntimeClass, selectRuntimeNode, runtimeFailure} from "./runtime-class.js";
+import {prepareSecretConsumer} from "../security/secret-consumers.js";
 import type { Resource, PodSpec, ApiAuditEvent, Scc } from "./cluster-model.js";
 import { authorized, forbidden, roleAllows } from "../security/rbac.js";
 import { admitPod } from "../security/scc.js";
@@ -28,7 +35,7 @@ import {
   schedulingFailure,
   reconcileFixtureControllers,
   resource as findResource,
-} from "../campaign/models.js";
+} from "../simulation/engine.js";
 
 import {
   resourceTypes,
@@ -184,7 +191,7 @@ function namespaceRange(namespace: string): [number, number] {
   return [base, base + count - 1];
 }
 function usableSccs(namespace: string, sa: string, directRequest = false) {
-  const available = new Set(["restricted-v3", "restricted-v2"]);
+  const available = new Set<string>();
   for (const scc of S.cluster.sccs)
     if (
       roleAllows(
@@ -204,14 +211,13 @@ function usableSccs(namespace: string, sa: string, directRequest = false) {
         ))
     )
       available.add(scc.metadata.name);
-  if (directRequest && S.cluster.user === "platform-admin")
-    available.add("anyuid");
   return available;
 }
 
 function admitResource(resource: Resource, directRequest = true, runRuntime = true) {
   const namespace = resource.metadata.namespace!;
   const spec = resource.spec as PodSpec;
+  admitRuntimeClass(resource, S.cluster.resources);
   validateCampaignPod(resource);
   const sa = spec.serviceAccountName ?? "default";
   if (
@@ -227,26 +233,24 @@ function admitResource(resource: Resource, directRequest = true, runRuntime = tr
     );
   const admission = admitPod(
     spec,
-    S.cluster.sccs,
+    resource.metadata.annotations?.["openshift.io/required-scc"] ? S.cluster.sccs.filter(scc=>scc.metadata.name===resource.metadata.annotations!["openshift.io/required-scc"]) : S.cluster.sccs,
     usableSccs(namespace, sa, directRequest),
     namespaceRange(namespace),
+    S.cluster.resources.find(r=>r.kind==="Namespace"&&r.metadata.name===namespace)?.metadata.annotations?.["openshift.io/sa.scc.mcs"],
   );
   if (!admission.accepted)
     throw new Error(
       `Error from server (Forbidden): pods "${resource.metadata.name}" is forbidden: ${admission.message}`,
     );
   const requestedNode = admission.spec.nodeName;
-  if (requestedNode && !["worker-01", "worker-02"].includes(requestedNode))
+  if (requestedNode && !S.cluster.resources.some(r => r.kind === "Node" && r.metadata.name === requestedNode))
     throw new Error(
-      "simulation: nodeName must select worker-01 or worker-02; scheduling to other nodes is not implemented",
+      "simulation: nodeName must select a node in the recorded cluster inventory",
     );
   resource.spec = {
     ...admission.spec,
     ...(runRuntime ? {nodeName:
-      requestedNode ??
-      (S.cluster.resources.filter((item) => item.kind === "Pod").length % 2
-        ? "worker-02"
-        : "worker-01")} : {}),
+      selectRuntimeNode(admission.spec, S.cluster.resources)} : {}),
   };
   resource.metadata.annotations = {
     ...resource.metadata.annotations,
@@ -256,9 +260,18 @@ function admitResource(resource: Resource, directRequest = true, runRuntime = tr
   else resource.status = {phase: "Pending"};
 }
 
+export function reconcileNetworkPods() {
+  for(const pod of S.cluster.resources.filter(r=>r.kind==="Pod"&&(r.status?.containerStatuses as any[]|undefined)?.some((c:any)=>c.state?.waiting?.reason==="ContainerCreating")&&!awaitingPrimaryNetwork(r))) startPod(pod);
+}
 function startPod(resource: Resource, previous?: Resource) {
+  if(awaitingPrimaryNetwork(resource)) {
+    resource.status={phase:"Pending",containerStatuses:resource.spec!.containers!.map(c=>({name:c.name,ready:false,restartCount:0,state:{waiting:{reason:"ContainerCreating",message:"waiting for primary user-defined network"}}})),conditions:[{type:"Ready",status:"False"}]};
+    return;
+  }
   const namespace = resource.metadata.namespace!;
   const spec = resource.spec as PodSpec;
+  if (!spec.nodeName) spec.nodeName = selectRuntimeNode(spec, S.cluster.resources);
+  if(spec.hostUsers===false) userNamespaceRange(resource);
   const containerStatuses = spec.containers.map((container) => {
     const image = container.image.split("@")[0],
       uid = container.securityContext?.runAsUser;
@@ -305,7 +318,7 @@ function startPod(resource: Resource, previous?: Resource) {
   if (!previous) {
     const network = creationNetwork(resource, S.cluster.resources);
     resource.metadata.annotations!["k8s.v1.cni.cncf.io/network-status"] = JSON.stringify([
-      { name: network.domain, interface: "eth0", ips: [podIP], default: true },
+      { name: network.attachment, interface: "eth0", ips: [podIP], default: true },
     ]);
   }
   resource.status = {
@@ -322,13 +335,20 @@ function startPod(resource: Resource, previous?: Resource) {
     ],
   };
   const scheduling = schedulingFailure(resource);
+  const runtimeProblem = runtimeFailure(resource, S.cluster.resources);
+  const consumerProblem = scheduling ? "" : prepareSecretConsumer(resource, !previous);
   const secretRefs = spec.containers
     .flatMap((c) => c.env ?? [])
     .filter((e) => e.valueFrom?.secretKeyRef);
   const missing = secretRefs.find(
-    (e) => !findResource("Secret", e.valueFrom!.secretKeyRef.name, namespace),
+    (e) => !e.valueFrom!.secretKeyRef.optional && !findResource("Secret", e.valueFrom!.secretKeyRef.name, namespace),
   );
-  if (scheduling || missing) {
+  if (runtimeProblem?.reason === "FailedScheduling" && !spec.nodeName) {
+    resource.status = {phase: "Pending", conditions: [{type: "PodScheduled", status: "False", reason: "Unschedulable", message: runtimeProblem.message}]};
+    podWarning(resource, "FailedScheduling", runtimeProblem.message, "default-scheduler");
+    return;
+  }
+  if (scheduling || missing || consumerProblem) {
     resource.status = {
       phase: "Pending",
       containerStatuses: [
@@ -341,14 +361,15 @@ function startPod(resource: Resource, previous?: Resource) {
               reason: scheduling
                 ? resource.metadata.annotations?.["k8s.v1.cni.cncf.io/networks"]
                   ? "ContainerCreating"
-                  : "FailedScheduling"
-                : "CreateContainerConfigError",
-              message: scheduling || "Referenced Secret is absent",
+                  : runtimeProblem?.reason === "FailedCreatePodSandBox" ? "ContainerCreating" : "FailedScheduling"
+                : spec.volumes?.some(v => v.csi || v.secret) && consumerProblem ? "ContainerCreating" : "CreateContainerConfigError",
+              message: scheduling || consumerProblem || "Referenced Secret is absent",
             },
           },
         },
       ],
     };
+    podWarning(resource, runtimeProblem?.reason ?? (spec.volumes?.some(v => v.csi || v.secret) && consumerProblem ? "FailedMount" : "Failed"), scheduling || consumerProblem || "Referenced Secret is absent", "kubelet");
   }
   for (const ref of secretRefs) {
     const secret = findResource(
@@ -362,7 +383,36 @@ function startPod(resource: Resource, previous?: Resource) {
   }
 }
 
-function reconcileDeployment(deployment: Resource, recreate = true) {
+/** Native Event fields; deterministic retry cadence avoids a synthetic event for every read. */
+function podWarning(pod: Resource, reason: string, message: string, component: string) {
+  const namespace = pod.metadata.namespace!;
+  if (S.cluster.events.some(event => (event.involvedObject as any)?.kind === "Pod" && (event.involvedObject as any)?.name === pod.metadata.name && event.metadata.namespace === namespace && event.reason === reason && event.message === message)) return;
+  const at = new Date(clusterTime()).toISOString();
+  S.cluster.events.push({apiVersion: "v1", kind: "Event", metadata: {name: `${pod.metadata.name}.${S.cluster.events.length + 1}`, namespace},
+    involvedObject: {apiVersion: "v1", kind: "Pod", name: pod.metadata.name, namespace, ...(pod.metadata.uid ? {uid: pod.metadata.uid} : {})},
+    reason, message, type: "Warning", source: {component, ...(component === "kubelet" ? {host: pod.spec?.nodeName} : {})}, firstTimestamp: at, lastTimestamp: at, count: 1});
+}
+
+export function reconcileSecretConsumers() {
+  for (const pod of S.cluster.resources.filter(r => r.kind === "Pod")) {
+    if (!pod.spec?.nodeName && pod.status?.phase === "Pending" || (pod.status?.containerStatuses as any[] | undefined)?.some(c => ["CreateContainerConfigError", "ContainerCreating", "FailedScheduling"].includes(c.state?.waiting?.reason))) startPod(pod, pod);
+    else prepareSecretConsumer(pod);
+  }
+  // Replica availability follows kubelet recovery, not only an explicit rollout.
+  for (const deployment of S.cluster.resources.filter(r => r.kind === "Deployment")) {
+    const owned = S.cluster.resources.filter(p => p.kind === "Pod" && p.metadata.namespace === deployment.metadata.namespace && (deployment.metadata.name === "payment-api" && deployment.metadata.namespace === "payments" ? p.metadata.labels?.app === "payment-api" : p.metadata.name.startsWith(deployment.metadata.name + "-sim-")));
+    const available = owned.filter(p => (p.status?.containerStatuses as any[])?.length && (p.status?.containerStatuses as any[]).every(c => c.ready)).length;
+    if (owned.length && Number(deployment.status?.readyReplicas ?? 0) !== available) reconcileDeployment(deployment, false);
+  }
+  for (const key of Object.keys(S.cluster.podRuntime)) if (!S.cluster.resources.some(r => r.kind === "Pod" && r.metadata.namespace + "/" + r.metadata.name === key)) delete S.cluster.podRuntime[key];
+  for (let i = S.cluster.resources.length - 1; i >= 0; i--) {
+    const r = S.cluster.resources[i];
+    if (r.kind === "SecretProviderClassPodStatus" && !S.cluster.resources.some(p => p.kind === "Pod" && p.metadata.namespace === r.metadata.namespace && p.metadata.name === r.status?.podName)) S.cluster.resources.splice(i, 1);
+  }
+  collectCsiSecrets();
+}
+
+export function reconcileDeployment(deployment: Resource, recreate = true) {
   const template = deployment.spec?.template;
   if (!template) throw new Error("Deployment requires spec.template");
   const namespace = deployment.metadata.namespace!;
@@ -399,7 +449,7 @@ function reconcileDeployment(deployment: Resource, recreate = true) {
       admitResource(pod, false);
       S.cluster.resources.push(pod);
       const statuses = pod.status?.containerStatuses as { ready: boolean }[];
-      if (statuses.every((status) => status.ready)) available++;
+      if (statuses?.length && statuses.every((status) => status.ready)) available++;
       auditRequest(
         "create",
         "pods",
@@ -525,6 +575,7 @@ export function applyResource(
       ? strategicPatch(resource.kind, old, resource)
       : mergePatch(old, resource)) as Resource;
   }
+  validateNetwork(resource);
   defaultNetworkPolicy(resource);
   resource.metadata.creationTimestamp =
     old?.metadata.creationTimestamp ?? new Date(clusterTime()).toISOString();
@@ -572,6 +623,7 @@ export function applyResource(
     throw new Error(
       "simulation: Deployment requires a Pod template and 0–10 replicas",
     );
+  if (resource.kind === "Deployment" && (!resource.spec?.selector || !matchesLabels(resource.spec.template?.metadata?.labels,resource.spec.selector))) throw new Error(`Error from server (Invalid): Deployment "${resource.metadata.name}" is invalid: spec.template.metadata.labels: selector does not match template labels`);
   if (resource.kind === "CustomResourceDefinition") {
     const spec = resource.spec ?? {},
       versions: any[] = spec.versions ?? [];
@@ -672,20 +724,8 @@ export function applyResource(
         "simulation: custom privileged/host-access SCCs are not implemented",
       );
   }
-  if (
-    ["Role", "RoleBinding"].includes(resource.kind) &&
-    S.cluster.user !== "platform-admin"
-  )
-    throw new Error(forbidden(verb, type, ns));
-  if (resource.kind === "Role" && !Array.isArray(resource.rules))
-    throw new Error("Error from server (Invalid): Role requires rules");
-  if (
-    resource.kind === "RoleBinding" &&
-    (!Array.isArray(resource.subjects) || !resource.roleRef)
-  )
-    throw new Error(
-      "Error from server (Invalid): RoleBinding requires subjects and roleRef",
-    );
+  if (["RoleBinding","ClusterRoleBinding"].includes(resource.kind)&&resource.roleRef) (resource.roleRef as any).apiGroup ??= "rbac.authorization.k8s.io";
+  if (["Role","RoleBinding","ClusterRole","ClusterRoleBinding"].includes(resource.kind)) validateRbacGrant(resource);
   if (resource.kind === "Pod" && !old) {
     try {
       admitResource(resource, true, reconcile);
@@ -714,20 +754,22 @@ export function applyResource(
         `172.30.0.${20 + S.cluster.resources.filter((r) => r.kind === "Service").length}`;
       resource.spec.clusterIPs ??= [resource.spec.clusterIP];
     }
-    for (const port of resource.spec.ports ?? []) port.protocol ??= "TCP";
+    for (const port of resource.spec.ports ?? []) {port.protocol ??= "TCP";port.targetPort ??= port.port;}
   }
   if (resource.kind === "Secret") resource.type ??= "Opaque";
   if (resource.kind === "Route") {
     resource.spec!.wildcardPolicy ??= "None";
-    resource.spec!.host ??=
-      old?.spec?.host ??
-      `${resource.metadata.name}-${ns}.apps.prod-east.example.test`;
+    if (!resource.spec!.host) resource.spec!.host = old?.spec?.host || `${resource.metadata.name}-${ns}.apps.prod-east.example.test`;
+    if (resource.spec!.to && !resource.spec!.to.kind) resource.spec!.to.kind = "Service";
   }
   if (resource.kind === "Namespace" && !old) {
+    resource.metadata.labels={...resource.metadata.labels,"kubernetes.io/metadata.name":resource.metadata.name};
     const base = 1000780000 + S.cluster.generation++ * 10000;
     resource.metadata.annotations = {
       ...resource.metadata.annotations,
       "openshift.io/sa.scc.uid-range": `${base}/10000`,
+      "openshift.io/sa.scc.supplemental-groups":`${base}/10000`,
+      "openshift.io/sa.scc.mcs":`s0:c${S.cluster.generation},c${S.cluster.generation+1}`,
     };
     resource.status = { phase: "Active" };
     S.cluster.ownedNamespaces.add(resource.metadata.name);
@@ -750,6 +792,7 @@ export function applyResource(
     if (parent) reconcileDeployment(parent, false);
   }
   refreshResourceTypes();
+  synchronizeClusterMetadata();
   if (reconcile) reconcileFixtureControllers();
   synchronizeClusterMetadata();
   if (reconcile) projectIncident();
@@ -797,6 +840,8 @@ export function grantScc(
       `Error from server (NotFound): serviceaccounts "${sa}" not found`,
     );
   const bindingName = "system:openshift:scc:" + name;
+  if(!remove) validateRbacGrant({apiVersion:"rbac.authorization.k8s.io/v1",kind:"RoleBinding",metadata:{name:bindingName,namespace},roleRef:{apiGroup:"rbac.authorization.k8s.io",kind:"ClusterRole",name:bindingName},subjects:[{kind:"ServiceAccount",name:sa,namespace}]});
+  if(!S.cluster.resources.some(r=>r.kind==="ClusterRole"&&r.metadata.name===bindingName)&&!remove) S.cluster.resources.push({apiVersion:"rbac.authorization.k8s.io/v1",kind:"ClusterRole",metadata:{name:bindingName},rules:[{apiGroups:["security.openshift.io"],resources:["securitycontextconstraints"],verbs:["use"],resourceNames:[name]}]});
   let binding = S.cluster.resources.find(
     (item) =>
       item.kind === "RoleBinding" &&

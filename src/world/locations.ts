@@ -79,6 +79,14 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
         "Use the training terminal",
         "terminal",
       ),
+      object(
+        "rhacs",
+        900,
+        270,
+        "RHACS CENTRAL",
+        "Alerts and process baselines",
+        "terminal",
+      ),
       object("rhea", 480, 410, "RHEA", "RHACS analyst", "npc"),
       ...(state.story.mira.scene === "soc"
         ? [
@@ -198,6 +206,17 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       ...(state.world.scene === "archive"
         ? [
             object(
+              "admin-key",
+              950,
+              475,
+              "Sealed emergency envelope",
+              state.story.inventory.includes("admin-access-key")
+                ? "Administrator credential collected"
+                : "Search the archive cabinet",
+              "prop",
+              { action: "admin-key" },
+            ),
+            object(
               "vale",
               500,
               330,
@@ -272,17 +291,26 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       "portal",
       { destination: "cluster" },
     ),
-    ...(payment ? [object(
-      worker === "worker-01" ? "pod1" : "pod2",
-      490,
-      330,
-      "payment-api",
-      `payments · Pod · ${worker}`,
-      "pod",
-      { namespace: "payments", resourceName: payment.name },
-    )] : []),
+    ...(payment
+      ? [
+          object(
+            worker === "worker-01" ? "pod1" : "pod2",
+            490,
+            330,
+            "payment-api",
+            `payments · Pod · ${worker}`,
+            "pod",
+            { namespace: "payments", resourceName: payment.name },
+          ),
+        ]
+      : []),
   ];
-  if (worker === "worker-02" && state.cluster.resources.some(r => r.kind === "Pod" && r.metadata.name === "ledger-86bbb-zyx12"))
+  if (
+    worker === "worker-02" &&
+    state.cluster.resources.some(
+      (r) => r.kind === "Pod" && r.metadata.name === "ledger-86bbb-zyx12",
+    )
+  )
     objects.push(
       object(
         "ledger",
@@ -295,7 +323,12 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       ),
     );
   const labPods = state.cluster.resources.filter(
-    (item) => item.kind === "Pod" && item.spec?.nodeName === worker && item.metadata.name !== payment?.name && item.metadata.name !== "ledger-86bbb-zyx12",
+    (item) =>
+      item.kind === "Pod" &&
+      item.metadata.annotations?.["ghostroute.training/component"] !== "controller" &&
+      item.spec?.nodeName === worker &&
+      item.metadata.name !== payment?.name &&
+      item.metadata.name !== "ledger-86bbb-zyx12",
   );
   if (state.campaign.active)
     labPods.sort(

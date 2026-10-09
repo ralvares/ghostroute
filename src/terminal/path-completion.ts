@@ -39,6 +39,7 @@ export function pathCompletions(
       "uniq",
       "wc",
     ].includes(command) ||
+    (command === "git" && words[1] === "add") ||
     (command === "jq" &&
       words.slice(1).some((word) => !word.startsWith("-"))) ||
     (command === "grep" &&

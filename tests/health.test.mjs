@@ -27,11 +27,11 @@ test("default-deny degrades checkout without inventing Pod/node failures; policy
   assert.equal(impact.externalAllowed, false);
   assert.ok(impact.nodes.every((node) => node.ready));
   assert.equal(
-    impact.nodes.find((node) => node.name === "worker-01").pods.length,
+    impact.nodes.find((node) => node.name === "worker-01").pods.filter(p => p.namespace === "payments").length,
     1,
   );
   assert.equal(
-    impact.nodes.find((node) => node.name === "worker-02").pods.length,
+    impact.nodes.find((node) => node.name === "worker-02").pods.filter(p => p.namespace === "payments").length,
     2,
   );
   applyPolicy("payment-egress");

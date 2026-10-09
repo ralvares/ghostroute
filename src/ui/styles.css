@@ -1,14 +1,15 @@
 :root {
   color-scheme: dark;
-  --bg: #050c13;
-  --panel: #071019;
-  --edge: #293d4c;
+  --bg: #182330;
+  --panel: #243241;
+  --edge: #526373;
   --text: #e8eef5;
-  --muted: #93a6bb;
+  --muted: #becbd7;
   --red: #ff6974;
   --cyan: #8ce0c3;
   --header-height: 76px;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -2142,4 +2143,632 @@ button:disabled {
 }
 .hudright button {
   pointer-events: auto;
+}
+
+.missionAlert {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #f27868;
+  border-left: 3px solid #f27868;
+  border-radius: 8px;
+  background: #231c1c;
+  color: #fff1eb;
+}
+.missionAlert[hidden] {
+  display: none;
+}
+.missionAlert strong {
+  display: block;
+  color: #ff9989;
+  font-size: 0.78rem;
+  letter-spacing: 0.035em;
+}
+.missionAlert p {
+  margin: 8px 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.missionAlert .missionNext {
+  color: #d5e5f4;
+}
+.missionAlert button {
+  min-height: 36px;
+  width: 100%;
+  border: 1px solid #66809a;
+  border-radius: 5px;
+  background: #172839;
+  color: #eef6ff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.missionAlert button:hover,
+.missionAlert button:focus-visible {
+  background: #25405b;
+  outline: 2px solid #c8e6ff;
+  outline-offset: 2px;
+}
+
+.bastionMissionAlert {
+  display: grid;
+  gap: 5px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-left: 3px solid #ff9989;
+  background: #321f20;
+  color: #eee8e4;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.bastionMissionAlert[hidden] {
+  display: none;
+}
+.bastionMissionAlert strong {
+  color: #ffb0a4;
+}
+.missionAlert p:not(.missionNext) {
+  max-height: 4.5em;
+  overflow: auto;
+}
+@media (max-width: 700px) {
+  .missionAlert {
+    padding: 9px;
+  }
+  .missionAlert .missionNext {
+    max-height: 4.5em;
+    overflow: auto;
+  }
+}
+/* Informational overlays must never swallow clicks on the world beneath them. */
+.casehud {
+  pointer-events: none;
+}
+.casehud button {
+  pointer-events: auto;
+}
+.missionAlert .missionNext {
+  display: none;
+}
+.missionAlert p:not(.missionNext) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 3em;
+}
+
+.casehud .missionAlert {
+  padding: 6px 8px;
+  margin-top: 8px;
+}
+.casehud .missionAlert p {
+  display: none;
+}
+.casehud .missionAlert button {
+  min-height: 28px;
+  margin-top: 5px;
+}
+
+/* Keep consequence advice above the console, never in its terminal column. */
+.bastionPanel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.bastionPanel .terminal,
+.bastionPanel .bastionNotes {
+  grid-row: 3;
+}
+.bastionPanel .terminal {
+  grid-column: 1;
+}
+.bastionPanel .bastionNotes {
+  grid-column: 2;
+}
+.bastionMissionAlert {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-bottom: 0;
+  max-height: 110px;
+  overflow: auto;
+  align-content: start;
+}
+
+/* Investigation workspace: readable surfaces, visible tools, generous console. */
+::selection {
+  background: #456b80;
+  color: #fff;
+}
+body {
+  scrollbar-color: #718697 #1c2a38;
+}
+.top,
+.sceneBar {
+  background: #243241;
+  border-color: #516170;
+}
+.bname span {
+  color: #f2f5f8;
+}
+.bsub,
+.sceneBar span,
+.episode,
+.progress span {
+  color: #c2cdd7;
+}
+.bsub {
+  letter-spacing: 0.06em;
+}
+.navtab {
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #d0d9e1;
+}
+.navtab.selected {
+  background: #314a54;
+}
+.sceneBar {
+  height: 60px;
+}
+.sceneBar strong {
+  font-size: 15px;
+}
+.sceneBar span {
+  font-size: 12px;
+}
+.investigationTools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 20px;
+  background: #1d2b39;
+  border-bottom: 1px solid #516170;
+}
+.investigationTools .control {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.investigationTools .actionbtn {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 14px;
+  background: #334655;
+  border-color: #718697;
+  color: #f3f6f8;
+}
+.investigationTools .actionbtn:hover {
+  background: #415b6b;
+}
+.toolGuide {
+  font-size: 12px;
+  color: #c1cdd7;
+}
+.mapstage {
+  height: clamp(
+    450px,
+    calc(
+      100svh - var(--header-height) - 60px - 58px - 268px - 54px -
+        var(--notice-space, 0px) - var(--impact-space, 0px)
+    ),
+    850px
+  );
+}
+.casehud,
+.hudright,
+.radio,
+#casepanel,
+.modal {
+  background: #243240f5;
+  border-color: #718292;
+  box-shadow: 0 8px 24px #07111b33;
+}
+.casehint,
+.missionsteps,
+.radioContent,
+.modal p,
+.hint,
+.stat small {
+  color: #d0d9e1;
+}
+.casehint,
+.missionsteps {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.casetitle {
+  line-height: 1.3;
+}
+.radio .radiotext {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.portrait,
+.interviewPortrait {
+  filter: saturate(0.7);
+}
+.workbench {
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.7fr);
+  height: 268px;
+  padding: 14px 20px;
+  gap: 16px;
+  background: #1d2b39;
+}
+.notesDock,
+.intelDock,
+.healthPanel {
+  background: #2b3b49;
+  border-color: #647687;
+}
+.notesDock,
+.healthPanel {
+  padding: 14px 18px;
+}
+.notesHeading label,
+.healthHeading {
+  font-size: 16px;
+  color: #f3f6f8;
+}
+.notesHeading span {
+  color: #c5e8da;
+  font-size: 12px;
+}
+.notesDock textarea,
+.bastionNotes textarea {
+  font:
+    14px/1.7 Inter,
+    sans-serif;
+  background: #22313f;
+  border-color: #617586;
+  color: #f1f5f8;
+  caret-color: #b2eed9;
+}
+.notesDock textarea::placeholder,
+.bastionNotes textarea::placeholder {
+  color: #becbd7;
+}
+.notesDock p,
+.mapLegend {
+  color: #c4cfd9;
+  font-size: 12px;
+}
+.mapSwitch button {
+  min-height: 32px;
+  font-size: 12px;
+  border-color: #718697;
+  color: #e1e8ee;
+  padding: 5px 10px;
+}
+.mapSwitch button.selected {
+  background: #3b5b59;
+  color: #ddfff0;
+}
+#healthSummary {
+  font:
+    600 13px/1.5 Inter,
+    sans-serif;
+  margin-top: 10px;
+}
+#healthMap svg {
+  height: 126px;
+}
+#healthMap .subText {
+  font-size: 11px;
+  fill: #d0dae3;
+}
+.appNode {
+  fill: #354c5b;
+  stroke: #a3decb;
+}
+.nodeMap {
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.nodeTile {
+  background: #243541;
+  border-color: #708595;
+  padding: 10px 9px;
+}
+.nodeTile strong {
+  font-size: 12px;
+}
+.nodeTile span,
+.nodeTile small {
+  font-size: 11px;
+  color: #ced9e2;
+}
+.podDots {
+  gap: 4px;
+}
+.podDots i {
+  width: 8px;
+  height: 8px;
+}
+.good {
+  color: #a5efd0;
+}
+.bad {
+  color: #ffb3ae;
+}
+.below {
+  background: #1d2b39;
+  color: #c1cdd7;
+}
+#shellshade {
+  padding: 16px;
+  background: #162332b3;
+  backdrop-filter: blur(3px);
+}
+.bastionPanel {
+  width: min(1440px, 100%);
+  height: calc(100svh - var(--header-height) - 32px);
+  max-height: 940px;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  background: #243342;
+  border-color: #8ca2b2;
+  box-shadow: 0 18px 60px #08131d66;
+}
+.bastionHealth {
+  padding: 12px 20px;
+  background: #304b49;
+  border-color: #688880;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.bastionPanel .terminal {
+  font: 15px/1.65 var(--mono);
+  color: #ecf1f5;
+  background: #1c2b38;
+}
+.bastionPanel .termbar {
+  height: 54px;
+  padding: 0 20px;
+  background: #304252;
+  color: #e0e8ee;
+  border-color: #617586;
+  font-size: 14px;
+}
+.termbar strong {
+  font-weight: 600;
+}
+.bastionPanel .termclose {
+  color: #edf2f6;
+  border-color: #8296a6;
+  font:
+    13px Inter,
+    sans-serif;
+  min-height: 36px;
+}
+.bastionPanel .termclose:hover {
+  background: #40596c;
+}
+.bastionPanel .termoutput {
+  padding: 18px 20px;
+  scrollbar-color: #7c93a6 #1c2b38;
+}
+.termline.command {
+  color: #b4edda;
+  margin-top: 12px;
+}
+.termline.error {
+  color: #ffb3ae;
+}
+.termline.success {
+  color: #a5efd0;
+}
+.termline.meta {
+  color: #c0cfdd;
+}
+.bastionPanel .termform {
+  min-height: 60px;
+  padding: 14px 20px;
+  border-color: #617586;
+  background: #243645;
+}
+.bastionPanel .termprompt,
+.bastionPanel .termcmd input,
+.bastionPanel .ghost {
+  font: 15px/1.65 var(--mono);
+}
+.bastionPanel .termprompt {
+  color: #b4edda;
+  max-width: 55%;
+}
+.bastionPanel .termcmd input {
+  color: #f4f7fa;
+  caret-color: #b4edda;
+}
+.bastionPanel .termhelp {
+  background: #304252;
+  color: #d2dee7;
+  font:
+    12px Inter,
+    sans-serif;
+  padding: 12px 20px;
+  gap: 16px;
+  border-color: #617586;
+}
+.bastionNotes {
+  background: #2b3b49;
+  border-color: #617586;
+  padding: 20px 16px;
+}
+.bastionNotes label {
+  font-size: 16px;
+}
+.bastionNotes p {
+  color: #c5d1db;
+  font-size: 13px;
+}
+.terminalPager {
+  background: #1c2b38;
+  color: #ecf1f5;
+  font-size: 15px;
+}
+@media (max-width: 1000px) {
+  .workbench {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+  .bastionPanel {
+    grid-template-columns: minmax(0, 1fr) 230px;
+  }
+  .sceneBar {
+    height: auto;
+    min-height: 60px;
+  }
+  .toolGuide {
+    display: none;
+  }
+  .bastionPanel .termhelp {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 700px) {
+  .top {
+    padding-inline: 12px;
+  }
+  .sceneBar {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .sceneBar > div {
+    flex-basis: 100%;
+  }
+  .investigationTools {
+    padding: 8px 12px;
+  }
+  .investigationTools .control {
+    width: 100%;
+  }
+  .investigationTools .actionbtn {
+    flex: 1;
+    padding: 8px;
+    font-size: 13px;
+  }
+  .workbench {
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: 12px;
+  }
+  .notesDock {
+    height: 218px;
+  }
+  .intelDock {
+    height: 268px;
+  }
+  .mapstage {
+    height: 520px;
+  }
+  #shellshade {
+    padding: 8px;
+  }
+  .bastionPanel {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - var(--header-height) - 16px);
+    max-height: none;
+  }
+  .bastionHealth {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+  .bastionPanel .terminal {
+    flex: 1;
+    min-height: 200px;
+  }
+  .bastionPanel .termbar {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  .bastionPanel .termoutput {
+    padding: 12px;
+  }
+  .bastionPanel .termform {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+  .bastionPanel .termprompt {
+    max-width: 100%;
+    flex-basis: 100%;
+  }
+  .bastionPanel .termcmd input,
+  .bastionPanel .ghost {
+    font-size: 16px;
+  }
+  .bastionPanel .termhelp {
+    padding: 9px 12px;
+    font-size: 11px;
+    gap: 10px;
+  }
+  .bastionNotes {
+    height: 140px;
+    min-height: 0;
+    padding: 10px 12px;
+    border-left: 0;
+    border-top: 1px solid #617586;
+  }
+  .bastionNotes p {
+    display: none;
+  }
+  .bastionNotes textarea {
+    min-height: 70px;
+  }
+  .notesHeading {
+    flex-direction: row;
+    align-items: center;
+  }
+  .notesHeading span {
+    max-width: 150px;
+    font-size: 11px;
+  }
+}
+
+.healthMetrics {
+  display: flex;
+  gap: 24px;
+  margin: 12px 0;
+  font-size: 11px;
+  color: #d0d9e1;
+}
+.healthMetrics span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.healthMetrics b {
+  font-size: 17px;
+  font-weight: 600;
+}
+.healthWorkloads {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.healthWorkloads > div {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+}
+.healthWorkloads > div > span:first-child {
+  flex: 0 0 54px;
+}
+.healthWorkloads > div > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.healthWorkloads small,
+.healthWorkloads p {
+  color: #c4cfd9;
+}
+.bastionMissionAlert {
+  background: #4b3d2c;
+  border-color: #a8875c;
+  color: #ffe2b7;
+  font-size: 13px;
 }

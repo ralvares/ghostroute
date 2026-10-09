@@ -12,6 +12,7 @@ export function registerSimulationViews() {
   let messages: { priority: number; text: string }[] = [];
   function message(event: DomainEvent) {
     const d = event.data;
+    if(event.type==="rhacs.alert")return {priority:11,text:`RHACS · ${d.policy} · ${d.terminated?"POD TERMINATED · ":""}${d.pod}. Review the Central computer and rhacs/alerts.json.`};
     if (event.type === "policy.applied")
       return {
         priority: 10,
@@ -58,6 +59,7 @@ export function registerSimulationViews() {
         "evidence.collected",
         "simulation.reset",
         "cluster.request",
+        "controller.reconciled",
       ].includes(event.type)
     )
       updateHUD();

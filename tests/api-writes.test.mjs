@@ -18,7 +18,7 @@ function request(method, path, body, contentType) { return kubeRequest({method, 
 function lab() {
   resetState();
   const incident=S;
-  assert.equal(request("POST", "/api/v1/namespaces", {apiVersion:"v1",kind:"Namespace",metadata:{name:"lab"}}).code, 201);
+  assert.equal(request("POST", "/apis/project.openshift.io/v1/projectrequests", {apiVersion:"project.openshift.io/v1",kind:"ProjectRequest",metadata:{name:"lab"}}).code, 201);
   assert.equal(request("POST", "/api/v1/namespaces/lab/configmaps", {apiVersion:"v1",kind:"ConfigMap",metadata:{name:"settings"},data:{keep:"yes",remove:"old"}}).code, 201);
   assert.equal(S,incident,"API writes preserve the command queue's incident identity");
 }
@@ -108,7 +108,7 @@ test("server dry run performs SCC validation without persisting resources, grant
   assert.equal(root.code,403); assert.match(root.body.message,/unable to validate/);
   assert.equal(S.cluster.audit.at(-1).annotations["authorization.k8s.io/decision"],"allow");
   assert.deepEqual(S.cluster.resources,before);
-  const deployment=request("POST","/apis/apps/v1/namespaces/lab/deployments?dryRun=All",{apiVersion:"apps/v1",kind:"Deployment",metadata:{name:"preview"},spec:{replicas:2,template:{spec:{containers:[{name:"app",image:"busybox"}]}}}});
+  const deployment=request("POST","/apis/apps/v1/namespaces/lab/deployments?dryRun=All",{apiVersion:"apps/v1",kind:"Deployment",metadata:{name:"preview"},spec:{replicas:2,selector:{matchLabels:{app:"preview"}},template:{metadata:{labels:{app:"preview"}},spec:{containers:[{name:"app",image:"busybox"}]}}}});
   assert.equal(deployment.code,201); assert.equal(deployment.body.status,undefined);
   assert.deepEqual(S.cluster.resources,before);
   assert.equal(create.body.spec.nodeName,undefined,"dry run never runs the scheduler");

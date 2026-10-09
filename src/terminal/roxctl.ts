@@ -1,4 +1,5 @@
 import { parseAllDocuments } from "yaml";
+import { nativeReference } from "./native-reference.js";
 import { S } from "../simulation/state.js";
 import { readVirtualFile } from "../simulation/filesystem.js";
 import type { Resource } from "../simulation/cluster-model.js";
@@ -147,6 +148,8 @@ export async function roxctlCommand(
   table = render,
 ): Promise<ToolResult> {
   try {
+    const reference = await nativeReference(words);
+    if (reference) return reference;
     const deployment = words.includes("deployment");
     const f = flags(words.slice(1), deployment);
     const [group, action, ...rest] = f.positional;

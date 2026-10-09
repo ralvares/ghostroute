@@ -1,6 +1,15 @@
+import {operatorCrds} from "../operators/crds.js";
+import {secretCrds} from "../security/secret-crds.js";
 import { S } from "./state.js";
 import { installedCrds } from "./installed-crds.js";
 const builtinResourceTypes = {
+  daemonsets: {kind:"DaemonSet",apiVersion:"apps/v1",namespaced:true,aliases:["daemonset","ds"]},
+  csidrivers: {kind: "CSIDriver", apiVersion: "storage.k8s.io/v1", namespaced: false, aliases: ["csidriver"]},
+  csinodes: {kind: "CSINode", apiVersion: "storage.k8s.io/v1", namespaced: false, aliases: ["csinode"]},
+  projectrequests: {kind:"ProjectRequest",apiVersion:"project.openshift.io/v1",namespaced:false,aliases:["projectrequest"]},
+  clusterroles: {kind:"ClusterRole",apiVersion:"rbac.authorization.k8s.io/v1",namespaced:false,aliases:["clusterrole"]},
+  clusterrolebindings: {kind:"ClusterRoleBinding",apiVersion:"rbac.authorization.k8s.io/v1",namespaced:false,aliases:["clusterrolebinding"]},
+  persistentvolumeclaims:{kind:"PersistentVolumeClaim",apiVersion:"v1",namespaced:true,aliases:["persistentvolumeclaim","pvc"]},
   customresourcedefinitions: {
     kind: "CustomResourceDefinition",
     apiVersion: "apiextensions.k8s.io/v1",
@@ -49,6 +58,8 @@ const builtinResourceTypes = {
     namespaced: true,
     aliases: ["service", "svc"],
   },
+  endpoints: {kind:"Endpoints",apiVersion:"v1",namespaced:true,aliases:["endpoint","ep"]},
+  endpointslices: {kind:"EndpointSlice",apiVersion:"discovery.k8s.io/v1",namespaced:true,aliases:["endpointslice"]},
   configmaps: {
     kind: "ConfigMap",
     apiVersion: "v1",
@@ -237,7 +248,7 @@ export function refreshResourceTypes() {
   const definitions = S.cluster.resources.filter(
     (r) => r.kind === "CustomResourceDefinition",
   );
-  for (const installed of installedCrds)
+  for (const installed of [...installedCrds, ...secretCrds, ...operatorCrds])
     if (!definitions.some((crd) => crd.metadata.name === installed.metadata.name))
       delete resourceTypes[installed.spec!.names.plural];
   for (const crd of definitions) {

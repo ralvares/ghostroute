@@ -4,27 +4,27 @@ import {
   resolveResource,
 } from "../simulation/resource-types.js";
 
+export function identityGroups(username: string) {
+  const sa = username.match(/^system:serviceaccount:([^:]+):/);
+  return sa ? ["system:authenticated", "system:serviceaccounts", "system:serviceaccounts:"+sa[1]] : ["system:authenticated", "system:authenticated:oauth"];
+}
 export function roleAllows(
   username: string,
   verb: string,
   resource: string,
   namespace?: string,
   name?: string,
+  apiGroups?: string[],
 ) {
   const type = resolveResource(resource.split("/")[0]);
-  // A namespace RoleBinding cannot grant access to ordinary cluster-scoped resources.
-  // OpenShift SCC use is evaluated for the bound service account in this namespace.
-  if (
-    type &&
-    !resourceTypes[type].namespaced &&
-    resource !== "securitycontextconstraints"
-  )
-    return false;
+  resource = (type ?? resource.split("/")[0]) + (resource.includes("/") ? "/"+resource.split("/")[1] : "");
   const version = type ? resourceTypes[type].apiVersion : "v1";
   const group = version.includes("/") ? version.split("/")[0] : "";
   for (const binding of S.cluster.resources.filter(
     (item) =>
-      item.kind === "RoleBinding" && item.metadata.namespace === namespace,
+      item.kind === "ClusterRoleBinding" ||
+      (item.kind === "RoleBinding" && item.metadata.namespace === namespace &&
+       (!type || resourceTypes[type].namespaced || resource === "securitycontextconstraints" || (verb === "bind" && resource === "clusterroles"))),
   )) {
     const subjects = binding.subjects as
       { kind: string; name: string; namespace?: string }[] | undefined;
@@ -33,7 +33,7 @@ export function roleAllows(
         (subject) =>
           (subject.kind === "User" && subject.name === username) ||
           (subject.kind === "Group" &&
-            subject.name === "system:authenticated") ||
+            identityGroups(username).includes(subject.name)) ||
           (subject.kind === "ServiceAccount" &&
             username ===
               `system:serviceaccount:${subject.namespace ?? namespace}:${subject.name}`),
@@ -42,49 +42,11 @@ export function roleAllows(
       continue;
     const ref = binding.roleRef as { kind: string; name: string } | undefined;
     if (!ref) continue;
-    if (
-      ref.kind === "ClusterRole" &&
-      ["view", "edit", "admin"].includes(ref.name)
-    ) {
-      if (
-        ref.name === "view" &&
-        ["get", "list", "watch"].includes(verb) &&
-        resource !== "secrets"
-      )
-        return true;
-      if (
-        ["edit", "admin"].includes(ref.name) &&
-        [
-          "get",
-          "list",
-          "watch",
-          "create",
-          "update",
-          "patch",
-          "delete",
-          "deletecollection",
-        ].includes(verb) &&
-        !["securitycontextconstraints", "rolebindings", "roles"].includes(
-          resource,
-        )
-      )
-        return true;
-      if (ref.name === "admin" && ["roles", "rolebindings"].includes(resource))
-        return true;
-    }
-    if (
-      ref.kind === "ClusterRole" &&
-      ref.name.startsWith("system:openshift:scc:") &&
-      verb === "use" &&
-      resource === "securitycontextconstraints" &&
-      name === ref.name.slice("system:openshift:scc:".length)
-    )
-      return true;
     const role = S.cluster.resources.find(
       (item) =>
         item.kind === ref.kind &&
         item.metadata.name === ref.name &&
-        item.metadata.namespace === namespace,
+        (ref.kind === "ClusterRole" ? !item.metadata.namespace : item.metadata.namespace === namespace),
     );
     const rules = role?.rules as
       | {
@@ -99,10 +61,11 @@ export function roleAllows(
         (rule) =>
           (rule.verbs?.includes(verb) || rule.verbs?.includes("*")) &&
           (rule.resources?.includes(resource) ||
-            rule.resources?.includes("*")) &&
-          (rule.apiGroups?.includes(group) || rule.apiGroups?.includes("*")) &&
-          (!rule.resourceNames?.length ||
-            (!!name && rule.resourceNames.includes(name))),
+            rule.resources?.includes("*") ||
+            rule.resources?.includes("*/"+resource.split("/")[1])) &&
+          (apiGroups ?? [group]).every(requestedGroup => rule.apiGroups?.includes(requestedGroup) || rule.apiGroups?.includes("*")) &&
+          (!rule.resourceNames?.length || (!["create","deletecollection"].includes(verb) &&
+            (!!name && rule.resourceNames.includes(name)))),
       )
     )
       return true;
@@ -116,24 +79,7 @@ export function authorized(
   namespace?: string,
   name?: string,
 ) {
-  if (S.cluster.user === "platform-admin") return true;
-  if (roleAllows(S.cluster.user, verb, resource, namespace, name)) return true;
-  // The operator has the authored baseline grant. Impersonated identities
-  // receive only their bindings, never the operator's training permissions.
-  if (S.cluster.user !== "operator") return false;
-  if (["get", "list", "watch"].includes(verb)) return resource !== "secrets";
-  if (resource === "namespaces" && verb === "create") return true;
-  if (
-    resource === "securitycontextconstraints" ||
-    resource === "clusterrolebindings" ||
-    resource === "rolebindings"
-  )
-    return false;
-  return (
-    !!namespace &&
-    S.cluster.ownedNamespaces.has(namespace) &&
-    ["create", "update", "patch", "delete"].includes(verb)
-  );
+  return roleAllows(S.cluster.user, verb, resource, namespace, name);
 }
 export function forbidden(
   verb: string,
@@ -148,7 +94,7 @@ export function forbidden(
 }
 
 export function assertCanImpersonate(identity: string) {
-  if (S.cluster.user === "platform-admin") return;
+  if (authorized("impersonate", "users", undefined, identity)) return;
   const sa = identity.match(/^system:serviceaccount:([^:]+):([^:]+)$/);
   const resource = sa ? "serviceaccounts" : "users";
   const name = sa ? sa[2] : identity;

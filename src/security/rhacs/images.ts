@@ -63,6 +63,9 @@ export const imageAssets: ImageAsset[] = [
   image("registry.example.test/owned:arbitrary-uid"),
   image("registry.example.test/owned:root", "0"),
   image("registry.example.test/vendor:fixed-uid", "100"),
+  image("quay.io/argoproj/argocd:v3.5.4"),
+  // Authored operator assessments; these are game assets, not live vendor scan results.
+  ...["ghcr.io/tektoncd/pipeline/controller:v1.9.0", "ghcr.io/tektoncd/triggers/controller:v0.35.1", "quay.io/compliance-operator/compliance-operator:1.8.2", "registry.redhat.io/openshift-sandboxed-containers/osc-rhel9-operator:1.11.0", "ghcr.io/external-secrets/external-secrets:v0.18.0", "registry.k8s.io/csi-secrets-store/driver:v1.5.3"].map(ref=>image(ref)),
 ];
 export function getImage(ref: string): ImageAsset {
   const found = imageAssets.find(

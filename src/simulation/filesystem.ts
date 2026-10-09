@@ -1,11 +1,17 @@
-import {encodeSecret} from "./secrets.js";
-import {rhacsFiles} from "../security/rhacs/files.js";
+import { demoAudit } from "../forensics/demo-audit.js";
+import { repairedDeployment } from "../gitops/manifests-source.js";
+import { sourceFiles, repairedPom } from "../release/source-fixture.js";
+import { encodeSecret } from "./secrets.js";
+import { rhacsFiles } from "../security/rhacs/files.js";
 import { S } from "./state.js";
 import { labFiles } from "./lab-files.js";
 import { policyFiles } from "./resources.js";
 
 export const HOME = "/home/operator";
 const documents: Record<string, string> = {
+  "forensics/reference-audit.log": demoAudit,
+  "forensics/README.md":
+    "Historical reference archive from ralvares/security-demos use_cases/auditing, commit 6954a942a4d1a19b172f510e10e5838fa7ede6ad. These selected unmodified 2025 demo events are separate from prod-east. Use jq to correlate caller, sourceIPs and request bodies. oc timemachine is a port of the custom plugin, not a native oc subcommand. Examples: oc timemachine --auditlog-file ~/forensics/reference-audit.log get deployments -n frontend --time 2025-12-10T06:31:00Z -o json. Only retained successful writes with object bodies can reconstruct state; absence is not proof of nonexistence. History mode currently lists direct object events; recursive ownership lineage and noisy-user filtering are not implemented.\n",
   "notes.txt":
     "Incident response tip: compare observed network paths with deployment configuration. RHACS anomalies are not convictions.\n",
   "workloads/Dockerfile.secure":
@@ -43,11 +49,47 @@ export function workspacePath(path: string) {
 function allFiles(): Record<string, string> {
   return {
     ...documents,
+    ...Object.fromEntries(
+      Object.entries(sourceFiles).map(([k, v]) => [
+        "source/payment-api/" + k,
+        v,
+      ]),
+    ),
+    "source/fixes/pom.xml": repairedPom,
+    "source/fixes/payment-api.yaml": repairedDeployment,
     ...rhacsFiles(),
     ...labFiles,
     ...policyFiles,
     ...S.cluster.files,
-    ".config/containers/auth.json": JSON.stringify({auths:Object.fromEntries(Object.entries(S.cluster.registry.sessions).map(([host,s])=>[host,{auth:encodeSecret(s.username+":"+s.token)}]))},null,2)+"\n",
+    ".config/containers/auth.json":
+      JSON.stringify(
+        {
+          auths: Object.fromEntries(
+            Object.entries(S.cluster.registry.sessions).map(([host, s]) => [
+              host,
+              { auth: encodeSecret(s.username + ":" + s.token) },
+            ]),
+          ),
+        },
+        null,
+        2,
+      ) + "\n",
+    "rhacs/alerts.json":
+      JSON.stringify({ alerts: S.cluster.rhacs.runtime.alerts }, null, 2) +
+      "\n",
+    "rhacs/processes.json":
+      JSON.stringify(
+        { processes: S.cluster.rhacs.runtime.processes },
+        null,
+        2,
+      ) + "\n",
+    "rhacs/baselines.json":
+      JSON.stringify(
+        { baselines: S.cluster.rhacs.runtime.baselines },
+        null,
+        2,
+      ) + "\n",
+    "gitops/controller.log": S.cluster.gitops.logs.join("\n") + "\n",
     "audit/kube-apiserver.log":
       S.cluster.audit.map((event) => JSON.stringify(event)).join("\n") + "\n",
   };
@@ -177,7 +219,17 @@ export function writeVirtualFile(path: string, content: string) {
     !key ||
     Object.hasOwn(policyFiles, key) ||
     key === "audit/kube-apiserver.log" ||
-    [".config/containers/auth.json","rhacs/images/catalog.json","rhacs/policies/active.json","rhacs/receipts.json"].includes(key)
+    key === "gitops/controller.log" ||
+    key.startsWith("source/") ||
+    [
+      ".config/containers/auth.json",
+      "rhacs/images/catalog.json",
+      "rhacs/policies/active.json",
+      "rhacs/receipts.json",
+      "rhacs/alerts.json",
+      "rhacs/processes.json",
+      "rhacs/baselines.json",
+    ].includes(key)
   )
     throw new Error(`shell: ${path}: read-only scenario file or location`);
   if (directories().has(absolute))

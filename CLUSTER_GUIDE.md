@@ -165,11 +165,13 @@ Try granting `anyuid` as the operator:
 oc adm policy add-scc-to-user anyuid -z vendor
 ```
 
-The operator receives an RBAC Forbidden response. For this local laboratory, the
-pre-provisioned administration identity is available through simulated login:
+The operator receives an RBAC Forbidden response. Recover the sealed emergency
+envelope in the records archive and read `credentials/platform-admin.txt`.
+Use its separate login command before the administrative steps:
 
 ```sh
-oc login -u platform-admin -p training
+cat ~/credentials/platform-admin.txt
+# Run the login command from the recovered envelope.
 oc adm policy add-scc-to-user anyuid -z vendor
 oc rollout restart deployment/vendor
 oc rollout status deployment/vendor
@@ -404,15 +406,37 @@ privilege escalation/read-only root filesystem. Runtime/exposure assessment is
 not performed by these command paths. Custom criteria outside the implemented
 manifest/image scope fail explicitly if enabled.
 
-In Chapter 18, apply `~/rhacs/pipeline-v1.yaml` and inspect the PipelineRun's
-`.status.scanExitCode`, `.status.policyCheck` and `.status.steps`. The vulnerable
-artifact blocks signing. Apply `~/rhacs/attestation-v2.yaml` followed by
-`~/rhacs/pipeline-v2.yaml` to verify the repaired release and its new digest.
-Restore the chapter's original `attestation.yaml` for the original release
-handover. Both command and controller consume the same catalog and Central
-policy evaluator. The simulator does not execute a container build or real
-cryptographic signing. Findings/violation messages are authored teaching data;
-native output comparisons validate formatting and exit status against that data.
+In Chapter 18, source, Git history, registry artifact and deployed manifest are
+separate. The case files contain Tasks, a Pipeline, prerequisites and a manual
+PipelineRun. A manual run fetches the pushed revision even when local files
+have been edited. Apply the authored prerequisites and use:
+
+```sh
+tkn pr list -n rs-18
+tkn pr logs --last -n rs-18
+oc get taskruns -n rs-18 -o yaml
+oc get pipelineruns -n rs-18 -o json
+```
+
+Repair `pom.xml` in the checkout, review `git diff`, add it, commit and push.
+The configured EventListener starts the next run. PipelineRun conditions,
+childReferences and skippedTasks describe execution; terminated TaskRun steps
+hold actual simulated exit codes. No invented PipelineRun scan fields exist.
+The gate uses the same image catalog and BUILD policies as roxctl. Signing and
+build execution remain deterministic authored behavior.
+
+Then promote the repaired image in `deploy/payment-api.yaml`, commit and push
+that manifest. The Argo CD Application reads the pushed directory, checks its
+AppProject and controller permissions, and reconciles the same Deployment in
+payments. Application status records sync, health, errors and operation results.
+Self-heal and prune follow the configured sync policy. This implementation
+supports the authored single-directory YAML source; unsupported renderers fail
+explicitly.
+
+Pinned contracts: Tekton Pipeline source commit
+`d1aa60f88c86a8b966c6fa059d460b5394bff594`, Triggers 0.35.1,
+tkn 0.46.1 output and Argo CD 3.5.4 CRDs. Authored endpoints, Secrets and signing
+keys must be replaced when adapting manifests to a real environment.
 
 ## Encoded Secrets and revoked registry tokens
 
@@ -463,3 +487,55 @@ image digests hash the authored content, not a real OCI manifest.
 
 Syntax references: [Podman login](https://docs.podman.io/en/stable/markdown/podman-login.1.html)
 and [Skopeo inspect](https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md).
+
+
+## External credentials and runtimes
+
+The reusable core supports ESO Periodic/OnChange/CreatedOnce refresh,
+SecretStore/ClusterSecretStore references, Owner/Orphan/Merge ownership,
+Retain/Delete/Merge provider-deletion policy and native Secret hashes/status.
+The provider boundary accepts authored Fake and Vault records. Missing stores,
+keys, ServiceAccounts or authorized roles fail reconciliation; old Secret data
+is not proof of a working provider. Advanced templates/dataFrom/generators are
+explicitly unimplemented.
+
+Secret environment is captured at container startup. Regular Secret-volume
+files update during reconciliation; subPath remains pinned. `sleep 61` advances
+virtual time immediately. Restarting a Deployment obtains the current startup
+environment. CSI-only mounts require driver/node registration, a same-namespace
+provider class and authorized provider path. They expose readable mounted files
+and native Pod status bindings, without an automatic Kubernetes Secret copy.
+The driver is preinstalled with rotation enabled (2m) and Secret-sync RBAC.
+`secretObjects` creates a copy only once a Pod mounts the provider volume.
+Rotation updates files and copies while startup environment/subPath stay pinned.
+The synced Secret follows its recorded owner references and is garbage-collected
+when those owners disappear. Rotation errors retain the last good projection.
+
+RuntimeClass supplies scheduling and overhead at admission. Node eligibility
+and an installed runtime handler are separate checks; SCC still admits the
+workload's security context. The Kata fixture is preinstalled on worker-02 and
+does not support Linux Pod user namespaces. Operator installation/reboot and
+actual VM execution are not simulated. Exact learning acceptance and primary
+sources: [learning contracts](docs/LEARNING_CONTRACTS.md).
+
+### Installed platform services
+
+Tekton, Argo CD, ESO, Secrets Store CSI, Kata and Compliance Operator are
+preinstalled fixtures. Inspect their namespaces, controller Pods and CRDs with
+normal `oc` commands. The native KataConfig records completed runtime setup on
+worker-02. Workload admission still requires a valid RuntimeClass, eligible
+node/runtime handler and permitted SCC.
+
+Compliance TailoredProfile uses `spec.title`, `spec.description`,
+`spec.extends` and `spec.disableRules`. The controller exposes `status.id` and
+`status.outputRef` and generates a ConfigMap containing `tailoring.xml`.
+ComplianceScan references the XCCDF profile ID and that ConfigMap. Recorded
+posture produces native ComplianceCheckResult resources; a supported
+ComplianceRemediation changes the recorded target and reports its application
+state. Request another evaluation with:
+
+    oc annotate compliancescan district compliance.openshift.io/rescan= --overwrite
+
+An older completed result is not automatically replaced by a newer posture.
+The supplied content is a bounded audit/USB dataset; additional scan content and
+remediation payloads require authored adapters.

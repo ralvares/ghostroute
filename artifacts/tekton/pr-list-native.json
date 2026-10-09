@@ -1,0 +1,5 @@
+{
+  "stdout": "NAME      STARTED     DURATION   STATUS\nrelease   1 day ago   3s         Failed\n",
+  "stderr": "",
+  "code": 0
+}

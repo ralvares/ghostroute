@@ -1,3 +1,6 @@
+import {complianceInventory} from "../operators/compliance-inventory.js";
+import {gitopsPrerequisites,paymentApplication} from "../gitops/manifests.js";
+import {releasePrerequisites,releaseTasks,releasePipeline,releaseRun,releaseTriggers} from "../release/manifests.js";
 import {getImage} from "../security/rhacs/images.js";
 import {registryCredential,leakedToken,replacementToken} from "../security/registry.js";
 import type { Resource } from "../simulation/cluster-model.js";
@@ -207,6 +210,7 @@ const secretPod = workload(
     ],
   },
 );
+const legacySecretConsumer = () => object("Deployment", "legacy-consumer", {spec: {replicas: 1, selector: {matchLabels: {app: "legacy-consumer"}}, template: {metadata: {labels: {app: "legacy-consumer"}}, spec: structuredClone(secretPod.spec)}}}, "apps/v1");
 const anp = cr(
   "AdminNetworkPolicy",
   "rs-external-guard",
@@ -250,7 +254,9 @@ const vendor = object(
   {
     spec: {
       replicas: 1,
+      selector: {matchLabels:{app:"vendor"}},
       template: {
+      metadata: {labels:{app:"vendor"}},
         spec: {
           serviceAccountName: "vendor",
           containers: [
@@ -1255,37 +1261,18 @@ const drafts: Draft[] = [
       "kai",
       "The order matters: build, scan, then sign only if the gate passes. A signed vulnerable artifact is still vulnerable.",
       "rhea",
-      "Read rhacs/README.md. Compare roxctl image check for payments:v1.8.2 and v1.8.3, scan the SPDX files, then inspect the PipelineRun policyCheck. The controller emulates the gate offline; signing remains authored.",
+      "Read rhacs/README.md. Compare roxctl image check for payments:v1.8.2 and v1.8.3, scan the SPDX files, then inspect the TaskRun step exit codes and tkn pr logs. The controller emulates the gate offline; signing remains authored.",
     ],
     artifact: "Out-of-order release attestation",
     files: {
-      "pipeline.yaml": cr("Pipeline", "secure-release", "tekton.dev/v1", {
-        params: [{ name: "digest", type: "string" }],
-        tasks: [
-          { name: "build", taskRef: { name: "recorded-build" } },
-          {
-            name: "scan",
-            taskRef: { name: "recorded-scan" },
-            runAfter: ["build"],
-          },
-          {
-            name: "sign",
-            taskRef: { name: "recorded-sign" },
-            runAfter: ["scan"],
-            when: [
-              {
-                input: "$(tasks.scan.results.high)",
-                operator: "in",
-                values: ["0"],
-              },
-            ],
-          },
-        ],
-      }),
-      "run.yaml": cr("PipelineRun", "release", "tekton.dev/v1", {
-        pipelineRef: { name: "secure-release" },
-        params: [{ name: "digest", value: ownedDigest }],
-      }),
+      ...Object.fromEntries(releasePrerequisites.map(t=>[t.kind.toLowerCase()+"-"+t.metadata.name+".yaml",t])),
+      ...Object.fromEntries(releaseTasks.map(t=>[t.metadata.name+".yaml",t])),
+      "pipeline.yaml": releasePipeline,
+      ...Object.fromEntries(releaseTriggers.map(t=>[t.kind.toLowerCase()+".yaml",t])),
+      "run.yaml": releaseRun("release"),
+      "developer.txt": "Clone the source from https://git.example.test/payments/payment-api.git into ~/projects/payment-api. Inspect pom.xml and git status. A manual run fetches the remote revision; uncommitted edits or unpushed commits do not repair it. Use cat ~/source/fixes/pom.xml > pom.xml, git diff, git add pom.xml, git commit -m 'Repair vulnerable dependency', then git push origin main. The configured EventListener consumes that push and starts the release. tkn pr list -n rs-18; tkn pr logs --last -n rs-18. Failed runs remain failed history. After the gate passes, promote through GitOps: cat ~/source/fixes/payment-api.yaml > deploy/payment-api.yaml; git add deploy/payment-api.yaml; git commit -m 'Promote reviewed release'; git push origin main. The Application reads pushed YAML from deploy/. Local edits do not deploy. Inspect oc get applications -n openshift-gitops -o yaml and oc get deployment payment-api -n payments -o yaml.\n",
+      ...Object.fromEntries(gitopsPrerequisites.map(t=>["gitops-"+t.kind.toLowerCase()+"-"+t.metadata.name+".yaml",t])),
+      "gitops-application.yaml":paymentApplication,
       "attestation.yaml": signature,
       "promotion-review.yaml": cm("promotion-review", {
         supportEnvImport: "disabled",
@@ -1312,7 +1299,7 @@ const drafts: Draft[] = [
         "Gate signing after scanning",
         "Pipeline",
         "secure-release",
-        "spec.tasks.2.runAfter",
+        "spec.tasks.3.runAfter",
         ["scan"],
       ),
       goal(
@@ -1322,6 +1309,7 @@ const drafts: Draft[] = [
         "spec.pipelineRef.name",
         "secure-release",
       ),
+      {...goal("Promote through GitOps","Application","payment-api","status.sync.status","Synced"),namespace:"openshift-gitops"},
     ],
     probes: [
       probe(
@@ -1334,6 +1322,7 @@ const drafts: Draft[] = [
         "Recorded high finding blocks signing",
         "pipeline-high",
       ),
+      probe("gitops","Reviewed release reaches the same payment application","gitops-release"),
     ],
     conclusion: "scan-before-sign",
     risk: "These are retained fixture assessments, not executed builds or cryptographic verification.",
@@ -1348,7 +1337,7 @@ const drafts: Draft[] = [
       "The CSI mapping requests one external path and mounts its projection. Provider authentication and rotation are separate lifecycle controls.",
     voices: [
       "mira",
-      "Scope the provider to the one database path. The provider in this game is a synthetic local fixture.",
+      "Scope the Vault role to the database path. Compare the provider mapping with the file mounted in the application.",
       "kai",
       "Use the CSI volume without syncing a Kubernetes Secret. Decide how the app notices a projected update.",
     ],
@@ -1362,6 +1351,8 @@ const drafts: Draft[] = [
           provider: "vault",
           parameters: {
             roleName: "database-reader",
+            vaultAddress: "https://vault.example.test",
+            vaultAuthMountPath: "kubernetes",
             objects:
               "- objectName: password\n  secretPath: secret/data/database\n  secretKey: password\n",
           },
@@ -1395,6 +1386,7 @@ const drafts: Draft[] = [
         path: "secret/data/database",
         version: "2",
         auth: "namespace-serviceaccount",
+        value: "training-v2",
         sync: "false",
       }),
     },
@@ -1433,9 +1425,10 @@ const drafts: Draft[] = [
       "kai",
       "This consumer requires a Secret. Use a named store and one mapped key, not a dump of the provider.",
       "vale",
-      "A synchronized copy exists in Kubernetes. Include that exposure and the refresh interval in the record.",
+      "A synchronized copy exists in Kubernetes. Inspect the running consumer: its file can update while its environment remains v1. Restart legacy-consumer only after checking the new Secret.",
     ],
     artifact: "Legacy consumer contract",
+    seed: [object("Secret", "database", {stringData: {password: "training-v1"}}), legacySecretConsumer()],
     files: {
       "store.yaml": cr("SecretStore", "vault", "external-secrets.io/v1", {
         provider: {
@@ -1469,6 +1462,7 @@ const drafts: Draft[] = [
           ],
         },
       ),
+      "consumer.yaml": legacySecretConsumer(),
       "provider-record.yaml": cm("provider-record", {
         version: "2",
         value: "training-v2",
@@ -1496,6 +1490,7 @@ const drafts: Draft[] = [
         "Recorded provider v2 reaches the local Secret",
         "eso-sync",
       ),
+      probe("consumer", "Restarted environment and mounted file both see the new value", "eso-consumer"),
       probe("scope", "Only the intended key is synchronized", "eso-scoped"),
     ],
     conclusion: "rotate-the-copy",
@@ -1625,25 +1620,15 @@ const drafts: Draft[] = [
       "vale",
       "Give the irrelevant USB rule a written reason. Do not exclude the applicable audit control.",
       "mira",
-      "Apply the recorded remediation, then run the fixture scan again. State that this does not execute OpenSCAP or reboot a node.",
+      "Apply the audit remediation, then request a rescan. Compare the old report with the new check results.",
     ],
     artifact: "Tailoring request with a missing reason",
+    seed: complianceInventory("$NAMESPACE"),
     files: {
-      "profile.yaml": object(
-        "TailoredProfile",
-        "district",
-        {
-          extends: "rhcos4-moderate",
-          disableRules: [
-            {
-              name: "usb-storage",
-              rationale:
-                "No physical USB interface in this recorded environment",
-            },
-          ],
-        },
-        "compliance.openshift.io/v1alpha1",
-      ),
+      "profile.yaml": cr("TailoredProfile", "district", "compliance.openshift.io/v1alpha1", {
+        title: "District audit baseline", description: "Keep applicable audit controls; document the USB exception",
+        extends: "rhcos4-moderate", disableRules: [{name: "rhcos4-kernel-module-usb-storage-disabled", rationale:"No physical USB interface in this recorded environment"}],
+      }),
       "remediation.yaml": cr(
         "ComplianceRemediation",
         "audit-enabled",
@@ -1657,7 +1642,7 @@ const drafts: Draft[] = [
         "ComplianceScan",
         "district",
         "compliance.openshift.io/v1alpha1",
-        { profile: "district", content: "recorded-rhcos-ds.xml" },
+        { profile: "xccdf_compliance.openshift.io_profile_district", content: "ssg-rhcos4-ds.xml", contentImage: "registry.redhat.io/compliance/openshift-compliance-content-rhel8:latest", scanType: "Node", tailoringConfigMap: {name:"district-tp"}, rawResultStorage:{enabled:false} },
       ),
     },
     goals: [
@@ -1665,8 +1650,8 @@ const drafts: Draft[] = [
         "Keep a justified tailoring rationale",
         "TailoredProfile",
         "district",
-        "disableRules.0.name",
-        "usb-storage",
+        "spec.disableRules.0.name",
+        "rhcos4-kernel-module-usb-storage-disabled",
       ),
       goal(
         "Request the applicable audit remediation",
@@ -1680,7 +1665,7 @@ const drafts: Draft[] = [
         "ComplianceScan",
         "district",
         "spec.profile",
-        "district",
+        "xccdf_compliance.openshift.io_profile_district",
       ),
     ],
     probes: [
@@ -1708,7 +1693,7 @@ const drafts: Draft[] = [
       "Kata adds a VM boundary. The supported fixture still requires non-root SCC admission and a recorded virtualization-capable node.",
     voices: [
       "mira",
-      "Select the kata RuntimeClass and the capable worker. A RuntimeClass name alone is not installed virtualization.",
+      "Kata is ready on worker-02. Inspect the RuntimeClass and KataConfig, then schedule this application on the prepared runtime.",
       "rhea",
       "Try the same unsafe UID request. The extra boundary must not erase SCC.",
     ],
@@ -1717,12 +1702,12 @@ const drafts: Draft[] = [
       "runtime.yaml": object(
         "RuntimeClass",
         "kata",
-        { handler: "kata" },
+        { handler: "kata", scheduling: {nodeSelector: {"feature.node.kubernetes.io/runtime.kata": "true"}} },
         "node.k8s.io/v1",
       ),
       "app.yaml": workload("app", {
         runtimeClassName: "kata",
-        nodeName: "worker-02",
+        hostUsers: true,
       }),
     },
     goals: [
@@ -1734,7 +1719,7 @@ const drafts: Draft[] = [
         "kata",
       ),
       goal(
-        "Declare the runtime handler",
+        "Inspect the prepared runtime handler",
         "RuntimeClass",
         "kata",
         "handler",

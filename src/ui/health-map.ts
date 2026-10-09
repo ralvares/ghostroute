@@ -51,39 +51,23 @@ export function updateHealthMap() {
       checklist.length +
       " case objectives · payments " +
       health.checkout.toLowerCase();
-    if (view === "application")
+    if (view === "application") {
       el("healthMap").innerHTML =
-        '<div class="chapterHealth"><strong>' +
-        esc(ch.district) +
-        "</strong><span>" +
-        esc(ch.namespace) +
-        "</span><p>" +
-        ready +
-        "/" +
-        pods.length +
-        ' workload Pods Ready</p><div class="podDots">' +
-        pods
-          .map(
-            (p) =>
-              '<i class="' +
-              ((p.status?.containerStatuses as { ready: boolean }[])?.every(
-                (c) => c.ready,
-              )
-                ? "ready"
-                : "notReady") +
-              '" title="' +
-              esc(p.metadata.name) +
-              '"></i>',
-          )
-          .join("") +
-        "</div><p>" +
-        met +
-        "/" +
-        checklist.length +
-        ' objectives supported</p></div><p class="mapLegend">Positive and negative proof required. Resource changes stale older proof.</p>';
-    else
+        `<div class="chapterHealth"><div class="healthMetrics"><span><b>${ready}/${pods.length}</b> Pods Ready</span><span class="${degraded ? "bad" : "good"}"><b>${blocked ? "Blocked" : ready < pods.length ? "Pending" : "Available"}</b> service path</span></div><div class="healthWorkloads">${pods
+          .slice(0, 3)
+          .map((p) => {
+            const statuses = p.status?.containerStatuses as
+              { ready: boolean }[] | undefined;
+            const isReady =
+              !!statuses?.length && statuses.every((c) => c.ready);
+            return `<div><span class="${isReady ? "good" : "bad"}">${isReady ? "Ready" : esc(String(p.status?.phase ?? "Pending"))}</span><span title="${esc(p.metadata.name)}">${esc(p.metadata.name)}</span></div>`;
+          })
+          .join(
+            "",
+          )}${pods.length > 3 ? `<small>+ ${pods.length - 3} more Pods · inspect from the bastion</small>` : !pods.length ? `<p>No workload deployed in ${esc(ch.namespace)}.</p>` : ""}</div></div><p class="mapLegend">${degraded ? "Check workload readiness and the blocked service path." : "Pod readiness and application connectivity are separate checks."}</p>`;
+    } else
       el("healthMap").innerHTML =
-        `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods</small><div class="podDots">${node.pods.map((p) => `<i class="${p.ready ? "ready" : "notReady"}" title="${esc(p.namespace)}/${esc(p.name)}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">Node readiness and tenant workload health are separate.</p>`;
+        `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods</small><div class="podDots">${node.pods.map((p) => `<i class="${p.ready ? "ready" : "notReady"}" role="img" aria-label="${esc(p.namespace)}/${esc(p.name)}: ${p.ready ? "Ready" : "Not Ready"}" title="${esc(p.namespace)}/${esc(p.name)}: ${p.ready ? "Ready" : "Not Ready"}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">Node readiness and tenant workload health are separate.</p>`;
     el("healthMap").dataset.view = view;
     el("healthMap").dataset.health = state.toLowerCase();
     signature = "";
@@ -113,7 +97,7 @@ export function updateHealthMap() {
   el("healthMap").dataset.view = view;
   if (view === "cluster") {
     el("healthMap").innerHTML =
-      `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods${node.name === "control-01" ? " · control plane" : ""}</small><div class="podDots">${node.pods.map((pod) => `<i class="${pod.ready ? "ready" : "notReady"}" title="${esc(pod.namespace)}/${esc(pod.name)}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">${health.nodes.filter((node) => node.ready).length}/${health.nodes.length} nodes Ready · ${health.checkout === "DEGRADED" ? "Application impact below" : "No checkout impact"}</p>`;
+      `<div class="nodeMap">${health.nodes.map((node) => `<div class="nodeTile ${S.world.scene === node.name ? "here" : ""}"><strong>${esc(node.name)}</strong><span class="${node.ready ? "good" : "bad"}">${node.ready ? "READY" : "NOT READY"}</span><small>${node.pods.length} Pods${node.name === "control-01" ? " · control plane" : ""}</small><div class="podDots">${node.pods.map((pod) => `<i class="${pod.ready ? "ready" : "notReady"}" role="img" aria-label="${esc(pod.namespace)}/${esc(pod.name)}: ${pod.ready ? "Ready" : "Not Ready"}" title="${esc(pod.namespace)}/${esc(pod.name)}: ${pod.ready ? "Ready" : "Not Ready"}"></i>`).join("")}</div></div>`).join("")}</div><p class="mapLegend">${health.nodes.filter((node) => node.ready).length}/${health.nodes.length} nodes Ready · ${health.checkout === "DEGRADED" ? "Application impact below" : "No checkout impact"}</p>`;
   } else {
     const dependency = health.dnsAllowed ? "allowed" : "blocked";
     const ledger = health.ledgerAllowed ? "allowed" : "blocked";
