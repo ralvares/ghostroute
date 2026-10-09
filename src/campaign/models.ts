@@ -1,3 +1,4 @@
+import { networkPolicyDirection } from "../security/network-policy.js";
 import { normalizeSecret, secretValue } from "../simulation/secrets.js";
 import { podNetworkDomain } from "../simulation/pod-addresses.js";
 import { coreResources } from "../simulation/cluster-api.js";
@@ -244,38 +245,7 @@ function tenantDirection(
   direction: "ingress" | "egress",
   external = false,
 ) {
-  const type = direction === "ingress" ? "Ingress" : "Egress";
-  const policies = [...S.cluster.resources, ...coreResources()].filter(
-    (r) =>
-      r.kind === "NetworkPolicy" &&
-      r.metadata.namespace === namespace &&
-      match(pod.metadata.labels, r.spec?.podSelector) &&
-      (
-        r.spec?.policyTypes ??
-        (r.spec?.egress ? ["Ingress", "Egress"] : ["Ingress"])
-      ).includes(type),
-  );
-  if (!policies.length) return undefined;
-  return policies.some((p) =>
-    (p.spec?.[direction] ?? []).some(
-      (rule: any) =>
-        (!rule.ports ||
-          rule.ports.some(
-            (p: any) => (p.protocol ?? "TCP") === "TCP" && p.port === port,
-          )) &&
-        (!(direction === "egress" ? rule.to : rule.from) ||
-          (direction === "egress" ? rule.to : rule.from).some(
-            (p: any) =>
-              peerMatches(p, peer, peerNs, external) &&
-              (p.namespaceSelector ||
-                p.namespaces ||
-                p.pods ||
-                p.ipBlock ||
-                p.networks ||
-                peerNs === namespace),
-          )),
-    ),
-  );
+  return networkPolicyDirection(S.cluster.resources, pod, peer ?? (peerNs ? {apiVersion:"v1",kind:"Pod",metadata:{name:"recorded-peer",namespace:peerNs}} : undefined), direction, port, "TCP", external ? "203.0.113.77" : undefined);
 }
 export function flow(
   namespace: string,

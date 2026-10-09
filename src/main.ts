@@ -10,7 +10,6 @@ import { registerControls } from "./game/controls.js";
 import { loop } from "./game/rendering.js";
 import { updateHUD } from "./ui/hud.js";
 import { registerSimulationViews } from "./ui/simulation-views.js";
-import { registerAuditBridge } from "./security/audit-bridge.js";
 import { loadProgress, registerPersistence } from "./simulation/persistence.js";
 import { S } from "./simulation/state.js";
 import { $ } from "./ui/dom.js";
@@ -64,7 +63,6 @@ This desk connects to the same offline training cluster throughout the journey.
 import { loadArtwork } from "./game/artwork.js";
 await Promise.all([loadProgress(), loadArtwork()]);
 registerSimulationViews();
-registerAuditBridge();
 registerPersistence();
 registerControls();
 registerScenes();

@@ -2,9 +2,20 @@
 from playwright.sync_api import expect
 
 def walk_to(page,x,y):
+    # With the deterministic RAF clock, render header-driven scene changes
+    # before measuring/clicking the canvas and its accessible target overlays.
+    if page.evaluate("typeof window.stepGame === 'function'"):page.evaluate('stepGame()')
     page.wait_for_function("document.querySelector('#world').dataset.cameraY !== undefined")
-    canvas=page.locator('#world');box=canvas.bounding_box()
-    view=canvas.evaluate('c=>({width:c.width,height:c.height,x:Number(c.dataset.cameraX||0),y:Number(c.dataset.cameraY||0)})')
+    canvas=page.locator('#world')
+    # A narrow viewport follows the investigator. Walk until the destination is
+    # visible before clicking it, as a player must; never click outside the canvas.
+    for _ in range(12):
+        view=canvas.evaluate('c=>({width:c.width,height:c.height,x:Number(c.dataset.cameraX||0),y:Number(c.dataset.cameraY||0)})')
+        key='a' if x<view['x'] else 'd' if x>view['x']+view['width'] else 'w' if y<view['y'] else 's' if y>view['y']+view['height'] else None
+        if key is None:break
+        canvas.focus();page.keyboard.down(key);page.evaluate('stepGame(30)');page.keyboard.up(key)
+    else:raise AssertionError('Destination could not be reached within the world viewport')
+    box=canvas.bounding_box()
     canvas.click(position={'x':(x-view['x'])/view['width']*box['width'],'y':(y-view['y'])/view['height']*box['height']})
     if page.evaluate("typeof window.stepGame === 'function'"):page.evaluate('stepGame(200)')
 

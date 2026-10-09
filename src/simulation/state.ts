@@ -1,12 +1,13 @@
 import type { ClueId } from "../security/evidence.js";
 import { evaluateFindings } from "../security/findings.js";
 import type { DomainEvent } from "./events.js";
+import { buildIncidentResources } from "./incident-resources.js";
 import { createCluster } from "./cluster-model.js";
 import { makeCampaign } from "../campaign/types.js";
 
 import type { SceneId } from "../world/scene-model.js";
 export function makeState() {
-  return {
+  const state = {
     cluster: createCluster(),
     campaign: makeCampaign(),
     incident: {
@@ -36,6 +37,7 @@ export function makeState() {
         string
       >,
       readyReplicas: 2,
+      desiredReplicas: 2,
     },
     pods: [
       {
@@ -52,6 +54,7 @@ export function makeState() {
       },
     ],
     policies: new Set<"default-deny-egress" | "payment-egress">(),
+    incidentNetwork: {dns: true, ledger: true, external: true},
     get env() {
       return "TELEMETRY_ENDPOINT" in this.deployment.env;
     },
@@ -59,11 +62,9 @@ export function makeState() {
       return this.deployment.generation;
     },
     get policy(): "none" | "deny" | "allow" {
-      return this.policies.has("payment-egress")
-        ? "allow"
-        : this.policies.has("default-deny-egress")
-          ? "deny"
-          : "none";
+      return this.incidentNetwork.dns && this.incidentNetwork.ledger
+        ? this.incidentNetwork.external ? "none" : "allow"
+        : "deny";
     },
     audit: [] as DomainEvent[],
     findings: evaluateFindings(true, "none"),
@@ -83,6 +84,9 @@ export function makeState() {
     scorePenalty: 0,
     seenIssue: false,
   };
+  state.cluster.resources.push(...buildIncidentResources(state));
+  state.cluster.incidentStored = true;
+  return state;
 }
 export let S = makeState();
 export type SimulationState = ReturnType<typeof makeState>;

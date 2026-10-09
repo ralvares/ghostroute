@@ -158,6 +158,7 @@ export function createCluster() {
   const sccs = structuredClone(defaultSccs);
   return {
     version: "4.22",
+    incidentStored: false,
     policyRevision: "4.22-a18571de",
     user: "operator",
     namespace: "default",

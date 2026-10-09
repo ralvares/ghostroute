@@ -31,10 +31,10 @@ import {
   makeDirectory,
   writeVirtualFile,
 } from "../simulation/filesystem.js";
-import { policyFiles } from "../simulation/resources.js";
 import { tokenize } from "./lexer.js";
 import { runQuery } from "./query-tools.js";
 import { validOcCommand } from "./syntax.js";
+import { verifyRollout } from "../simulation/operations.js";
 import { textCommand, textTools, toolHelp } from "./text-tools.js";
 import type { ToolResult } from "./text-tools.js";
 import { printResourceJson, printTypedResourceJson } from "./json-printer.js";
@@ -166,28 +166,6 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     readApiResources(params[0], params[1], params[2], params[3], impersonate);
   const readApiTable = (...params: Parameters<typeof apiTable>) =>
     apiTable(params[0], params[1], params[2], params[3], impersonate);
-  const manifest = flag("-f") ?? flag("--filename");
-  const canonical = manifest ? workspacePath(manifest) : undefined;
-  if (
-    args[0] === "apply" &&
-    canonical &&
-    Object.hasOwn(policyFiles, canonical)
-  ) {
-    if (
-      Object.keys(flags).some(
-        (key) => !["-f", "--filename", "-n", "--namespace"].includes(key),
-      ) ||
-      args.length !== 1
-    )
-      throw new Error(
-        "simulation: incident policies use oc apply -f <file> without additional options",
-      );
-    if ((flag("-n") || flag("--namespace")) && namespace !== "payments")
-      throw new Error(
-        `error: the namespace from the provided object "payments" does not match the namespace "${namespace}"`,
-      );
-    return { stdout: "", legacyCommand: `oc apply -f ${canonical}` };
-  }
   const verb = args[0];
   if (verb === "get" && flag("--raw")) {
     rejectFlags(flags, ["--raw", "--as"]);
@@ -424,27 +402,12 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
           : "",
     );
   }
-  // Retain the episode's exact command responses and side effects when its
-  // original operator/context is used. New output formats use the resource API.
-  const original =
-    validOcCommand(raw) &&
-    ((verb === "apply" &&
-      Object.hasOwn(policyFiles, flag("-f")?.replace(/^\.\//, "") ?? "")) ||
-      (S.cluster.user === "operator" && S.cluster.namespace === "default") ||
-      (namespace === "payments" &&
-        (raw.includes("payment-api") ||
-          raw.includes("networkpolic") ||
-          raw.includes("netpol") ||
-          raw.includes("policies/"))));
-  if (
-    original &&
-    !["get", "describe"].includes(verb) &&
-    !["nodes", "node", "ns", "namespaces"].includes(args[1]) &&
-    !["auth", "whoami"].includes(verb) &&
-    !flag("-o")?.includes("json") &&
-    !flag("-o")?.includes("template")
-  )
+  if (verb === "rsh" && validOcCommand(raw)) {
+    getResources("deployments",namespace,"payment-api");
+    if (!getResources("pods",namespace).some(p => p.metadata.labels?.app === "payment-api" && Array.isArray(p.status?.containerStatuses) && p.status.containerStatuses.some((c: any)=>c.ready)))
+      throw new Error("Error from server (BadRequest): no running payment-api container is available");
     return null;
+  }
 
   if (verb === "get" || verb === "describe") {
     rejectFlags(flags, [
@@ -752,15 +715,6 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     const type = resolveResource(alias),
       name = embeddedName ?? args[verb === "rollout" || verb === "set" ? 3 : 2];
     if (!type || !name) throw new Error("error: specify a known resource/name");
-    if (
-      namespace === "payments" &&
-      (name === "payment-api" || name.startsWith("payment-api-"))
-    ) {
-      if (validOcCommand(raw)) return null;
-      throw new Error(
-        "simulation: original payment-api mutations are implemented through oc set env and its two policy manifests",
-      );
-    }
     if (verb === "delete") {
       const dryRun = flag("--dry-run") ?? "none";
       if (!["none", "client", "server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
@@ -779,7 +733,9 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
           const scope = resourceTypes[type].namespaced ? ` from ${namespace} namespace` : "";
           if (dryRun === "client") {
             getResources(type, resourceTypes[type].namespaced ? namespace : undefined, item);
-            responses.push(`${resourceTypes[type].kind.toLowerCase()} "${item}" deleted${scope} (dry run)`);
+            const definition=resourceTypes[type];
+            const kind=definition.kind.toLowerCase()+(definition.apiVersion.includes("/") ? "."+definition.apiVersion.split("/")[0] : "");
+            responses.push(`${kind} "${item}" deleted${scope} (dry run)`);
           } else {
             const response = kubeRequest({ method: "DELETE", path: apiResourcePath(type, resourceTypes[type].namespaced ? namespace : undefined, item) + (dryRun === "server" ? "?dryRun=All" : ""), impersonateUser: impersonate });
             apiBody(response);
@@ -821,6 +777,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     )[0];
     if (verb === "rollout" && args[1] === "status") {
       const ready = object.status?.readyReplicas ?? 0;
+      if (type === "deployments" && name === "payment-api" && namespace === "payments" && ready === (object.spec?.replicas ?? 1)) verifyRollout();
       return result(
         ready === (object.spec?.replicas ?? 1)
           ? `deployment "${name}" successfully rolled out`
@@ -877,6 +834,26 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       if (!Number.isInteger(replicas) || replicas < 0 || replicas > 10)
         throw new Error("simulation: replicas must be 0–10");
       updated = mergePatch(object, { spec: { replicas } }) as Resource;
+    } else if (verb === "set" && args[1] === "env" && type === "deployments") {
+      updated = structuredClone(object);
+      const assignments = args.slice(embeddedName ? 3 : 4);
+      if (!assignments.length) throw new Error("error: set env requires assignments or NAME-");
+      for (const container of updated.spec!.template!.spec.containers) {
+        for (const assignment of assignments) {
+          const equals = assignment.indexOf("=");
+          const remove = equals < 0 && assignment.endsWith("-");
+          const key = remove ? assignment.slice(0,-1) : assignment.slice(0,equals);
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || (equals < 0 && !remove)) throw new Error("error: invalid environment assignment");
+          container.env = (container.env ?? []).filter(e => e.name !== key);
+          if (!remove) container.env.push({name:key,value:assignment.slice(equals+1)});
+        }
+      }
+      const dryRun = flag("--dry-run") ?? "none";
+      if (!["none","client","server"].includes(dryRun)) throw new Error("error: invalid --dry-run value");
+      if (dryRun !== "client") updated = apiBody(kubeRequest({method:"PATCH",path:apiResourcePath(type,namespace,name)+(dryRun === "server" ? "?dryRun=All" : ""),contentType:"application/strategic-merge-patch+json",impersonateUser:impersonate,body:{spec:{template:{spec:{containers:updated.spec!.template!.spec.containers.map(c=>({...c,env:[{$patch:"replace"},...(c.env ?? [])]}))}}}}})) as Resource;
+      const output = flag("-o") ?? flag("--output");
+      if (output && !["json","yaml","name"].includes(output)) throw new Error("simulation: environment output supports json, yaml, or name");
+      return result(output === "json" ? printTypedResourceJson(updated) : output === "yaml" ? stringify(updated) : identifier(updated)+(output === "name" ? "" : " updated"+(dryRun === "server" ? " (server dry run)" : dryRun === "client" ? " (dry run)" : "")));
     } else if (
       verb === "set" &&
       args[1] === "image" &&

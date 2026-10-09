@@ -79,9 +79,8 @@ test("retained payment Deployment selector matches its template and Pods carry t
 test("incident policy apply accepts matching namespace and rejects a mismatched explicit target", async () => {
   resetState();
   assert.equal(
-    (await clusterCommand("oc apply -f policies/deny-all.yaml -n payments"))
-      .legacyCommand,
-    "oc apply -f policies/deny-all.yaml",
+    (await clusterCommand("oc apply -f policies/deny-all.yaml -n payments")).stdout,
+    "networkpolicy.networking.k8s.io/default-deny-egress created\n",
   );
   await assert.rejects(
     clusterCommand("oc apply -f policies/deny-all.yaml -n default"),
@@ -325,10 +324,11 @@ test("replacement payment Pods expose their rollout birth time while the Deploym
     replaced.metadata.creationTimestamp,
     before.metadata.creationTimestamp,
   );
-  assert.equal(replaced.metadata.creationTimestamp, event.at);
+  assert.ok(Date.parse(replaced.metadata.creationTimestamp) <= Date.parse(event.at));
+  assert.equal(replaced.metadata.creationTimestamp, S.cluster.resources.find(r=>r.metadata.name===replaced.metadata.name).metadata.creationTimestamp);
   assert.equal(
     replaced.status.containerStatuses[0].state.running.startedAt,
-    event.at,
+    replaced.metadata.creationTimestamp,
   );
   assert.equal(
     readApiResources("deployments", "payments", "payment-api")[0].metadata

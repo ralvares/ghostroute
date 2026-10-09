@@ -46,9 +46,12 @@ export function registerCampaignFiles() {
         "Search: " + ch.artifact.title + " in " + ch.artifact.scene,
         "Read evidence.json and handover.txt. Inspect manifests before applying them.",
         "Training identities: operator / platform-admin; local password training.",
-        "Apply namespaced resources to " +
-          ch.namespace +
-          ". Roles, RBAC bindings and cluster controls require platform-admin.",
+        "Use the manifest's metadata.namespace when present; otherwise target " +
+          ch.namespace + ". Roles, RBAC bindings and cluster controls require platform-admin.",
+        ...Object.entries(ch.files).map(([name,value]) => [name,typeof value === "object" ? scopeResource(value,ch.namespace) : value] as const).filter(([name,value]) => name.endsWith(".yaml") && typeof value === "object" && value.metadata?.namespace && value.metadata.namespace !== ch.namespace)
+          .map(([name,value]) => "Explicit target: oc apply -f " + name + " -n " + (value as any).metadata.namespace),
+        ...(ch.id === "07" ? ["A Secret update does not refresh a process environment. After applying secret.yaml, recreate the consumer: oc delete pod app -n " + ch.namespace + "; oc apply -f consumer.yaml -n " + ch.namespace] : []),
+        ...(ch.id === "16" ? ["A primary network is chosen at Pod creation. After applying network.yaml, recreate the tenant Pods: oc delete pod client server -n " + ch.namespace + "; oc apply -f client.yaml -n " + ch.namespace + "; oc apply -f server.yaml -n " + ch.namespace] : []),
         ...(ch.id === "05"
           ? [
               "Vendor exception: apply identity.yaml, scc.yaml and exception.yaml; grant rs-vendor to vendor; restart the vendor Deployment.",

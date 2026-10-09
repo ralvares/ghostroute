@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { projectIncident } from "../.test-build/src/simulation/incident-controller.js";
 import { S, resetState } from "../.test-build/src/simulation/state.js";
 import {
   encodeProgress,
@@ -40,8 +41,9 @@ test("portable checkpoints restore Sets, lab grants, history and computed infras
     $set: ["literal-object"],
   });
   assert.equal(encodeProgress(restored), encodeProgress(S));
-  restored.policies.clear();
-  assert.equal(restored.policy, "none"); // getter remains live after restore
+  restored.cluster.resources = restored.cluster.resources.filter(r => r.kind !== "NetworkPolicy");
+  projectIncident(restored,false);
+  assert.equal(restored.policy, "none"); // projection is rebuilt from retained resources
 });
 
 test("damaged or incompatible imports reject without changing the live incident", () => {

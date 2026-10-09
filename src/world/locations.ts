@@ -238,7 +238,7 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
           ]),
     ];
   const worker = state.world.scene;
-  const payment = state.pods.find((pod) => pod.node === worker)!;
+  const payment = state.pods.find((pod) => pod.node === worker);
   const objects = [
     ...(worker === "worker-01"
       ? [
@@ -272,7 +272,7 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       "portal",
       { destination: "cluster" },
     ),
-    object(
+    ...(payment ? [object(
       worker === "worker-01" ? "pod1" : "pod2",
       490,
       330,
@@ -280,9 +280,9 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       `payments · Pod · ${worker}`,
       "pod",
       { namespace: "payments", resourceName: payment.name },
-    ),
+    )] : []),
   ];
-  if (worker === "worker-02")
+  if (worker === "worker-02" && state.cluster.resources.some(r => r.kind === "Pod" && r.metadata.name === "ledger-86bbb-zyx12"))
     objects.push(
       object(
         "ledger",
@@ -295,7 +295,7 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
       ),
     );
   const labPods = state.cluster.resources.filter(
-    (item) => item.kind === "Pod" && item.spec?.nodeName === worker,
+    (item) => item.kind === "Pod" && item.spec?.nodeName === worker && item.metadata.name !== payment?.name && item.metadata.name !== "ledger-86bbb-zyx12",
   );
   if (state.campaign.active)
     labPods.sort(

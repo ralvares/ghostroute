@@ -1,5 +1,5 @@
 """A new cached build becomes available with an old tab open; saves remain intact."""
-import json, re, shutil, tempfile, threading
+import json, re, shutil, tempfile, threading, hashlib
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from functools import partial
@@ -10,8 +10,11 @@ with tempfile.TemporaryDirectory(prefix='ghostroute-update-') as directory:
  root=Path(directory); target=root/'ghostroute'; shutil.copytree('dist',target)
  original_index=(target/'index.html').read_text(); original_sw=(target/'sw.js').read_text()
  def version(number):
-  (target/'index.html').write_text(original_index.replace('</head>',f'<meta name="update-fixture" content="{number}"></head>'))
-  (target/'sw.js').write_text(re.sub(r"const cacheName = prefix \+ '[^']+';",f"const cacheName = prefix + 'update-proof-{number}';",original_sw))
+  document=original_index.replace('</head>',f'<meta name="update-fixture" content="{number}"></head>')
+  (target/'index.html').write_text(document)
+  worker=re.sub(r"const cacheName = prefix \+ '[^']+';",f"const cacheName = prefix + 'update-proof-{number}';",original_sw)
+  worker=re.sub(r"const documentHash = '[^']+';",f"const documentHash = '{hashlib.sha256(document.encode()).hexdigest()}';",worker)
+  (target/'sw.js').write_text(worker)
  version(1)
  class Quiet(SimpleHTTPRequestHandler):
   def log_message(self,*args):pass

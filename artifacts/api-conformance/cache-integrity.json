@@ -1,0 +1,7 @@
+{
+  "mixed_build_rejected": true,
+  "incomplete_cache_removed": true,
+  "online_retry": true,
+  "offline_after_recovery": true,
+  "browser_errors": []
+}

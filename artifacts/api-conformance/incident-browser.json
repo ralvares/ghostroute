@@ -1,0 +1,122 @@
+{
+  "url": "http://127.0.0.1:4189/ghostroute/",
+  "real_input": true,
+  "checks": [
+    "arbitrary incident mutation",
+    "server preview isolation",
+    "stale replacement failure",
+    "SCC controller failure and repair",
+    "renamed policy drives Mira reaction",
+    "independent DNS/ledger consequences",
+    "policy deletion opens external path",
+    "scale to zero blocks rsh",
+    "simulated rollout and offline resource identity"
+  ],
+  "commands": [
+    {
+      "command": "oc get deployment payment-api -n payments -o json > before.json",
+      "output": "operator@bastion:~$ oc get deployment payment-api -n payments -o json > before.json"
+    },
+    {
+      "command": "cat before.json",
+      "output": "{\n    \"apiVersion\": \"apps/v1\",\n    \"kind\": \"Deployment\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T00:14:00Z\",\n        \"generation\": 1,\n        \"labels\": {\n            \"app\": \"payment-api\"\n        },\n        \"name\": \"payment-api\",\n        \"namespace\": \"payments\",\n        \"resourceVersion\": \"25\",\n        \"uid\": \"00000000-0000-4000-9000-000000000025\"\n    },\n    \"spec\": {\n        \"replicas\": 2,\n        \"selector\": {\n            \"matchLabels\": {\n                \"app\": \"payment-api\"\n            }\n        },\n        \"template\": {\n            \"metadata\": {\n                \"labels\": {\n                    \"app\": \"payment-api\"\n                }\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"env\": [\n                            {\n                                \"name\": \"TELEMETRY_ENDPOINT\",\n                                \"value\": \"https://203.0.113.77/upload\"\n                            }\n                        ],\n                        \"image\": \"registry.example.test/payments:v1.8.2\",\n                        \"name\": \"payment-api\"\n                    }\n                ],\n                \"hostUsers\": false,\n                \"serviceAccountName\": \"payment-app\"\n            }\n        }\n    },\n    \"status\": {\n        \"availableReplicas\": 2,\n        \"readyReplicas\": 2,\n        \"replicas\": 2,\n        \"updatedReplicas\": 2\n    }\n}"
+    },
+    {
+      "command": "oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT- --dry-run=server",
+      "output": "deployment.apps/payment-api updated (server dry run)"
+    },
+    {
+      "command": "oc get deployment payment-api -n payments -o json",
+      "output": "{\n    \"apiVersion\": \"apps/v1\",\n    \"kind\": \"Deployment\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T00:14:00Z\",\n        \"generation\": 1,\n        \"labels\": {\n            \"app\": \"payment-api\"\n        },\n        \"name\": \"payment-api\",\n        \"namespace\": \"payments\",\n        \"resourceVersion\": \"25\",\n        \"uid\": \"00000000-0000-4000-9000-000000000025\"\n    },\n    \"spec\": {\n        \"replicas\": 2,\n        \"selector\": {\n            \"matchLabels\": {\n                \"app\": \"payment-api\"\n            }\n        },\n        \"template\": {\n            \"metadata\": {\n                \"labels\": {\n                    \"app\": \"payment-api\"\n                }\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"env\": [\n                            {\n                                \"name\": \"TELEMETRY_ENDPOINT\",\n                                \"value\": \"https://203.0.113.77/upload\"\n                            }\n                        ],\n                        \"image\": \"registry.example.test/payments:v1.8.2\",\n                        \"name\": \"payment-api\"\n                    }\n                ],\n                \"hostUsers\": false,\n                \"serviceAccountName\": \"payment-app\"\n            }\n        }\n    },\n    \"status\": {\n        \"availableReplicas\": 2,\n        \"readyReplicas\": 2,\n        \"replicas\": 2,\n        \"updatedReplicas\": 2\n    }\n}"
+    },
+    {
+      "command": "oc patch deployment payment-api -n payments --type=json -p '[{\"op\":\"remove\",\"path\":\"/spec/template/spec/containers/0/env/0\"}]'",
+      "output": "deployment.apps/payment-api patched"
+    },
+    {
+      "command": "oc get deployment payment-api -n payments -o json",
+      "output": "{\n    \"apiVersion\": \"apps/v1\",\n    \"kind\": \"Deployment\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T00:14:00Z\",\n        \"generation\": 2,\n        \"labels\": {\n            \"app\": \"payment-api\"\n        },\n        \"name\": \"payment-api\",\n        \"namespace\": \"payments\",\n        \"resourceVersion\": \"45\",\n        \"uid\": \"00000000-0000-4000-9000-000000000025\"\n    },\n    \"spec\": {\n        \"replicas\": 2,\n        \"selector\": {\n            \"matchLabels\": {\n                \"app\": \"payment-api\"\n            }\n        },\n        \"template\": {\n            \"metadata\": {\n                \"labels\": {\n                    \"app\": \"payment-api\"\n                }\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"env\": [],\n                        \"image\": \"registry.example.test/payments:v1.8.2\",\n                        \"name\": \"payment-api\"\n                    }\n                ],\n                \"hostUsers\": false,\n                \"serviceAccountName\": \"payment-app\"\n            }\n        }\n    },\n    \"status\": {\n        \"availableReplicas\": 2,\n        \"conditions\": [\n            {\n                \"status\": \"True\",\n                \"type\": \"Available\"\n            }\n        ],\n        \"observedGeneration\": 2,\n        \"readyReplicas\": 2,\n        \"replicas\": 2,\n        \"updatedReplicas\": 2\n    }\n}"
+    },
+    {
+      "command": "oc replace -f before.json -n payments",
+      "output": "Error from server (Conflict): Operation cannot be fulfilled on deployments \"payment-api\": the object has been modified; please apply your changes to the latest version and try again"
+    },
+    {
+      "command": "oc patch deployment payment-api -n payments -p '{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"payment-api\",\"securityContext\":{\"runAsUser\":0}}]}}}}'",
+      "output": "deployment.apps/payment-api patched"
+    },
+    {
+      "command": "oc get events -n payments",
+      "output": "LAST SEEN   TYPE      REASON         OBJECT                       MESSAGE\n2s          Warning   FailedCreate   replicaset/payment-api-sim   Error creating: pods \"payment-api-sim-0\" is forbidden: unable to validate against any security context constraint: [provider \"anyuid\": Forbidden: not usable by user or serviceaccount, provider restricted-v3: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000, 65534], provider \"hostaccess\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid-v2\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork-v2\": Forbidden: not usable by user or serviceaccount, provider \"nested-container\": Forbidden: not usable by user or serviceaccount, provider \"nonroot\": Forbidden: not usable by user or serviceaccount, provider \"nonroot-v2\": Forbidden: not usable by user or serviceaccount, provider \"privileged\": Forbidden: not usable by user or serviceaccount, provider \"restricted\": Forbidden: not usable by user or serviceaccount, provider restricted-v2: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000760000, 1000769999]]\n1s          Warning   FailedCreate   replicaset/payment-api-sim   Error creating: pods \"payment-api-sim-1\" is forbidden: unable to validate against any security context constraint: [provider \"anyuid\": Forbidden: not usable by user or serviceaccount, provider restricted-v3: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000, 65534], provider \"hostaccess\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid\": Forbidden: not usable by user or serviceaccount, provider \"hostmount-anyuid-v2\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork\": Forbidden: not usable by user or serviceaccount, provider \"hostnetwork-v2\": Forbidden: not usable by user or serviceaccount, provider \"nested-container\": Forbidden: not usable by user or serviceaccount, provider \"nonroot\": Forbidden: not usable by user or serviceaccount, provider \"nonroot-v2\": Forbidden: not usable by user or serviceaccount, provider \"privileged\": Forbidden: not usable by user or serviceaccount, provider \"restricted\": Forbidden: not usable by user or serviceaccount, provider restricted-v2: .containers[0].runAsUser: Invalid value: 0: must be in the ranges: [1000760000, 1000769999]]"
+    },
+    {
+      "command": "oc rollout status deployment/payment-api -n payments",
+      "output": "Waiting for deployment \"payment-api\" rollout to finish: 0 of 2 updated replicas are available...\nInspect oc describe deployment payment-api and oc get events."
+    },
+    {
+      "command": "oc patch deployment payment-api -n payments --type=json -p '[{\"op\":\"remove\",\"path\":\"/spec/template/spec/containers/0/securityContext/runAsUser\"}]'",
+      "output": "deployment.apps/payment-api patched"
+    },
+    {
+      "command": "echo '{\"apiVersion\": \"networking.k8s.io/v1\", \"kind\": \"NetworkPolicy\", \"metadata\": {\"name\": \"scene-boundary\", \"namespace\": \"payments\"}, \"spec\": {\"podSelector\": {\"matchLabels\": {\"app\": \"payment-api\"}}, \"policyTypes\": [\"Egress\"], \"egress\": []}}' > scene-policy.json",
+      "output": "operator@bastion:~$ echo '{\"apiVersion\": \"networking.k8s.io/v1\", \"kind\": \"NetworkPolicy\", \"metadata\": {\"name\": \"scene-boundary\", \"namespace\": \"payments\"}, \"spec\": {\"podSelector\": {\"matchLabels\": {\"app\": \"payment-api\"}}, \"policyTypes\": [\"Egress\"], \"egress\": []}}' > scene-policy.json"
+    },
+    {
+      "command": "oc apply -f scene-policy.json -n payments",
+      "output": "networkpolicy.networking.k8s.io/scene-boundary created"
+    },
+    {
+      "command": "oc patch networkpolicy scene-boundary -n payments --type=merge -p '{\"spec\": {\"egress\": [{\"to\": [{\"podSelector\": {\"matchLabels\": {\"app\": \"ledger\"}}}], \"ports\": [{\"protocol\": \"TCP\", \"port\": 8443}]}]}}'",
+      "output": "networkpolicy.networking.k8s.io/scene-boundary patched"
+    },
+    {
+      "command": "oc patch networkpolicy scene-boundary -n payments --type=json -p '[{\"op\": \"add\", \"path\": \"/spec/egress/-\", \"value\": {\"to\": [{\"namespaceSelector\": {\"matchLabels\": {\"kubernetes.io/metadata.name\": \"openshift-dns\"}}, \"podSelector\": {\"matchLabels\": {\"dns.operator.openshift.io/daemonset-dns\": \"default\"}}}], \"ports\": [{\"protocol\": \"TCP\", \"port\": 53}, {\"protocol\": \"UDP\", \"port\": 53}]}}]'",
+      "output": "networkpolicy.networking.k8s.io/scene-boundary patched"
+    },
+    {
+      "command": "oc delete networkpolicy scene-boundary -n payments",
+      "output": "networkpolicy.networking.k8s.io \"scene-boundary\" deleted from payments namespace"
+    },
+    {
+      "command": "oc apply -f policies/payments-egress.yaml -n payments",
+      "output": "networkpolicy.networking.k8s.io/payment-egress created"
+    },
+    {
+      "command": "oc scale deployment payment-api -n payments --replicas=0",
+      "output": "deployment.apps/payment-api configured"
+    },
+    {
+      "command": "oc rsh deployment/payment-api -n payments",
+      "output": "Error from server (BadRequest): no running payment-api container is available"
+    },
+    {
+      "command": "oc scale deployment payment-api -n payments --replicas=2",
+      "output": "deployment.apps/payment-api configured"
+    },
+    {
+      "command": "oc rollout status deployment/payment-api -n payments",
+      "output": "deployment \"payment-api\" successfully rolled out"
+    },
+    {
+      "command": "oc get deployment payment-api -n payments -o json",
+      "output": "{\n    \"apiVersion\": \"apps/v1\",\n    \"kind\": \"Deployment\",\n    \"metadata\": {\n        \"creationTimestamp\": \"2026-10-08T00:14:00Z\",\n        \"generation\": 6,\n        \"labels\": {\n            \"app\": \"payment-api\"\n        },\n        \"name\": \"payment-api\",\n        \"namespace\": \"payments\",\n        \"resourceVersion\": \"68\",\n        \"uid\": \"00000000-0000-4000-9000-000000000025\"\n    },\n    \"spec\": {\n        \"replicas\": 2,\n        \"selector\": {\n            \"matchLabels\": {\n                \"app\": \"payment-api\"\n            }\n        },\n        \"template\": {\n            \"metadata\": {\n                \"labels\": {\n                    \"app\": \"payment-api\"\n                }\n            },\n            \"spec\": {\n                \"containers\": [\n                    {\n                        \"env\": [],\n                        \"image\": \"registry.example.test/payments:v1.8.2\",\n                        \"name\": \"payment-api\",\n                        \"securityContext\": {}\n                    }\n                ],\n                \"hostUsers\": false,\n                \"serviceAccountName\": \"payment-app\"\n            }\n        }\n    },\n    \"status\": {\n        \"availableReplicas\": 2,\n        \"conditions\": [\n            {\n                \"status\": \"True\",\n                \"type\": \"Available\"\n            }\n        ],\n        \"observedGeneration\": 6,\n        \"readyReplicas\": 2,\n        \"replicas\": 2,\n        \"updatedReplicas\": 2\n    }\n}"
+    },
+    {
+      "command": "game save",
+      "output": "Progress saved locally."
+    },
+    {
+      "command": "oc get deployment payment-api -n payments -o json | jq -r '.metadata.uid'",
+      "output": "00000000-0000-4000-9000-000000000025"
+    },
+    {
+      "command": "cat scene-policy.json",
+      "output": "{\"apiVersion\": \"networking.k8s.io/v1\", \"kind\": \"NetworkPolicy\", \"metadata\": {\"name\": \"scene-boundary\", \"namespace\": \"payments\"}, \"spec\": {\"podSelector\": {\"matchLabels\": {\"app\": \"payment-api\"}}, \"policyTypes\": [\"Egress\"], \"egress\": []}}"
+    },
+    {
+      "command": "game status",
+      "output": "Local progress: saved \u00b7 2026-10-09T04:06:02.177Z\nOffline installation: ready\nProgress stays in this browser. Use game export for a portable backup."
+    }
+  ],
+  "browser_errors": []
+}

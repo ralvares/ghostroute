@@ -1,0 +1,79 @@
+{
+  "url": "http://127.0.0.1:4189/ghostroute/",
+  "flows": [
+    "Rhea incident report -> Mira physical access pass -> worker interviews -> maintenance keycard -> Vale audit trail; doors enforce story access without granting API permissions",
+    "Single physical bastion opens modal terminal; T elsewhere is rejected; logs/config shortcuts removed; leaving console hides terminal; notebooks mirror and save leads",
+    "Default-deny interrupts console and animates Mira approaching; dialogue challenges outage; checkout degrades while Pods/nodes remain Ready; targeted recovery clears flag and raises recovery notice",
+    "Visited worker, access passes, discoveries, personal notes and outage acknowledgement survive a fresh page"
+  ],
+  "layout": [
+    {
+      "width": 1536,
+      "scrollWidth": 1536,
+      "world": {
+        "x": 0,
+        "y": 170.5,
+        "w": 1536,
+        "h": 569
+      },
+      "notes": {
+        "x": 16,
+        "y": 752.5,
+        "w": 1120,
+        "h": 205
+      },
+      "intel": {
+        "x": 1150,
+        "y": 752.5,
+        "w": 370,
+        "h": 205
+      }
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1024,
+      "world": {
+        "x": 0,
+        "y": 170.5,
+        "w": 1024,
+        "h": 470
+      },
+      "notes": {
+        "x": 16,
+        "y": 653.5,
+        "w": 608,
+        "h": 205
+      },
+      "intel": {
+        "x": 638,
+        "y": 653.5,
+        "w": 370,
+        "h": 205
+      }
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "world": {
+        "x": 0,
+        "y": 395.875,
+        "w": 390,
+        "h": 333.546875
+      },
+      "notes": {
+        "x": 10,
+        "y": 742.421875,
+        "w": 370,
+        "h": 210
+      },
+      "intel": {
+        "x": 10,
+        "y": 964.421875,
+        "w": 370,
+        "h": 220
+      }
+    }
+  ],
+  "browser_errors": [],
+  "failed_requests": []
+}

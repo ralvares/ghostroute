@@ -2,8 +2,8 @@
 
 Visit the bastion at RHACS Central, interact with its console, then type
 `cat lab.txt`. T opens it only when you are nearby. These
-exercises run inside the same game and shared state. The original Ghost Route
-mission and its protected infrastructure remain playable.
+exercises run inside the same game and shared state. The first incident uses
+ordinary stored Deployments, Pods and NetworkPolicies throughout the journey.
 
 ## Story and navigation
 
@@ -58,8 +58,10 @@ oc get serviceaccounts -o json | jq -r '.items[].metadata.name'
 oc get namespaces -o go-template='{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
 ```
 
-`create`, `apply`, `get`, `describe`, `delete`, merge `patch`, Deployment `scale`,
-`set image`, `run`, and rollout status/restart operate on stored resources.
+`create`, `apply`, `replace`, `get`, `describe`, `delete`, JSON/merge/strategic
+`patch`, `label`, `annotate`, Deployment `scale`, `set env`, `set image`, `run`,
+and rollout status/restart operate on stored resources. Client/server dry runs
+preview supported writes without persistence or controller side effects.
 `oc api-resources` lists the implemented resource kinds. YAML/JSON files can be
 created in the simulated filesystem:
 
@@ -114,10 +116,11 @@ oc get --raw /apis/apps/v1/namespaces/payments/deployments/payment-api | jq '.sp
 
 This runs in process with the same RBAC/admission/controller state; it exposes
 no real HTTP server and makes no cluster network request. REST writes currently
-support create, named apply objects and delete; watches, resourceVersion conflicts,
-server-side field ownership and arbitrary API subresources are not simulated.
-The retained first incident's mutations and domain-specific SCC/controller helpers
-still have dedicated adapters; they are not a complete oc binary.
+support create, full replacement, apply, three patch formats and delete;
+stale resourceVersion/UID preconditions reject conflicting writes. Watches,
+server-side field ownership and arbitrary API subresources remain open.
+The first incident uses the same resource API. Interactive rsh and some domain-specific
+SCC/controller helpers retain recorded adapters; a complete oc binary is not shipped.
 
 ## Repair an application you own
 
@@ -276,7 +279,7 @@ inside the virtual shell; browser storage is not an immutable production store.
 This is a resource-backed offline simulator, not the complete `oc` binary or a
 running OpenShift cluster. The implemented grammar, API objects, permissions and
 admission checks execute real state transitions. Unsupported subcommands,
-options, output formats or protected core mutations report a simulator limit;
+options, output formats or protected system-resource mutations report a simulator limit;
 they are not disguised as RBAC or admission failures.
 
 The inventory contains all thirteen default SCC manifests from the pinned 4.22

@@ -1,10 +1,13 @@
 import { S, resetState } from "./state.js";
 import { publish } from "./events.js";
 import type { DomainEvent, EventType } from "./events.js";
-import { evaluateFindings } from "../security/findings.js";
 import type { ClueId } from "../security/evidence.js";
+import { kubeRequest, apiBody } from "./kube-api.js";
+import { parse } from "yaml";
+import { policyFiles } from "./resources.js";
+import type { Resource } from "./cluster-model.js";
 
-function record(
+export function record(
   type: EventType,
   data: DomainEvent["data"],
   actor: DomainEvent["actor"] = "operator",
@@ -23,62 +26,16 @@ function record(
   publish(event);
 }
 
-function reevaluate() {
-  S.findings = evaluateFindings(S.env, S.policy);
-  record("security.reevaluated", { ...S.findings }, "simulation");
-}
-
-/** The offline rollout finishes synchronously with two replacement Ready Pods. */
+/** Compatibility entry points use the same API as terminal mutations. */
 export function removeTelemetry() {
   if (!S.env) return false;
-  delete S.deployment.env.TELEMETRY_ENDPOINT;
-  S.deployment.generation++;
-  S.patchSeen = true;
-  S.checked.clear();
-  record("deployment.updated", {
-    name: S.deployment.name,
-    generation: S.podRev,
-    removed: "TELEMETRY_ENDPOINT",
-  });
-  S.pods = S.pods.map((pod, index) => ({
-    ...pod,
-    revision: S.podRev,
-    name: `payment-api-8dc11-${index === 0 ? "ab12" : "cd34"}`,
-    ready: true,
-  }));
-  record(
-    "pods.replaced",
-    { count: S.pods.length, revision: S.podRev },
-    "simulation",
-  );
-  record(
-    "rollout.completed",
-    { generation: S.podRev, readyReplicas: S.deployment.readyReplicas },
-    "simulation",
-  );
-  reevaluate();
+  apiBody(kubeRequest({method:"PATCH",path:"/apis/apps/v1/namespaces/payments/deployments/payment-api",contentType:"application/strategic-merge-patch+json",body:{spec:{template:{spec:{containers:[{name:"payment-api",env:[{name:"TELEMETRY_ENDPOINT",$patch:"delete"}]}]}}}}}));
   return true;
 }
 
-/** Kubernetes egress permissions are the union of selecting policies. */
 export function applyPolicy(name: "default-deny-egress" | "payment-egress") {
-  const previous = S.policy;
-  const hadOutage = S.firstDeny;
-  S.policies.add(name);
-  if (previous !== S.policy) {
-    S.checked.delete("positive");
-    S.checked.delete("negative");
-  }
-  if (S.policy === "deny" && !S.firstDeny) {
-    S.firstDeny = true;
-    S.interruptions++;
-  }
-  record("policy.applied", {
-    name,
-    effectiveEgress: S.policy,
-    outageStarted: !hadOutage && S.firstDeny,
-  });
-  reevaluate();
+  const input = parse(policyFiles[name === "payment-egress" ? "policies/payments-egress.yaml" : "policies/deny-all.yaml"]) as Resource;
+  apiBody(kubeRequest({method:"PATCH",path:"/apis/networking.k8s.io/v1/namespaces/payments/networkpolicies/"+name,contentType:"application/apply-patch+yaml",body:input}));
 }
 
 export function collectEvidence(id: ClueId) {
@@ -89,8 +46,7 @@ export function collectEvidence(id: ClueId) {
 }
 
 export function testConnection(destination: "ledger" | "external" | "dns") {
-  const allowed =
-    destination === "external" ? S.policy === "none" : S.policy !== "deny";
+  const allowed = S.pods.some(p => p.ready) && S.incidentNetwork[destination];
   const check =
     destination === "ledger"
       ? "positive"
@@ -107,11 +63,13 @@ export function testConnection(destination: "ledger" | "external" | "dns") {
 }
 
 export function verifyRollout() {
-  if (!S.env) S.checked.add("rollout");
-  return (
-    S.deployment.readyReplicas === S.pods.length &&
+  const complete = S.deployment.desiredReplicas > 0 &&
+    S.deployment.readyReplicas === S.deployment.desiredReplicas &&
     S.pods.every((pod) => pod.ready && pod.revision === S.podRev)
-  );
+  ;
+  if (!S.env && complete) S.checked.add("rollout");
+  else S.checked.delete("rollout");
+  return complete;
 }
 
 export function resetSimulation() {

@@ -26,14 +26,17 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const native=args=>new Promise((resolve,reject)=>{
   const process=spawn(globalThis.process.env.GHOSTROUTE_OC ?? "oc",args);let stdout="",stderr="";
+  const deadline=setTimeout(()=>{process.kill("SIGTERM");reject(Error("Native oc comparison exceeded 15 seconds: "+args.join(" ")));},15000);
   process.stdout.on("data",v=>stdout+=v);process.stderr.on("data",v=>stderr+=v);
-  process.on("error",reject);process.on("exit",code=>resolve({stdout,stderr,code}));
+  process.on("error",error=>{clearTimeout(deadline);reject(error);});process.on("exit",code=>{clearTimeout(deadline);resolve({stdout,stderr,code});});
 });
 const quote=value=>"'"+value.replaceAll("'","'\\''")+"'";
 function setup() {
   resetState();
   kubeRequest({method:"POST",path:"/api/v1/namespaces",body:{apiVersion:"v1",kind:"Namespace",metadata:{name:"lab"}}});
   kubeRequest({method:"POST",path:"/api/v1/namespaces/lab/configmaps",body:{apiVersion:"v1",kind:"ConfigMap",metadata:{name:"settings"},data:{keep:"yes",remove:"old"}}});
+  kubeRequest({method:"POST",path:"/apis/networking.k8s.io/v1/namespaces/lab/networkpolicies",body:{apiVersion:"networking.k8s.io/v1",kind:"NetworkPolicy",metadata:{name:"boundary"},spec:{podSelector:{},policyTypes:["Egress"],egress:[]}}});
+  kubeRequest({method:"POST",path:"/apis/apps/v1/namespaces/lab/deployments",body:{apiVersion:"apps/v1",kind:"Deployment",metadata:{name:"observer"},spec:{replicas:1,selector:{matchLabels:{app:"observer"}},template:{metadata:{labels:{app:"observer"}},spec:{containers:[{name:"observer",image:"busybox",env:[{name:"FEATURE",value:"old"}]}]}}}}});
 }
 const cases=[
  ["create","namespace","new-tenant"],
@@ -52,6 +55,11 @@ const cases=[
  ["label","configmap","settings","owner=mira"],
  ["annotate","configmap","settings","investigation=verified","--dry-run=server"],
  ["delete","configmap","settings","--dry-run=server"],
+ ["delete","networkpolicy","boundary","--dry-run=server"],
+ ["set","env","deployment/observer","FEATURE=enabled"],
+ ["set","env","deployment/observer","FEATURE-","--dry-run=server","-o","json"],
+ ["patch","deployment","observer","--type=json","-p",'[{"op":"remove","path":"/spec/template/spec/containers/0/env/0"}]'],
+ // Native rollout uses a list/watch stream; streaming API acceptance remains open.
 ];
 const results=[];
 try {

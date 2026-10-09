@@ -24,6 +24,7 @@ export function offlineBuild(): Plugin {
       for (const path of files.sort())
         hash.update(relative(output, path)).update(readFileSync(path));
       const version = hash.digest("hex").slice(0, 16);
+      const documentHash = createHash("sha256").update(readFileSync(join(output,"index.html"))).digest("hex");
       const assets = files.map((path) => "./" + relative(output, path));
       writeFileSync(
         join(output, "sw.js"),
@@ -31,11 +32,19 @@ export function offlineBuild(): Plugin {
 const base = new URL('./', self.location.href);
 const prefix = 'nexus-offline:' + base.pathname + ':';
 const cacheName = prefix + '${version}';
+const documentHash = '${documentHash}';
 const assets = ${JSON.stringify(assets)}.map(path => new URL(path, base).href);
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(cacheName);
     await cache.addAll(assets.map(url => new Request(url, { cache: 'reload' })));
+    const document = await cache.match(new URL('index.html', base).href);
+    const bytes = await document.arrayBuffer();
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+    if (digest !== documentHash) {
+      await caches.delete(cacheName);
+      throw new Error('The application changed during installation. Reload online to cache a consistent build.');
+    }
     // Publish only a complete cache. Existing tabs may keep running their loaded
     // code; their next navigation must receive this version without closing all tabs.
     await self.skipWaiting();

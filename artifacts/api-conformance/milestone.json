@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-10-09T04:07:08.388438+00:00",
+  "local_url": "http://127.0.0.1:4189/ghostroute/",
+  "automated_checks": 178,
+  "native_client": "OpenShift oc 4.22.0",
+  "native_reads": 16,
+  "native_writes": 20,
+  "native_scope": "CLI output against mock API; not complete server conformance",
+  "journey_chapters": 27,
+  "full_compatibility": "open; see API_CONFORMANCE.md",
+  "production_cache": "af9bbb3dec3c5b12",
+  "index_sha256": "20ba6ce3f2b4414dedbf9f65413b028296e8f00615320fa74c21edc38dcc3943",
+  "javascript_entry": "/ghostroute/assets/index-D9-5pFkA.js",
+  "receipts": [
+    "native-oc422-reads.json",
+    "native-oc422-writes.json",
+    "incident-browser.json",
+    "campaign-27.json",
+    "rpg-browser.json",
+    "cold-offline.json",
+    "cache-update.json",
+    "cache-integrity.json"
+  ],
+  "inspected_captures": [
+    "incident-partial.png",
+    "incident-offline.png"
+  ]
+}

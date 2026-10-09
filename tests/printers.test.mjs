@@ -105,7 +105,7 @@ test("API negotiates Table; default/-A/wide formats agree with the same Pod JSON
     (await clusterCommand("oc get pods -npayments -owide --no-headers")).stdout,
     /payment-api-7d9cd-ab12\s+1\/1\s+Running\s+0\s+120m\s+10.128.0.21\s+worker-01/,
   );
-  S.pods[0].ready = false;
+  S.cluster.resources.find(r => r.kind === "Pod" && r.metadata.name === S.pods[0].name).status.containerStatuses[0].ready = false;
   assert.match(
     (
       await clusterCommand(
@@ -491,7 +491,7 @@ test("API pagination follows stable collection tokens and rejects changed/invali
     second.body.items[0].metadata.name,
     first.body.items[0].metadata.name,
   );
-  S.pods[0].ready = false;
+  S.cluster.resources.find(r => r.kind === "Pod" && r.metadata.name === S.pods[0].name).status.containerStatuses[0].ready = false;
   assert.equal(
     kubeRequest({
       method: "GET",

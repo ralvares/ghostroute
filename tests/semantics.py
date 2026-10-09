@@ -31,11 +31,11 @@ with sync_playwright() as p:
         command(invalid, expected)
     config = json.loads(command("oc get deployment payment-api -n payments -o json", '"kind": "Deployment"'))
     assert config["spec"]["template"]["spec"]["containers"][0]["env"][0]["name"] == "TELEMETRY_ENDPOINT"
-    command("oc apply -f policies/payments-egress.yaml", "Selected Pods may reach")
+    command("oc apply -f policies/payments-egress.yaml", "payment-egress created")
     listing = command("oc get networkpolicies -n payments", "payment-egress")
     assert "default-deny-egress" not in listing
     command("oc get networkpolicy payment-egress -n payments -o yaml", "kind: NetworkPolicy")
-    command("oc apply -f policies/deny-all.yaml", "default-deny-egress configured")
+    command("oc apply -f policies/deny-all.yaml", "default-deny-egress created")
     expect(page.locator("#health")).to_have_text("HEALTHY")
     command("oc rsh -n payments deployment/payment-api", "Connected")
     for invalid in ["curl -I https://ledger.evil.test:8443/health", "curl -I https://203.0.113.77.evil.test", "nslookup unknown"]:
@@ -43,7 +43,7 @@ with sync_playwright() as p:
     command("curl -I https://ledger.payments.svc.cluster.local:8443/health", "200 OK")
     command("curl -I https://203.0.113.77", "Expected negative test")
     command("exit", "Back on bastion")
-    command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "2 new Pods")
+    command("oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-", "deployment.apps/payment-api updated")
     config = json.loads(command("oc get deployment payment-api -n payments -o json", '"kind": "Deployment"'))
     assert config["spec"]["template"]["spec"]["containers"][0]["env"] == []
     command("oc get pods -n payments -o wide", "payment-api-8dc11-ab12")

@@ -1,9 +1,10 @@
+import { projectIncident } from "./incident-controller.js";
+import { buildIncidentResources } from "./incident-resources.js";
 import { normalizeSecret } from "./secrets.js";
 import { repairDuplicatePodAddresses } from "./pod-addresses.js";
 import { defaultSccs } from "./default-sccs.js";
 import { makeState, type SimulationState } from "./state.js";
 import { isScene } from "../world/scene-model.js";
-import { evaluateFindings } from "../security/findings.js";
 
 const derived = new Set(["env", "podRev", "policy", "findings"]);
 const clues = new Set(["rhacs", "trace", "logs", "env", "policy"]);
@@ -64,6 +65,9 @@ export function decodeProgress(text: string): SimulationState {
     !saved.data
   )
     throw new Error("Unsupported progress file. Expected game save version 1.");
+  if (saved.data.cluster) saved.data.cluster.incidentStored ??= false;
+  saved.data.incidentNetwork ??= {dns:true,ledger:true,external:true};
+  if (saved.data.deployment) saved.data.deployment.desiredReplicas ??= 2;
   saved.data.story ??= { inventory: [], discoveries: [] };
   saved.data.story.notes ??= "";
   saved.data.story.outageSeen ??= false;
@@ -286,8 +290,14 @@ export function decodeProgress(text: string): SimulationState {
     });
   state.x = Math.max(55, Math.min(1118, state.x));
   state.y = Math.max(105, Math.min(594, state.y));
+  if (!state.cluster.incidentStored) {
+    for (const seed of buildIncidentResources(state))
+      if (!state.cluster.resources.some(r => r.kind === seed.kind && r.metadata.name === seed.metadata.name && r.metadata.namespace === seed.metadata.namespace))
+        state.cluster.resources.push(seed);
+    state.cluster.incidentStored = true;
+  }
   state.cluster.resources.forEach(normalizeSecret);
   repairDuplicatePodAddresses(state.cluster.resources);
-  state.findings = evaluateFindings(state.env, state.policy);
+  projectIncident(state, false);
   return state;
 }

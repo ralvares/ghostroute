@@ -32,7 +32,7 @@ export function synchronizeMetadata(resources: Resource[]) {
       entry = storage.objects[key] = {
         uid: `00000000-0000-4000-9000-${String(++storage.nextUid).padStart(12, "0")}`,
         resourceVersion: String(++storage.revision),
-        generation: resource.spec ? 1 : 0,
+        generation: resource.spec ? resource.metadata.generation ?? 1 : 0,
         fingerprint,
         spec,
       };

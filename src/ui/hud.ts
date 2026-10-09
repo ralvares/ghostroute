@@ -1,3 +1,4 @@
+import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
 import { updateHealthMap } from "./health-map.js";
@@ -40,7 +41,7 @@ export function updateHUD() {
     phase = "CASE 018 · CUSTOMER IMPACT";
     title = "Checkout is degraded.";
     txt =
-      "Both Pods are Ready, but DNS and ledger are blocked. Restore only the required egress.";
+      "A required dependency is blocked. Inspect DNS and ledger individually, then restore only the required egress.";
   } else if (S.env && S.evidence.size < 2) {
     phase = "CASE 018 · INVESTIGATE";
     title = "Where is the red traffic coming from?";
@@ -97,32 +98,31 @@ export function updateHUD() {
   $("phase").textContent = phase;
   $("objectiveTitle").textContent = title;
   $("objective").textContent = txt;
-  const bad = S.policy === "deny";
+  const health = projectHealth(S);
+  const bad = health.checkout === "DEGRADED";
   $("health").textContent = bad ? "DEGRADED" : "HEALTHY";
   $("health").className = bad ? "bad" : "good";
-  $("healthDetail").textContent = bad
-    ? "Ledger requests timing out"
-    : "2 / 2 replicas ready";
+  $("healthDetail").textContent = `${health.readyPods} / ${S.deployment.desiredReplicas} replicas ready · DNS ${health.dnsAllowed ? "allowed" : "blocked"} · ledger ${health.ledgerAllowed ? "allowed" : "blocked"}`;
   $("exposure").textContent =
-    S.policy === "allow"
+    !health.externalAllowed && !bad
       ? "CONTAINED"
-      : S.policy === "deny"
+      : !health.externalAllowed
         ? "ISOLATED"
         : S.env
           ? "UNCONTROLLED"
           : "OPEN PATH";
   $("exposure").className =
-    S.policy === "allow"
+    !health.externalAllowed && !bad
       ? "good"
-      : S.policy === "deny"
+      : !health.externalAllowed
         ? "warn"
         : S.env
           ? "bad"
           : "warn";
   $("exposureDetail").textContent =
-    S.policy === "allow"
-      ? "Only required Pod egress"
-      : S.policy === "deny"
-        ? "All Pod egress blocked"
+    !health.externalAllowed && !bad
+      ? "Required dependencies allowed; external target blocked"
+      : !health.externalAllowed
+        ? "External target and required dependencies blocked"
         : "No enforced egress boundary";
 }

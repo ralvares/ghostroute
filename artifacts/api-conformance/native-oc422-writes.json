@@ -17,7 +17,11 @@
     "oc 'patch' 'configmap' 'settings' '-p' '{\"data\":{\"keep\":\"preview\"}}' '--dry-run=client' '-o' 'json'",
     "oc 'label' 'configmap' 'settings' 'owner=mira'",
     "oc 'annotate' 'configmap' 'settings' 'investigation=verified' '--dry-run=server'",
-    "oc 'delete' 'configmap' 'settings' '--dry-run=server'"
+    "oc 'delete' 'configmap' 'settings' '--dry-run=server'",
+    "oc 'delete' 'networkpolicy' 'boundary' '--dry-run=server'",
+    "oc 'set' 'env' 'deployment/observer' 'FEATURE=enabled'",
+    "oc 'set' 'env' 'deployment/observer' 'FEATURE-' '--dry-run=server' '-o' 'json'",
+    "oc 'patch' 'deployment' 'observer' '--type=json' '-p' '[{\"op\":\"remove\",\"path\":\"/spec/template/spec/containers/0/env/0\"}]'"
   ],
   "byte_exact": true
 }

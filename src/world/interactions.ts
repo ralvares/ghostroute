@@ -11,13 +11,17 @@ import { addClue } from "../security/evidence.js";
 import { nearest } from "../game/movement.js";
 import { closeRadio, radio } from "../characters/dialogue.js";
 import { openTerminal } from "../terminal/shell.js";
-import { openDetail } from "../ui/panels.js";
+import { openDetail, closeDetail } from "../ui/panels.js";
 import type { WorldObject } from "../world/locations.js";
 import {
   campaignInterview,
   discoverCampaignArtifact,
   showCampaignContext,
 } from "../ui/campaign.js";
+
+function unavailableDependencies() {
+  return [!S.incidentNetwork.dns ? "DNS" : "", !S.incidentNetwork.ledger ? "ledger" : ""].filter(Boolean).join(" and ");
+}
 
 export function toggleTrace() {
   if (!S.started || G.detailOpen || G.endOpen) return;
@@ -60,7 +64,7 @@ export function interact(o: WorldObject | null = nearest()) {
     radio(
       "MIRA",
       S.policy === "deny"
-        ? "Checkout is offline. Restore DNS and ledger from the bastion, then verify the required paths."
+        ? `Checkout is offline. Restore ${unavailableDependencies()} from the bastion, then verify the required paths.`
         : "Checkout is back. Finish your verification; I will return to the cluster lobby when we leave the operations hub.",
     );
     return;
@@ -77,7 +81,7 @@ export function interact(o: WorldObject | null = nearest()) {
   if (o.id === "mira-reaction") {
     radio(
       "MIRA",
-      "What did you do? Checkout is offline. The Pods are Ready, but you blocked DNS and ledger. Return to the bastion, inspect policies/payments-egress.yaml, and verify the required paths.",
+      `What did you do? Checkout is offline. ${S.deployment.readyReplicas}/${S.deployment.desiredReplicas} payment Pods are Ready; ${unavailableDependencies()} cannot be reached. Return to the bastion, inspect the active policies, and verify the required paths.`,
     );
     return;
   }
@@ -114,7 +118,10 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
     );
     document
       .getElementById("buildAdvice")
-      ?.addEventListener("click", () => interact({ ...o, action: "image" }));
+      ?.addEventListener("click", () => {
+        closeDetail();
+        interact({ ...o, action: "image" });
+      });
     document.getElementById("recordLead")!.addEventListener("click", () => {
       const leads: Record<string, string> = {
         keycard: "Maintenance keycard: records archive in prod-east lobby.",
@@ -162,12 +169,16 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
     return;
   }
   if (o.id === "pod1" || o.id === "pod2") {
+    const pod = S.cluster.resources.find(r => r.kind === "Pod" && r.metadata.namespace === o.namespace && r.metadata.name === o.resourceName);
+    const statuses = pod?.status?.containerStatuses as {ready: boolean}[] | undefined;
+    const ready = statuses?.filter(c => c.ready).length ?? 0;
+    const total = pod?.spec?.containers?.length ?? 0;
     if (G.traceOn && !S.campaign.active) {
       addClue("trace");
       S.traceFound = true;
     }
     openDetail(
-      `<div class="eyebrow">WORKLOAD · PAYMENTS NAMESPACE</div><h2>${esc(S.pods[o.id === "pod1" ? 0 : 1].name)} <span style="color:#75d9c9;font-size:15px">1 / 1 Ready</span></h2><p>This Pod is running on <strong>${o.id === "pod1" ? "worker-01" : "worker-02"}</strong>. This is one Pod running inside this worker. The Deployment controller maintains two replicas across worker-01 and worker-02. A Deployment is not a workload running on a worker.</p><div class="row"><span class="pill">app=payment-api</span><span class="pill">Deployment/payment-api</span><span class="pill">ServiceAccount: payment-app</span></div><div class="divider"></div><p>${G.traceOn ? '<strong style="color:#ffa8a4">Trace Vision:</strong> outgoing signal to an unrecognized endpoint detected.' : "Open Trace Vision near a Pod to reveal its network flows."}</p><p style="font-size:13px">To investigate what the application is doing, open the operator terminal and inspect <code>oc logs deployment/payment-api -n payments</code>.</p>`,
+      `<div class="eyebrow">WORKLOAD · PAYMENTS NAMESPACE</div><h2>${esc(o.resourceName)} <span style="color:#75d9c9;font-size:15px">${ready} / ${total} Ready</span></h2><p>Scheduled node: <strong>${esc(pod?.spec?.nodeName ?? "Pending")}</strong>. This is one Pod running inside this worker. The Deployment requests ${S.deployment.desiredReplicas} replicas; ${S.deployment.readyReplicas} are Ready. Its Pods run on workers; the Deployment is a controller resource.</p><div class="row"><span class="pill">app=${esc(pod?.metadata.labels?.app)}</span><span class="pill">Deployment/payment-api</span><span class="pill">ServiceAccount: ${esc(pod?.spec?.serviceAccountName ?? "default")}</span></div><div class="divider"></div><p>${G.traceOn ? S.findings.baselineDeviation ? '<strong style="color:#ffa8a4">Trace Vision:</strong> outgoing signal to an unrecognized endpoint detected.' : "Trace Vision: the exporter’s external signal is stopped or blocked." : "Open Trace Vision near a Pod to reveal its network flows."}</p><p style="font-size:13px">To investigate what the application is doing, open the operator terminal and inspect <code>oc logs deployment/payment-api -n payments</code>.</p>`,
     );
     return;
   }

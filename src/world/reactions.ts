@@ -37,7 +37,7 @@ export function updateReaction(dt: number) {
     scheduleSave();
     radio(
       "MIRA",
-      "What did you do? Checkout is offline! Both Pods are still Ready, but your default-deny cut off DNS and ledger. Stopping the signal cannot cost us the payment service. Go back to the bastion: inspect the targeted egress policy, restore the required paths, then prove both the allowed and blocked connections.",
+      `What did you do? Checkout is offline! ${S.deployment.readyReplicas}/${S.deployment.desiredReplicas} payment Pods are Ready, but ${[!S.incidentNetwork.dns ? "DNS" : "",!S.incidentNetwork.ledger ? "ledger" : ""].filter(Boolean).join(" and ")} cannot be reached. Stopping the signal cannot cost us the payment service. Go back to the bastion: inspect the targeted egress policy, restore the required paths, then prove both the allowed and blocked connections.`,
     );
   }
   S.story.mira.x = actor.x;

@@ -1,3 +1,5 @@
+import { projectIncident } from "./incident-controller.js";
+import { defaultNetworkPolicy } from "../security/network-policy.js";
 import { normalizeSecret, secretValue } from "./secrets.js";
 import { synchronizeMetadata } from "./api-storage.js";
 import { validateResourceUpdate } from "./resource-update.js";
@@ -19,8 +21,6 @@ import type { Resource, PodSpec, ApiAuditEvent, Scc } from "./cluster-model.js";
 import { authorized, forbidden, roleAllows } from "../security/rbac.js";
 import { admitPod } from "../security/scc.js";
 import { publish } from "./events.js";
-import { parse } from "yaml";
-import { policyFiles } from "./resources.js";
 import {
   validateCampaignPod,
   registryPullFailure,
@@ -106,135 +106,8 @@ export function auditRequest(
   publish(domain);
 }
 
-export function coreResources(): Resource[] {
-  const paymentPodCreated =
-    [...S.audit].reverse().find(
-      (event) =>
-        event.type === "pods.replaced" && event.data.revision === S.podRev,
-    )?.at ?? "2026-10-08T00:14:00Z";
-  return [
-    ...[...S.policies].map(
-      (name) =>
-        parse(
-          policyFiles[
-            name === "payment-egress"
-              ? "policies/payments-egress.yaml"
-              : "policies/deny-all.yaml"
-          ],
-        ) as Resource,
-    ),
-    {
-      apiVersion: "apps/v1",
-      kind: "Deployment",
-      metadata: {
-        name: "payment-api",
-        namespace: "payments",
-        creationTimestamp: "2026-10-08T00:14:00Z",
-        labels: { app: "payment-api" },
-      },
-      spec: {
-        replicas: 2,
-        selector: { matchLabels: { app: "payment-api" } },
-        template: {
-          metadata: { labels: { app: "payment-api" } },
-          spec: {
-            serviceAccountName: "payment-app",
-            hostUsers: false,
-            containers: [
-              {
-                name: "payment-api",
-                image: "registry.example.test/payments:v1.8.2",
-                env: Object.entries(S.deployment.env).map(([name, value]) => ({
-                  name,
-                  value,
-                })),
-              },
-            ],
-          },
-        },
-      },
-      status: {
-        replicas: 2,
-        updatedReplicas: 2,
-        readyReplicas: S.deployment.readyReplicas,
-        availableReplicas: S.deployment.readyReplicas,
-      },
-    },
-    ...S.pods.map((pod) => ({
-      apiVersion: "v1",
-      kind: "Pod",
-      metadata: {
-        name: pod.name,
-        namespace: "payments",
-        creationTimestamp: paymentPodCreated,
-        labels: { app: "payment-api" },
-        annotations: { "openshift.io/scc": "restricted-v3" },
-      },
-      spec: {
-        hostUsers: false,
-        nodeName: pod.node,
-        serviceAccountName: "payment-app",
-        containers: [
-          {
-            name: "payment-api",
-            image: "registry.example.test/payments:v1.8.2",
-            env: Object.entries(S.deployment.env).map(([name, value]) => ({
-              name,
-              value,
-            })),
-          },
-        ],
-      },
-      status: {
-        phase: "Running",
-        podIP: pod.node === "worker-01" ? "10.128.0.21" : "10.129.0.22",
-        podIPs: [
-          { ip: pod.node === "worker-01" ? "10.128.0.21" : "10.129.0.22" },
-        ],
-        conditions: [{ type: "Ready", status: pod.ready ? "True" : "False" }],
-        containerStatuses: [
-          {
-            name: "payment-api",
-            ready: pod.ready,
-            restartCount: 0,
-            state: { running: { startedAt: paymentPodCreated } },
-          },
-        ],
-      },
-    })),
-    {
-      apiVersion: "v1",
-      kind: "Pod",
-      metadata: {
-        name: "ledger-86bbb-zyx12",
-        namespace: "payments",
-        creationTimestamp: "2026-10-08T00:14:00Z",
-        labels: { app: "ledger" },
-        annotations: { "openshift.io/scc": "restricted-v3" },
-      },
-      spec: {
-        nodeName: "worker-02",
-        containers: [
-          { name: "ledger", image: "registry.example.test/ledger:v1" },
-        ],
-      },
-      status: {
-        phase: "Running",
-        podIP: "10.129.0.23",
-        podIPs: [{ ip: "10.129.0.23" }],
-        conditions: [{ type: "Ready", status: "True" }],
-        containerStatuses: [
-          {
-            name: "ledger",
-            ready: true,
-            restartCount: 0,
-            state: { running: { startedAt: "2026-10-08T00:14:00Z" } },
-          },
-        ],
-      },
-    },
-  ];
-}
+/** Retained export for older fixture readers; incident objects now live in the store. */
+export function coreResources(): Resource[] { return []; }
 
 export function getResources(
   type: ResourceType,
@@ -493,30 +366,27 @@ function reconcileDeployment(deployment: Resource, recreate = true) {
   if (!template) throw new Error("Deployment requires spec.template");
   const namespace = deployment.metadata.namespace!;
   const prefix = deployment.metadata.name + "-sim-";
-  S.cluster.resources = S.cluster.resources.filter(
-    (resource) =>
-      !(
-        resource.kind === "Pod" &&
-        resource.metadata.namespace === namespace &&
-        resource.metadata.name.startsWith(prefix) &&
-        (recreate || Number(resource.metadata.name.slice(prefix.length)) >= (deployment.spec?.replicas ?? 1))
-      ),
-  );
-  synchronizeClusterMetadata();
   const replicas = deployment.spec?.replicas ?? 1;
+  const owned = S.cluster.resources.filter(resource => resource.kind === "Pod" && resource.metadata.namespace === namespace &&
+    (deployment.metadata.name === "payment-api" && namespace === "payments" ? resource.metadata.labels?.app === "payment-api" : resource.metadata.name.startsWith(prefix)));
+  const retained = recreate ? [] : owned.slice(0,replicas);
+  S.cluster.resources = S.cluster.resources.filter(resource => !owned.includes(resource) || retained.includes(resource));
+  synchronizeClusterMetadata();
   let available = 0,
     failedCreates = 0;
   for (let index = 0; index < replicas; index++) {
-    const existing = S.cluster.resources.find(resource => resource.kind === "Pod" && resource.metadata.namespace === namespace && resource.metadata.name === prefix + index);
+    const existing = retained[index];
     if (existing) {
       if ((existing.status?.containerStatuses as {ready: boolean}[] | undefined)?.every(status => status.ready)) available++;
       continue;
     }
+    let suffix = index;
+    while (S.cluster.resources.some(r => r.kind === "Pod" && r.metadata.namespace === namespace && r.metadata.name === prefix + suffix)) suffix++;
     const pod: Resource = {
       apiVersion: "v1",
       kind: "Pod",
       metadata: {
-        name: prefix + index,
+        name: prefix + suffix,
         namespace,
         creationTimestamp: new Date(clusterTime()).toISOString(),
         labels: structuredClone(template.metadata?.labels ?? {}),
@@ -576,12 +446,13 @@ function reconcileDeployment(deployment: Resource, recreate = true) {
     }
   }
   deployment.status = {
+    observedGeneration: deployment.metadata.generation ?? 1,
     replicas,
     updatedReplicas: S.cluster.resources.filter(
       (p) =>
         p.kind === "Pod" &&
         p.metadata.namespace === namespace &&
-        p.metadata.name.startsWith(prefix),
+        (p.metadata.name.startsWith(prefix) || retained.includes(p)),
     ).length,
     readyReplicas: available,
     availableReplicas: available,
@@ -632,15 +503,6 @@ export function applyResource(
   const ns = resourceTypes[type].namespaced
     ? (resource.metadata.namespace ?? namespace)
     : undefined;
-  if (
-    ns === "payments" &&
-    (resource.metadata.name === "payment-api" ||
-      resource.metadata.name.startsWith("payment-api-") ||
-      resource.kind === "NetworkPolicy")
-  )
-    throw new Error(
-      "simulation: original Ghost Route infrastructure is changed through its environment-removal and predefined policy operations",
-    );
   if (ns) resource.metadata.namespace = ns;
   const pool =
     type === "securitycontextconstraints"
@@ -662,8 +524,10 @@ export function applyResource(
       ? strategicPatch(resource.kind, old, resource)
       : mergePatch(old, resource)) as Resource;
   }
+  defaultNetworkPolicy(resource);
   resource.metadata.creationTimestamp =
     old?.metadata.creationTimestamp ?? new Date(clusterTime()).toISOString();
+  if (resource.spec) resource.metadata.generation = old?.metadata.generation ?? 1;
   const verb = operation ?? (old ? "patch" : "create");
   if (!authorized(verb, type, ns, resource.metadata.name)) {
     const message = forbidden(verb, type, ns, resource.metadata.name);
@@ -880,9 +744,14 @@ export function applyResource(
   auditRequest(verb, type, ns, resource.metadata.name, old ? 200 : 201);
   if (reconcile && resource.kind === "Deployment" && (!old || previousTemplate !== JSON.stringify(resource.spec?.template) || previousReplicas !== (resource.spec?.replicas ?? 1)))
     reconcileDeployment(old ?? resource, !old || previousTemplate !== JSON.stringify(resource.spec?.template));
+  if (reconcile && resource.kind === "Pod" && ns === "payments" && resource.metadata.name.startsWith("payment-api-")) {
+    const parent = S.cluster.resources.find(r => r.kind === "Deployment" && r.metadata.name === "payment-api" && r.metadata.namespace === ns);
+    if (parent) reconcileDeployment(parent, false);
+  }
   refreshResourceTypes();
   if (reconcile) reconcileFixtureControllers();
   synchronizeClusterMetadata();
+  if (reconcile) projectIncident();
   return `${resource.kind.toLowerCase()}${resource.apiVersion.includes("/") ? "." + resource.apiVersion.split("/")[0] : ""}/${resource.metadata.name} ${old ? "configured" : "created"}`;
 }
 
@@ -1022,7 +891,7 @@ export function deleteResource(
             r.metadata.name === name &&
             r.metadata.namespace === ns,
         ) && !(type === "namespaces" && item.metadata.namespace === name) &&
-        !(type === "deployments" && item.kind === "Pod" && item.metadata.namespace === ns && item.metadata.name.startsWith(name + "-sim-")),
+        !(type === "deployments" && item.kind === "Pod" && item.metadata.namespace === ns && (item.metadata.name.startsWith(name + "-sim-") || (name === "payment-api" && ns === "payments" && item.metadata.labels?.app === "payment-api"))),
   );
   if (type === "events" || type === "namespaces")
     S.cluster.events = S.cluster.events.filter((event) =>
@@ -1040,11 +909,16 @@ export function deleteResource(
         r.kind !== target.spec?.names?.kind ||
         r.apiVersion.split("/")[0] !== target.spec?.group,
     );
+  if (type === "pods" && ns === "payments" && target.metadata.labels?.app === "payment-api") {
+    const parent = S.cluster.resources.find(r => r.kind === "Deployment" && r.metadata.namespace === ns && r.metadata.name === "payment-api");
+    if (parent) reconcileDeployment(parent, false);
+  }
   refreshResourceTypes();
   reconcileFixtureControllers();
   synchronizeClusterMetadata();
+  projectIncident();
   auditRequest("delete", type, ns, name, 200);
-  return `${target.kind.toLowerCase()} "${name}" deleted`;
+  return `${target.kind.toLowerCase()}${target.apiVersion.includes("/") ? "."+target.apiVersion.split("/")[0] : ""} "${name}" deleted`;
 }
 
 export function restartDeployment(name: string, namespace: string) {

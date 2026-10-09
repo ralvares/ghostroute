@@ -1,5 +1,5 @@
 // Test plan from the authored catalog. No browser state is injected.
-import { chapters } from "../.test-build/src/campaign/catalog.js";
+import { chapters, materialize } from "../.test-build/src/campaign/catalog.js";
 import { resourceTypes } from "../.test-build/src/simulation/resource-types.js";
 console.log(
   JSON.stringify(
@@ -19,6 +19,7 @@ console.log(
         .map(([name, value]) => ({
           name,
           kind: value.kind,
+          namespace: materialize(value,ch.namespace).metadata.namespace ?? ch.namespace,
           admin:
             !Object.values(resourceTypes).find((d) => d.kind === value.kind)
               .namespaced || ["Role", "RoleBinding"].includes(value.kind),

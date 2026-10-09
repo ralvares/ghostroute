@@ -84,10 +84,11 @@ export function repairDuplicatePodAddresses(resources: Resource[]) {
       .map((r) => String(r.status?.podIP ?? "")),
   );
   for (const address of incidentAddresses) all.add(address);
-  const seen = new Set<string>(
-    incidentAddresses.map((ip) => "ovn-kubernetes|" + ip),
-  );
-  for (const pod of resources.filter((r) => r.kind === "Pod")) {
+  const seen = new Set<string>();
+  const incident = (pod: Resource) => pod.metadata.namespace === "payments" &&
+    (pod.metadata.name.startsWith("payment-api-") || pod.metadata.name === "ledger-86bbb-zyx12");
+  const pods = resources.filter(r => r.kind === "Pod").sort((a,b) => Number(incident(b)) - Number(incident(a)));
+  for (const pod of pods) {
     const ip = pod.status?.podIP;
     if (typeof ip !== "string" || !ip) continue;
     const key = podNetworkDomain(pod) + "|" + ip;

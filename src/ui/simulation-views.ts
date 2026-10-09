@@ -17,7 +17,7 @@ export function registerSimulationViews() {
         priority: 10,
         text:
           S.policy === "deny"
-            ? "CHECKOUT DEGRADED · Default-deny blocked DNS and ledger. Both payment Pods remain Ready."
+            ? `CHECKOUT DEGRADED · ${[!S.incidentNetwork.dns ? "DNS" : "",!S.incidentNetwork.ledger ? "ledger" : ""].filter(Boolean).join(" and ")} blocked · ${S.deployment.readyReplicas}/${S.deployment.desiredReplicas} payment Pods Ready.`
             : S.policy === "allow"
               ? "CHECKOUT HEALTHY · DNS and ledger restored. External egress blocked."
               : "Network policy updated.",
@@ -35,7 +35,7 @@ export function registerSimulationViews() {
     if (event.type === "deployment.updated")
       return {
         priority: 8,
-        text: "Deployment changed · telemetry endpoint removed. Two replacement Pods rolled out.",
+        text: d.removed === "TELEMETRY_ENDPOINT" ? `Deployment changed · telemetry endpoint removed · ${S.deployment.readyReplicas}/${S.deployment.desiredReplicas} Pods Ready.` : `Deployment changed · ${S.deployment.readyReplicas}/${S.deployment.desiredReplicas} Pods Ready.`,
       };
     if (
       event.type === "cluster.request" &&

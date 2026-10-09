@@ -14,6 +14,7 @@ try {
  const header="// Generated from pinned upstream Kubernetes 1.35.2 / OpenShift Go API types.\n// Regenerate with node tools/record-api-fixtures.mjs.\n";
  writeFileSync("src/simulation/strategic-schemas.ts",header+"export const strategicSchemas: Record<string, Record<string, {key?: string; strategies: string[]}>> = "+JSON.stringify(JSON.parse(run(binary,["schema"])),null,2)+";\n");
  writeFileSync("src/simulation/typed-field-orders.ts",header+"export const typedFieldOrders: Record<string, Record<string, string[]>> = "+JSON.stringify(JSON.parse(run(binary,["orders"])),null,2)+";\n");
+ writeFileSync("src/simulation/typed-json-rules.ts",header+"export const typedJsonRules: Record<string, Record<string, {omitEmpty?:boolean; omitZero?:boolean; fill?:boolean; default?:unknown; time?:boolean; pointer?:boolean; collection?:boolean}>> = "+JSON.stringify(JSON.parse(run(binary,["json-rules"])),null,2)+";\n");
  const path="tests/fixtures/upstream-patches.json", fixtures=JSON.parse(readFileSync(path,"utf8"));
  for (const c of fixtures.cases) c.expected=JSON.parse(run(binary,[],{input:JSON.stringify(c)}));
  writeFileSync(path,JSON.stringify(fixtures,null,2)+"\n");

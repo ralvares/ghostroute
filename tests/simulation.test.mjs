@@ -20,7 +20,7 @@ test("environment removal replaces both Pods and reevaluates findings in event o
   S.checked.add("positive");
   const before = S.pods.map((pod) => pod.name);
   const observed = [];
-  const unsubscribe = subscribe((event) => observed.push(event.type));
+  const unsubscribe = subscribe((event) => { if (event.type !== "cluster.request") observed.push(event.type); });
   assert.equal(removeTelemetry(), true);
   unsubscribe();
   assert.equal(S.env, false);
@@ -41,7 +41,8 @@ test("environment removal replaces both Pods and reevaluates findings in event o
   ]);
   assert.equal(removeTelemetry(), false);
   assert.equal(S.podRev, 2);
-  assert.equal(S.audit.length, 4);
+  assert.equal(S.audit.filter(e=>e.type!=="cluster.request").length,4);
+  assert.equal(S.cluster.audit.filter(e=>e.verb==="patch" && e.objectRef.name==="payment-api").length,2);
   assert.ok(Object.isFrozen(S.audit[0].data));
 });
 
