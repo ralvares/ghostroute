@@ -1,0 +1,99 @@
+{
+  "source_commit": "8836552",
+  "production_base": "/ghostroute/",
+  "cold_offline": {
+    "checks": [
+      "All build/WASM assets available after offline browser restart",
+      "Incident/evidence/cluster/files/SCC grants survive restart",
+      "Real jq and Go templates first used offline",
+      "Warm workers reused",
+      "Hung jq worker replaced",
+      "Portable export/import",
+      "Invalid import preserves live progress"
+    ],
+    "timings_include_dom_input_and_autosave": {
+      "offline_navigation_and_restore_ms": 416.2,
+      "cold_offline_jq_command_ms": 115.3,
+      "warm_jq_command_ms": [
+        111.1,
+        110.5,
+        110.4,
+        111.3,
+        112.0
+      ],
+      "cold_offline_go_command_ms": 113.4,
+      "warm_go_command_ms": [
+        111.1,
+        113.3,
+        111.8,
+        111.1,
+        111.1
+      ],
+      "worker_roundtrip_ms": [
+        {
+          "tool": "jq",
+          "ms": 28.8
+        },
+        {
+          "tool": "jq",
+          "ms": 8.9
+        },
+        {
+          "tool": "jq",
+          "ms": 32.4
+        },
+        {
+          "tool": "jq",
+          "ms": 9.8
+        },
+        {
+          "tool": "jq",
+          "ms": 23.7
+        },
+        {
+          "tool": "jq",
+          "ms": 17.2
+        },
+        {
+          "tool": "template",
+          "ms": 42
+        },
+        {
+          "tool": "template",
+          "ms": 20.1
+        },
+        {
+          "tool": "template",
+          "ms": 26.4
+        },
+        {
+          "tool": "template",
+          "ms": 14.4
+        },
+        {
+          "tool": "template",
+          "ms": 20.5
+        },
+        {
+          "tool": "template",
+          "ms": 10.1
+        }
+      ]
+    },
+    "browser_errors": [],
+    "url": "http://127.0.0.1:4189/ghostroute/",
+    "screenshot": "artifacts/intent-playthrough/14-cold-offline-wasm.png"
+  },
+  "open_tab_update": {
+    "open_tab_update": true,
+    "offline_updated_build": true,
+    "notes_and_files_retained": true,
+    "jq_after_update": true,
+    "browser_errors": []
+  },
+  "build_cache_version": "7014aab739d91666",
+  "limitations": [
+    "Isolated Chromium acceptance; the earlier in-app offline startup failure remains recorded with cause unconfirmed.",
+    "No live OpenShift acceptance or 1000-user load claim."
+  ]
+}

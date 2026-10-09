@@ -220,8 +220,9 @@ There is one current save per origin; concurrent tabs do not coordinate writes.
 `tools/offline-build.ts` hashes and inventories the actual production output to
 generate a scoped, versioned service worker. Installation precaches all static
 assets, including engines not yet used. Activation removes old scoped caches;
-updates wait for existing pages to close, so an active page retains its matching
-asset version. `game/offline.ts` reports installation readiness. Development mode
+a completely cached update activates with existing pages open. Those pages
+retain their loaded code; the previous asset cache serves any remaining lazy
+requests, and the next navigation uses the new cached version. `game/offline.ts` reports installation readiness. Development mode
 skips service workers. Offline play requires one successful initial installation
 over HTTPS/localhost and retained browser caches.
 

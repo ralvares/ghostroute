@@ -14,3 +14,5 @@ artifacts/continuity-gameplay/
 artifacts/intent-playthrough/*
 !artifacts/intent-playthrough/10-containment-outage.png
 !artifacts/intent-playthrough/12-journey-closed.png
+!artifacts/intent-playthrough/14-cold-offline-wasm.png
+!artifacts/intent-playthrough/offline-verification.json

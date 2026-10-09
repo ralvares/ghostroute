@@ -241,5 +241,10 @@ remain visible product limitations.
 in-app jq/Go-template/JSONPath queries pass. Sixteen supported output contracts
 match native oc against the mock API. Cold offline reload in the in-app browser
 is inconclusive: HTML returns with the server stopped, but scripts do not start.
-An isolated Chromium check is pending permission; publication acceptance for
-offline use is not asserted from the historical receipts above.
+The approved 2026-10-09 isolated Chromium cold restart passes with network
+ disabled before navigation, including first-use WASM, local restore, hung-query
+ recovery and import/export. The open-tab cache-update regression also passes
+ with notes/files retained. Both report zero page errors. The saved cold-offline
+ screenshot was inspected and accepted; its receipt is retained alongside the
+ manual proof images. The in-app failure has an unconfirmed cause and is not
+ silently removed from the record.

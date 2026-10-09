@@ -99,6 +99,10 @@ with TemporaryDirectory(prefix='ghost-route-profile-') as profile, sync_playwrig
     query = "oc get configmap saved -o go-template='{{index .data \"proof\"}}'"
     timings['cold_offline_go_command_ms'] = command(query,'offline')
     timings['warm_go_command_ms'] = [command(query,'offline') for _ in range(5)]
+    command('game status', 'Offline installation: ready')
+    proof_directory = Path('artifacts/intent-playthrough')
+    proof_directory.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(proof_directory/'14-cold-offline-wasm.png'))
     timings['worker_roundtrip_ms'] = page.evaluate('queryTimings')
     assert page.evaluate('queryWorkers') == 2, 'WASM workers should stay warm between queries'
     command('cat workloads/saved.json', 'offline')
@@ -136,6 +140,7 @@ with TemporaryDirectory(prefix='ghost-route-profile-') as profile, sync_playwrig
 receipt = {'checks':['All build/WASM assets available after offline browser restart','Incident/evidence/cluster/files/SCC grants survive restart','Real jq and Go templates first used offline','Warm workers reused','Hung jq worker replaced','Portable export/import','Invalid import preserves live progress'], 'timings_include_dom_input_and_autosave':timings,'browser_errors':errors}
 Path('artifacts/migrated').mkdir(parents=True,exist_ok=True)
 receipt['url'] = sys.argv[1]
+receipt['screenshot'] = 'artifacts/intent-playthrough/14-cold-offline-wasm.png'
 name = 'offline-subpath-receipt.json' if urlparse(sys.argv[1]).path.strip('/') else 'offline-receipt.json'
 Path('artifacts/migrated', name).write_text(json.dumps(receipt,indent=2)+'\n')
 print(json.dumps(receipt,indent=2))

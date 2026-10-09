@@ -97,6 +97,10 @@ The supposed E-key input leak was rejected: an extra E was sent after a click
 had already opened the console. Mira's supposedly missing worker pass was also
 rejected after checking the inventory. Those are not shipped bug claims.
 
+3. Approved cold-offline restart: saved resource reads and both real WASM query
+   engines work after restarting Chromium with network disabled.
+   ![Offline restored terminal and WASM output](artifacts/intent-playthrough/14-cold-offline-wasm.png)
+
 ## Verification and limits
 
 - 149 unit/regression checks pass, including the complete model-driven campaign
@@ -106,10 +110,15 @@ rejected after checking the inventory. Those are not shipped bug claims.
 - Sixteen supported command outputs match the installed native oc 4.20.6 client
   byte for byte against the mock API. Pinned printer fixtures follow the 4.22
   source line. This is not acceptance against a running OpenShift cluster.
-- Cold offline reload is currently inconclusive: with the production server
-  stopped, the in-app browser restores HTML but does not start the scripts.
-  An isolated Chromium regression is pending permission. Do not infer that the
-  current production cache is verified from older offline receipts.
+- Approved follow-up on 2026-10-09: isolated Chromium cold restart passes
+  with network disabled before navigation. Resources, SCC grants, files,
+  working directory and incident evidence restore. jq and Go templates work
+  on their first offline use; hung-query recovery and save export/import pass.
+  The cache-update test also preserves notes/files with an old tab open.
+  Both runs have zero page errors. The in-app offline startup failure remains
+  recorded as an environment-specific observation with an unconfirmed cause;
+  Chromium verifies the production build independently. Receipt:
+  `artifacts/intent-playthrough/offline-verification.json`.
 - This run does not establish 1,000-user load, full accessibility, every command,
   every SCC error variant, or zero bugs. Keyboard targets are an improvement;
   screen-reader navigation, focus trapping, and zoom need a dedicated audit.

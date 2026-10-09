@@ -112,8 +112,9 @@ to finish (`game status`). Serve the generated files
 over HTTPS or localhost; opening `index.html` through `file://` does not install
 the offline cache.
 
-After rebuilding an installed preview, close its existing game tabs so the new
-offline worker can activate. Local progress remains in IndexedDB. Use `game export`
+After rebuilding an installed preview, a completely cached update activates
+without requiring existing tabs to close. Reload to use the updated version;
+local progress remains in IndexedDB. Use `game export`
 to move a save to another browser or origin; changing a localhost port creates a
 separate browser origin.
 
