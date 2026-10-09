@@ -1,0 +1,271 @@
+{
+  "version": "4.11.3",
+  "source": "9947d9c2267c78595af7af197c4af8900008b269",
+  "boundary": "CLI output/exit status against authored localhost Central responses; not a live Central policy-engine comparison.",
+  "comparisons": [
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output json",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output json --compact-output",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output table",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output csv",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output json --severity LOW --fail",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output json --fail",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output json",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output table",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output csv",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl image sbom --image registry.example.test/payments:v1.8.2",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v1.spdx.json",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v1.spdx.json --output json --fail",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v1.spdx.json --output table --fail",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v1.spdx.json --output csv --fail",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output json",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output json --compact-output",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output table",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output csv",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output json --severity LOW --fail",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.3 --output json --fail",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.3 --output json",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.3 --output table",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.3 --output csv",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl image sbom --image registry.example.test/payments:v1.8.3",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v2.spdx.json",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v2.spdx.json --output json --fail",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v2.spdx.json --output table --fail",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v2.spdx.json --output csv --fail",
+      "fixture": "registry.example.test/payments:v1.8.3",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 0,
+      "passed": true
+    },
+    {
+      "command": "roxctl deployment check --file rhacs/payments-v1.yaml --output json",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl deployment check --file rhacs/payments-v1.yaml --output table",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    },
+    {
+      "command": "roxctl deployment check --file rhacs/payments-v1.yaml --output csv",
+      "fixture": "registry.example.test/payments:v1.8.2",
+      "stdoutEqual": true,
+      "exitCodeEqual": true,
+      "nativeExitCode": 1,
+      "passed": true
+    }
+  ]
+}

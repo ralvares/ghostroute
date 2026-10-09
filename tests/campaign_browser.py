@@ -12,7 +12,8 @@ with sync_playwright() as p:
  page=context.new_page();page.add_init_script(CLOCK);page.on('pageerror',lambda e:errors.append(str(e)));page.on('requestfailed',lambda r:failed.append(r.url));page.goto(sys.argv[1]);page.locator('#startBtn').click();page.locator('#radioClose').click();page.evaluate('stepGame()')
  def walk(x,y):walk_to(page,x,y)
  def command(text,contains):
-  field=page.locator('#termInput');field.fill(text);field.press('Enter');expect(page.locator('#termform')).to_have_attribute('aria-busy','false',timeout=15000);expect(page.locator('.termline').last).to_contain_text(contains,timeout=15000)
+  field=page.locator('#termInput');field.fill(text);field.press('Enter');expect(page.locator('#termform')).to_have_attribute('aria-busy','false',timeout=15000)
+  if text!='clear':expect(page.locator('.termline').last).to_contain_text(contains,timeout=15000)
  def close():
   for panel,button in [('#shellshade','#closeTerm'),('#details','#detailDone'),('#radio','#radioClose')]:
    if page.locator(panel).is_visible():page.locator(button).click()
@@ -45,6 +46,16 @@ with sync_playwright() as p:
   open_bastion(page);command('cd ~/campaign/'+ch['id'],'cd')
   field=page.locator('#termInput');field.fill('cat bri');field.press('Tab');expect(field).to_have_value('cat briefing.txt ');field.press('Enter');expect(page.locator('.termline').last).to_contain_text('TENANT: '+ch['namespace'])
   command('cat evidence.json','authored-training-fixture');command('less handover.txt','REPORT:');expect(page.locator('#terminalPager')).to_be_visible();page.locator('#terminalPager').press('q');command('case conclude '+ch['conclusion'],'Case remains open')
+  if ch['id']=='09':
+   command('oc get pods -n rs-09','ImagePullBackOff')
+   command('cat credentials.txt','revoked')
+   command('oc login -u platform-admin -p training','Logged in')
+   command("oc get secret registry-leaked -n rs-09 -o jsonpath='{.data.\\.dockerconfigjson}' | base64 -d",'auths')
+   command('oc login -u operator -p training','Logged in')
+   command("printf '%s' training-registry-v1-revoked | podman login registry.example.test --username release-bot --password-stdin",'unauthorized')
+   command("printf '%s' training-registry-v2 | podman login registry.example.test --username release-bot --password-stdin",'Login Succeeded')
+   command('podman push registry.example.test/private/payments:v1.8.3','Writing manifest')
+   command('podman pull registry.example.test/private/payments:v1.8.3','Writing manifest')
   user='operator'
   for f in ch['files']:
    if ch['id']=='05' and f['name']=='vendor.yaml':continue
@@ -59,6 +70,22 @@ with sync_playwright() as p:
    command('oc login -u platform-admin -p training','Logged in');command('oc adm policy add-scc-to-user rs-vendor -z vendor -n '+ch['namespace'],'added');command('oc login -u operator -p training','Logged in');command('oc rollout restart deployment/vendor -n '+ch['namespace'],'restarted')
   if ch['id']=='04':
    page.locator('#closeTerm').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');open_bastion(page);command('case test diagnose','PASS ·');command('oc delete pod broken -n '+ch['namespace'],'deleted')
+  if ch['id']=='18':
+   command('roxctl image scan -i registry.example.test/payments:v1.8.2 -o json','CVE-2021-44228')
+   command('roxctl image check -i registry.example.test/payments:v1.8.2 -o json','failed policies found')
+   command('roxctl sbom scan --file ~/rhacs/sboms/payments-v1.spdx.json -o json --fail','vulnerabilities found')
+   command('roxctl deployment check -f ~/rhacs/payments-v1.yaml -o json','breaking policies found')
+   command('roxctl deployment check -f ~/rhacs/payments-v2.yaml -o json','"TOTAL": 0')
+   command('oc apply -f ~/rhacs/pipeline-v1.yaml','created')
+   command("oc get pipelinerun vulnerable-release -n rs-18 -o json | jq '.status.scanExitCode'",'1')
+   command('oc apply -f ~/rhacs/attestation-v2.yaml','configured')
+   command('oc apply -f ~/rhacs/pipeline-v2.yaml','created')
+   command("oc get pipelinerun repaired-release -n rs-18 -o json | jq '.status.signed'",'true')
+   command('clear','clear')
+   command("oc get pipelinerun vulnerable-release -n rs-18 -o json | jq -r '.status | \"Vulnerable release: \\(.conditions[0].reason); scan exit \\(.scanExitCode); signed \\(.signed)\"'",'CentralPolicyGateFailed')
+   command("oc get pipelinerun repaired-release -n rs-18 -o json | jq -r '.status | \"Repaired release: \\(.conditions[0].reason); scan exit \\(.scanExitCode); signed \\(.signed)\"'",'CentralPolicyGatePassed')
+   shot('rhacs-release-gate')
+   command('oc apply -f attestation.yaml -n rs-18','configured')
   for probe in ch['probes']:command('case test '+probe,'PASS ·')
   if ch['id']=='27':
    command('oc login -u platform-admin -p training','Logged in')

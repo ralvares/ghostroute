@@ -1,8 +1,11 @@
+import {getImage} from "../security/rhacs/images.js";
+import {registryCredential,leakedToken,replacementToken} from "../security/registry.js";
 import type { Resource } from "../simulation/cluster-model.js";
 import type { Chapter, Goal, Probe, Witness } from "./types.js";
 import type { SceneId } from "../world/scene-model.js";
 
 const image = "registry.example.test/owned:arbitrary-uid";
+const ownedDigest=getImage(image).digest;
 const approvedRegistrySources = [
   "registry.example.test",
   "registry.redhat.io",
@@ -10,6 +13,8 @@ const approvedRegistrySources = [
   "quay.io",
   "image-registry.openshift-image-registry.svc:5000",
 ];
+const registrySecret=(name:string,token:string)=>object("Secret",name,{type:"kubernetes.io/dockerconfigjson",stringData:{".dockerconfigjson":registryCredential(token)}});
+const credentialApp=(fresh:boolean)=>object("Deployment","credential-app",{spec:{replicas:1,selector:{matchLabels:{app:"credential-app"}},template:{metadata:{labels:{app:"credential-app"}},spec:{imagePullSecrets:[{name:fresh?"registry-current":"registry-leaked"}],containers:[{name:"app",image:"registry.example.test/private/payments:"+(fresh?"v1.8.3":"v1.8.2"),securityContext:{allowPrivilegeEscalation:false,capabilities:{drop:["ALL"]},seccompProfile:{type:"RuntimeDefault"}}}]}}}},"apps/v1");
 const security = {
   allowPrivilegeEscalation: false,
   capabilities: { drop: ["ALL"] },
@@ -262,7 +267,7 @@ const vendor = object(
   "apps/v1",
 );
 const signature = cm("attestation", {
-  digest: "sha256:" + "a".repeat(64),
+  digest: ownedDigest,
   issuer: "training-release",
   scanHigh: "0",
   signed: "true",
@@ -684,16 +689,17 @@ const drafts: Draft[] = [
     act: "II · What the city consumes",
     district: "Market",
     sources: ["labs/basic/b6.adoc"],
-    hook: "The gateway tag has the same name it had yesterday. Its content changed. Kai needs a release identity that does not move beneath him.",
+    hook: "The gateway tag has the same name it had yesterday. Its content changed. A release token also leaked into a support archive. Vale revoked it; the private release now fails to pull. Recover the release identity and credentials before redeploying.",
     reveal:
       "An approved registry and a pinned digest answer different questions. The campaign uses a recorded training artifact catalog; it does not contact a registry.",
     voices: [
       "kai",
-      "A trusted host can still hold a vulnerable artifact. Pin the intended content and inspect its recorded scan.",
+      "A trusted host can still hold a vulnerable artifact. Inspect its scan, then read credentials.txt: the replacement token is scoped to our training registry. Update the pull Secret and roll the private release.",
       "vale",
-      "The catalog binds this digest to the training release. Keep that evidence with the deployment.",
+      "I revoked training-registry-v1-revoked after finding it in the support archive. Renaming its Secret cannot restore it. Prove the old token stays denied and the new release can pull.",
     ],
-    artifact: "Recorded artifact digest",
+    artifact: "Artifact digest and leaked support archive",
+    seed: [registrySecret("registry-leaked",leakedToken),credentialApp(false)],
     files: {
       "registry.yaml": cr("Image", "cluster", "config.openshift.io/v1", {
         registrySources: { allowedRegistries: approvedRegistrySources },
@@ -701,9 +707,12 @@ const drafts: Draft[] = [
       "app.yaml": workload(
         "app",
         {},
-        { image: image + "@sha256:" + "a".repeat(64) },
+        { image: image + "@" + ownedDigest },
       ),
       "attestation.yaml": signature,
+      "registry-credentials.yaml": registrySecret("registry-current",replacementToken),
+      "private-release.yaml": credentialApp(true),
+      "credentials.txt": "The support archive exposed the release-bot token training-registry-v1-revoked. Vale revoked it at the registry. It will never authenticate again. Replacement: training-registry-v2. These are fictional training tokens.\n\nTry the revoked login: printf '%s' training-registry-v1-revoked | podman login registry.example.test --username release-bot --password-stdin\nAuthenticate with the replacement: printf '%s' training-registry-v2 | podman login registry.example.test --username release-bot --password-stdin\nThen podman push registry.example.test/private/payments:v1.8.3 and podman pull registry.example.test/private/payments:v1.8.3. Local Podman login does not update cluster Secrets.\n\nInspect: oc get secret registry-leaked -n rs-09 -o jsonpath='{.data.\\.dockerconfigjson}' | base64 -d\nApply registry-credentials.yaml then private-release.yaml. The changed imagePullSecrets in the Deployment creates new Pods. oc get pods -n rs-09; oc rollout status deployment/credential-app -n rs-09\nThe Secret's base64 encoding is not encryption. A digest pin or a successful ACS check cannot repair revoked registry credentials.\n",
       "registry-note.txt":
         "RegistrySources controls runtime pulls, not Pod admission. Preserve the recorded platform and internal registries when adding the workload allowlist. In a live cluster, the Machine Config Operator distributes this setting to nodes; this offline fixture models the resulting policy and image-pull failure, not that rollout.",
       "promotion-review.yaml": cm("promotion-review", {
@@ -725,11 +734,13 @@ const drafts: Draft[] = [
         "ConfigMap",
         "attestation",
         "data.digest",
-        "sha256:" + "a".repeat(64),
+        ownedDigest,
       ),
     ],
     probes: [
       probe("approved", "Approved pinned artifact starts", "provenance"),
+      probe("credentials", "Private release pulls with replacement Secret", "registry-credential-current"),
+      probe("revoked", "Leaked token stays revoked", "registry-credential-revoked"),
       probe("untrusted", "Unapproved registry is rejected", "registry-denied"),
     ],
     conclusion: "pin-and-verify",
@@ -1239,12 +1250,12 @@ const drafts: Draft[] = [
     sources: ["labs/intermediate/i5.adoc"],
     hook: "The original build-bot trail returns to the release line. A signature was present, but nobody checked whether scanning happened before signing.",
     reveal:
-      "The training pipeline gates signing on the recorded scan and binds the attestation to the exact artifact digest.",
+      "The release gate evaluates the same authored image catalog and Central policies as roxctl, then binds the attestation to the exact digest.",
     voices: [
       "kai",
       "The order matters: build, scan, then sign only if the gate passes. A signed vulnerable artifact is still vulnerable.",
       "rhea",
-      "Use the recorded artifact fixtures for the positive and negative tests. This offline scene does not run Tekton, a scanner or cryptographic signing.",
+      "Read rhacs/README.md. Compare roxctl image check for payments:v1.8.2 and v1.8.3, scan the SPDX files, then inspect the PipelineRun policyCheck. The controller emulates the gate offline; signing remains authored.",
     ],
     artifact: "Out-of-order release attestation",
     files: {
@@ -1273,7 +1284,7 @@ const drafts: Draft[] = [
       }),
       "run.yaml": cr("PipelineRun", "release", "tekton.dev/v1", {
         pipelineRef: { name: "secure-release" },
-        params: [{ name: "digest", value: "sha256:" + "a".repeat(64) }],
+        params: [{ name: "digest", value: ownedDigest }],
       }),
       "attestation.yaml": signature,
       "promotion-review.yaml": cm("promotion-review", {

@@ -1,3 +1,6 @@
+import {skopeoCommand} from "./skopeo.js";
+import {podmanCommand} from "./podman.js";
+import {roxctlCommand} from "./roxctl.js";
 import {
   readApiResources,
   readApiTable as apiTable,
@@ -42,7 +45,7 @@ import { printResourceTable } from "./table-printer.js";
 import { jsonPathValues } from "../simulation/resource-table.js";
 import { mergePatch, jsonPatch } from "../simulation/api-patch.js";
 import { strategicPatch } from "../simulation/strategic-patch.js";
-import { normalizeSecret } from "../simulation/secrets.js";
+import { encodeSecret, normalizeSecret } from "../simulation/secrets.js";
 
 interface Result extends ToolResult {
   legacyCommand?: string;
@@ -612,6 +615,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
       "--image",
       "--from-literal",
       "--from-file", "--from-env-file",
+      "--docker-server", "--docker-username", "--docker-password", "--docker-email",
       "--type",
       "--dry-run", "-o", "--output", "--as",
     ]);
@@ -634,7 +638,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     if (verb === "replace") throw new Error("error: must specify -f for replace");
     const type =
       verb === "new-project" ? "namespaces" : resolveResource(args[1] ?? "");
-    const name = verb === "new-project" ? args[1] : type === "secrets" && args[2] === "generic" ? args[3] : args[2];
+    const name = verb === "new-project" ? args[1] : type === "secrets" && ["generic","docker-registry"].includes(args[2]) ? args[3] : args[2];
     if (!type || !name)
       throw new Error("error: specify a resource and a name, or -f manifest");
     const definition = resourceTypes[type];
@@ -651,6 +655,11 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
         selector: { matchLabels: { app: name } },
         template: { metadata: { labels: { app: name } }, spec: { containers: [{ name, image: flag("--image")! }] } },
       };
+    } else if (type === "secrets" && args[2] === "docker-registry") {
+      const server=flag("--docker-server")??"https://index.docker.io/v1/", username=flag("--docker-username"), password=flag("--docker-password");
+      if(!username || !password)throw new Error("error: either --from-file or the combination of --docker-username, --docker-password and --docker-server is required");
+      object.type="kubernetes.io/dockerconfigjson";
+      object.data={".dockerconfigjson":encodeSecret(JSON.stringify({auths:{[server]:{username,password,...(flag("--docker-email")?{email:flag("--docker-email")}:{}),auth:encodeSecret(username+":"+password)}}}))};
     } else if (type === "configmaps" || (type === "secrets" && args[2] === "generic")) {
       const data: Record<string, string> = {};
       const add = (key: string, value: string) => {
@@ -960,13 +969,19 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
             : "",
       );
     }
-  } else if (textTools.includes(first[0])) response = await textCommand(first);
+  } else if (first[0] === "roxctl") response = await roxctlCommand(first);
+  else if (first[0] === "skopeo") response = await skopeoCommand(first);
+  else if (first[0] === "podman") response = podmanCommand(first);
+  else if (textTools.includes(first[0])) response = await textCommand(first);
   else if (first[0] === "man" && first.length === 2 && toolHelp[first[1]])
     response = { stdout: toolHelp[first[1]] + "\n", pager: "less" };
   else if (first[0] === "which" && first.length >= 2) {
     const supported = [
       ...textTools,
       "oc",
+      "roxctl",
+      "podman",
+      "skopeo",
       "ls",
       "pwd",
       "mkdir",
@@ -1042,21 +1057,20 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
     );
   for (const [index, stage] of stages.entries()) {
     if (!index) continue;
-    if (response.stderr || (response.error && response.exitCode !== 1))
+    if (!response.stdout && (response.stderr || (response.error && response.exitCode !== 1)))
       return response;
     if (response.pager)
       throw new Error("shell: more/less must be the final pipeline command");
-    const filtered = await textCommand(stage, response.stdout);
+    const filtered: Result | null = stage[0] === "podman" ? podmanCommand(stage, response.stdout) : stage[0] === "skopeo" ? await skopeoCommand(stage, response.stdout) : await textCommand(stage, response.stdout);
     if (!filtered)
       throw new Error(
         `simulation: pipeline tool ${stage[0]} is not implemented`,
       );
-    response = filtered;
+    response = {...filtered, stderr: (response.stderr??"")+(filtered.stderr??"")};
   }
   if (destination) {
     if (response.pager)
       throw new Error("shell: redirect the text before opening a pager");
-    if (response.error) return response;
     let previous = "";
     if (append) {
       try {
@@ -1066,7 +1080,7 @@ export async function clusterCommand(raw: string): Promise<Result | null> {
       }
     }
     writeVirtualFile(destination, previous + response.stdout);
-    return result("");
+    return {...response, stdout:""};
   }
   return response;
 }

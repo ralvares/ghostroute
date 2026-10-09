@@ -1,0 +1,6 @@
+Scan results for SBOM: rhacs/sboms/payments-v2.spdx.json
+(TOTAL-COMPONENTS: 0, TOTAL-VULNERABILITIES: 0, LOW: 0, MODERATE: 0, IMPORTANT: 0, CRITICAL: 0)
+
++-----------+---------+-----+----------+------+------+---------------+----------+---------------+
+| COMPONENT | VERSION | CVE | SEVERITY | CVSS | LINK | FIXED VERSION | ADVISORY | ADVISORY LINK |
++-----------+---------+-----+----------+------+------+---------------+----------+---------------+

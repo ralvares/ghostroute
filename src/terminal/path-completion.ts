@@ -29,6 +29,7 @@ export function pathCompletions(
     [
       "cd",
       "cat",
+      "base64",
       "ls",
       "head",
       "tail",
@@ -43,7 +44,8 @@ export function pathCompletions(
     (command === "grep" &&
       words.slice(1).some((word) => !word.startsWith("-"))) ||
     tokens.at(-1)?.kind === "redirect" ||
-    (command === "oc" && ["-f", "--filename"].includes(words.at(-1) ?? ""));
+    (command === "oc" && ["-f", "--filename"].includes(words.at(-1) ?? "")) ||
+    (command === "roxctl" && ["--file", "--token-file", "--ca", ...(words.includes("deployment") ? ["-f"] : [])].includes(words.at(-1) ?? ""));
   if (!enabled || !head.trim()) return null;
   const suffix = input.slice(cursor);
   return completePath(fragment, command === "cd").map((path) => {

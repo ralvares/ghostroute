@@ -1,3 +1,5 @@
+import {createRegistry} from "../security/registry.js";
+import {createCentral} from "../security/rhacs/types.js";
 import { defaultSccs } from "./default-sccs.js";
 import { installedCrds } from "./installed-crds.js";
 export interface SecurityContext {
@@ -157,6 +159,8 @@ export function createCluster() {
   });
   const sccs = structuredClone(defaultSccs);
   return {
+    registry: createRegistry(),
+    rhacs: createCentral(),
     version: "4.22",
     incidentStored: false,
     policyRevision: "4.22-a18571de",

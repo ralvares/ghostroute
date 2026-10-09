@@ -73,11 +73,13 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);
-    const match = await cache.match(event.request.mode === 'navigate' ? new URL('index.html', base).href : event.request);
+    // All cached responses are pinned static build assets, identical for each Origin.
+    // Preview/CDN Vary: Origin must not hide an installed asset on a CORS reload.
+    const match = await cache.match(event.request.mode === 'navigate' ? new URL('index.html', base).href : event.request, { ignoreVary: true });
     if (match) return match;
     // A still-open older tab may request its lazy worker/assets after activation.
     for (const name of (await caches.keys()).filter(name => name.startsWith(prefix) && name !== cacheName)) {
-      const previous = await (await caches.open(name)).match(event.request);
+      const previous = await (await caches.open(name)).match(event.request, { ignoreVary: true });
       if (previous) return previous;
     }
     return fetch(event.request);

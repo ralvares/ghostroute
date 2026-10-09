@@ -1,3 +1,4 @@
+import {privatePullFailure, registryImageKnown} from "../security/registry.js";
 import { projectIncident } from "./incident-controller.js";
 import { defaultNetworkPolicy } from "../security/network-policy.js";
 import { normalizeSecret, secretValue } from "./secrets.js";
@@ -261,7 +262,7 @@ function startPod(resource: Resource, previous?: Resource) {
   const containerStatuses = spec.containers.map((container) => {
     const image = container.image.split("@")[0],
       uid = container.securityContext?.runAsUser;
-    const pullFailure = registryPullFailure(container.image);
+    const pullFailure = registryPullFailure(container.image) || privatePullFailure(container.image,resource);
     const fails =
       (image === "registry.example.test/owned:root" && uid !== 0) ||
       (image === "registry.example.test/vendor:fixed-uid" && uid !== 100);
@@ -272,7 +273,7 @@ function startPod(resource: Resource, previous?: Resource) {
       "busybox",
       "busybox:latest",
       "registry.example.test/payments:v1.8.2",
-    ].includes(image);
+    ].includes(image) || registryImageKnown(container.image);
     return {
       name: container.name,
       ready: known && !fails && !pullFailure,

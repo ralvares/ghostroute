@@ -1,0 +1,6 @@
+Policy check results for image: registry.example.test/payments:v1.8.3
+(TOTAL: 0, LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+
++--------+----------+--------------+-------------+-----------+-------------+
+| POLICY | SEVERITY | BREAKS BUILD | DESCRIPTION | VIOLATION | REMEDIATION |
++--------+----------+--------------+-------------+-----------+-------------+

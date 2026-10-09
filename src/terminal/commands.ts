@@ -74,7 +74,7 @@ async function executeCommand(cmd: string) {
     print(
       G.podShell
         ? `Inside the payment-api Pod (SIMULATED):\n  env                 inspect process environment\n  curl -I URL         test an HTTP destination\n  nslookup NAME       test DNS\n  ip route            view route\n  exit                return to bastion`
-        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  ls / cd / cat / pwd / mkdir\n  jq FILTER FILE · grep · head / tail · sort / uniq · wc · cut\n  more / less FILE or COMMAND | less (q to quit, / to search)\n  echo / printf · > FILE / >> FILE · history · which · man TOOL\n\nExplore the resources and policies. TAB completes supported commands.\nFor cluster labs, type oc --help, cat lab.txt, or ls workloads.\nLocal progress/offline: game status, game save, game export, game import.`,
+        : `Supported offline tools:\n  oc get pods|nodes|deployments|networkpolicies\n  oc logs deployment/payment-api -n payments\n  oc get deployment payment-api -n payments -o yaml\n  oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-\n  oc apply -f policies/<name>.yaml\n  oc rsh -n payments deployment/payment-api\n  oc rollout status deployment/payment-api -n payments\n  oc auth can-i ...\n  roxctl image scan/check/sbom · deployment check · sbom scan\n  podman login/logout/pull/push · skopeo inspect/list-tags\n  base64 [-d] · ls / cd / cat / pwd / mkdir\n  jq FILTER FILE · grep · head / tail · sort / uniq · wc · cut\n  more / less FILE or COMMAND | less (q to quit, / to search)\n  echo / printf · > FILE / >> FILE · history · which · man TOOL\n\nExplore the resources and policies. TAB completes supported commands.\nFor cluster labs, type oc --help, cat lab.txt, or ls workloads.\nLocal progress/offline: game status, game save, game export, game import.`,
       "meta",
     );
     return;
@@ -132,7 +132,7 @@ async function executeCommand(cmd: string) {
       if (handled.stdout)
         print(
           handled.stdout.replace(/\n$/, ""),
-          handled.error ? "error" : "reply",
+          handled.error && !raw.startsWith("roxctl ") ? "error" : "reply",
         );
       if (handled.stderr) printError(handled.stderr.trimEnd());
       if (handled.pager && !handled.error)

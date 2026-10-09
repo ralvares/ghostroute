@@ -1,0 +1,218 @@
+{
+  "url": "http://127.0.0.1:4194/ghostroute/",
+  "commands": [
+    {
+      "command": "cat rhacs/README.md",
+      "output": "Offline Central \u2014 roxctl 4.11.3\n\nKai: A signature cannot rescue vulnerable dependencies. Inspect the first release, repair its dependency, then validate its manifest before promotion.\n\nroxctl image scan --image registry.example.test/payments:v1.8.2 --output table\nroxctl image check --image registry.example.test/payments:v1.8.2 --output json\nroxctl image sbom --image registry.example.test/payments:v1.8.2 > payments.spdx.json\nroxctl sbom scan --file payments.spdx.json --output json --fail\nroxctl image check --image registry.example.test/payments:v1.8.3\nroxctl deployment check --file rhacs/payments-v2.yaml --output json\n\nImage tags/digests and package versions come from images/catalog.json. Unknown inputs report a simulation limit. Default Central policies come from StackRox 4.11.3. Stage 18 adds Release workload hardening; warning-only policies do not block a gate. BUILD enforcement and DEPLOY enforcement are independent. The pipeline evaluates these same assets and policies. During Chapter 18, apply pipeline-v1.yaml and inspect its status.scanExitCode (1). Then apply attestation-v2.yaml and pipeline-v2.yaml: the repaired release signs. Restore the chapter attestation.yaml before verifying the original release handover.\n\nThe images and CVE associations are authored teaching assets. No registries or remote services are contacted. Native command syntax is retained; real environments need their own endpoint, credentials and permissions.",
+      "seconds": 0.026
+    },
+    {
+      "command": "ls rhacs/sboms",
+      "output": "payments-v1.spdx.json  payments-v2.spdx.json",
+      "seconds": 0.022
+    },
+    {
+      "command": "clear",
+      "output": "",
+      "seconds": 0.116
+    },
+    {
+      "command": "roxctl image scan --image registry.example.test/payments:v1.8.2 --output table --headers COMPONENT,VERSION,CVE,SEVERITY,CVSS,FIXED_VERSION",
+      "output": "Scan results for image: registry.example.test/payments:v1.8.2\n(TOTAL-COMPONENTS: 1, TOTAL-VULNERABILITIES: 2, LOW: 0, MODERATE: 0, IMPORTANT: 0, CRITICAL: 2)\n\n+------------+---------+----------------+----------+------+---------------+\n| COMPONENT  | VERSION |      CVE       | SEVERITY | CVSS | FIXED VERSION |\n+------------+---------+----------------+----------+------+---------------+\n| log4j-core | 2.14.1  | CVE-2021-44228 | CRITICAL |  10  |    2.17.1     |\n|            |         +----------------+----------+------+---------------+\n|            |         | CVE-2021-45046 | CRITICAL |  9   |    2.17.1     |\n+------------+---------+----------------+----------+------+---------------+\nWARN:\tA total of 2 unique vulnerabilities were found in 1 components",
+      "seconds": 0.11
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output json",
+      "output": "{\n  \"results\": [\n    {\n      \"metadata\": {\n        \"id\": \"unknown\",\n        \"additionalInfo\": null\n      },\n      \"summary\": {\n        \"CRITICAL\": 1,\n        \"HIGH\": 1,\n        \"LOW\": 0,\n        \"MEDIUM\": 0,\n        \"TOTAL\": 2\n      },\n      \"violatedPolicies\": [\n        {\n          \"name\": \"Log4Shell: log4j Remote Code Execution vulnerability\",\n          \"severity\": \"CRITICAL\",\n          \"description\": \"Alert on deployments with images containing the Log4Shell vulnerabilities (CVE-2021-44228 and CVE-2021-45046). There are flaws in the Java logging library Apache Log4j in versions from 2.0-beta9 to 2.15.0, excluding 2.12.2.\",\n          \"violation\": [\n            \"log4j-core version 2.14.1 contains CVE-2021-44228 (CRITICAL), fixed in 2.17.1\",\n            \"log4j-core version 2.14.1 contains CVE-2021-45046 (CRITICAL), fixed in 2.17.1\"\n          ],\n          \"remediation\": \"Update the log4j libary to version 2.16.0 (for Java 8 or later), 2.12.2 (for Java 7) or later. If not possible to upgrade, then remove the JndiLookup class from the classpath: zip -q -d log4j-core-*.jar org/apache/logging/log4j/core/lookup/JndiLookup.class\",\n          \"failingCheck\": false\n        },\n        {\n          \"name\": \"Fixable Severity at least Important\",\n          \"severity\": \"HIGH\",\n          \"description\": \"Alert on deployments with fixable vulnerabilities with a Severity Rating at least Important\",\n          \"violation\": [\n            \"log4j-core version 2.14.1 contains CVE-2021-44228 (CRITICAL), fixed in 2.17.1\",\n            \"log4j-core version 2.14.1 contains CVE-2021-45046 (CRITICAL), fixed in 2.17.1\"\n          ],\n          \"remediation\": \"Use your package manager to update to a fixed version in future builds or speak with your security team to mitigate the vulnerabilities.\",\n          \"failingCheck\": true\n        }\n      ]\n    }\n  ],\n  \"summary\": {\n    \"CRITICAL\": 1,\n    \"HIGH\": 1,\n    \"LOW\": 0,\n    \"MEDIUM\": 0,\n    \"TOTAL\": 2\n  }\n}\nERROR:\tchecking image failed: failed policies found: 1 policies violated that are failing the check",
+      "seconds": 0.114
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output json | jq '.summary.TOTAL'",
+      "output": "2\nERROR:\tchecking image failed: failed policies found: 1 policies violated that are failing the check",
+      "seconds": 0.11
+    },
+    {
+      "command": "roxctl image sbom --image registry.example.test/payments:v1.8.2 > payment.spdx.json",
+      "output": "",
+      "seconds": 0.117
+    },
+    {
+      "command": "jq -r '.packages[0].externalRefs[0].referenceLocator' payment.spdx.json",
+      "output": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+      "seconds": 0.113
+    },
+    {
+      "command": "roxctl sbom scan --file payment.spdx.json --output json --fail",
+      "output": "{\n  \"result\": {\n    \"summary\": {\n      \"CRITICAL\": 2,\n      \"IMPORTANT\": 0,\n      \"LOW\": 0,\n      \"MODERATE\": 0,\n      \"TOTAL-COMPONENTS\": 1,\n      \"TOTAL-VULNERABILITIES\": 2\n    },\n    \"vulnerabilities\": [\n      {\n        \"cveId\": \"CVE-2021-44228\",\n        \"cveSeverity\": \"CRITICAL\",\n        \"cveCVSS\": 10,\n        \"cveInfo\": \"https://nvd.nist.gov/vuln/detail/CVE-2021-44228\",\n        \"advisoryId\": \"\",\n        \"advisoryInfo\": \"\",\n        \"componentName\": \"log4j-core\",\n        \"componentVersion\": \"2.14.1\",\n        \"componentFixedVersion\": \"2.17.1\"\n      },\n      {\n        \"cveId\": \"CVE-2021-45046\",\n        \"cveSeverity\": \"CRITICAL\",\n        \"cveCVSS\": 9,\n        \"cveInfo\": \"https://nvd.nist.gov/vuln/detail/CVE-2021-45046\",\n        \"advisoryId\": \"\",\n        \"advisoryInfo\": \"\",\n        \"componentName\": \"log4j-core\",\n        \"componentVersion\": \"2.14.1\",\n        \"componentFixedVersion\": \"2.17.1\"\n      }\n    ]\n  }\n}\nERROR:\tvulnerabilities found: 2 vulnerabilities",
+      "seconds": 0.114
+    },
+    {
+      "command": "roxctl sbom scan --file payment.spdx.json --output json --fail | jq '.result.summary.CRITICAL'",
+      "output": "2\nERROR:\tvulnerabilities found: 2 vulnerabilities",
+      "seconds": 0.108
+    },
+    {
+      "command": "roxctl sbom scan --file rhacs/sboms/payments-v2.spdx.json --output table --fail",
+      "output": "Scan results for SBOM: rhacs/sboms/payments-v2.spdx.json\n(TOTAL-COMPONENTS: 0, TOTAL-VULNERABILITIES: 0, LOW: 0, MODERATE: 0, IMPORTANT: 0, CRITICAL: 0)\n\n+-----------+---------+-----+----------+------+------+---------------+----------+---------------+\n| COMPONENT | VERSION | CVE | SEVERITY | CVSS | LINK | FIXED VERSION | ADVISORY | ADVISORY LINK |\n+-----------+---------+-----+----------+------+------+---------------+----------+---------------+",
+      "seconds": 0.111
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.3",
+      "output": "Policy check results for image: registry.example.test/payments:v1.8.3\n(TOTAL: 0, LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0)\n\n+--------+----------+--------------+-------------+-----------+-------------+\n| POLICY | SEVERITY | BREAKS BUILD | DESCRIPTION | VIOLATION | REMEDIATION |\n+--------+----------+--------------+-------------+-----------+-------------+",
+      "seconds": 0.11
+    },
+    {
+      "command": "roxctl deployment check -f rhacs/payments-v2.yaml --output json",
+      "output": "{\n  \"summary\": {\n    \"CRITICAL\": 0,\n    \"HIGH\": 0,\n    \"LOW\": 0,\n    \"MEDIUM\": 0,\n    \"TOTAL\": 0\n  }\n}",
+      "seconds": 0.115
+    },
+    {
+      "command": "roxctl deployment check -f rhacs/payments-v1.yaml --output json",
+      "output": "{\n  \"results\": [\n    {\n      \"metadata\": {\n        \"id\": \"\",\n        \"additionalInfo\": {\n          \"name\": \"payment-api\",\n          \"namespace\": \"payments\",\n          \"type\": \"Deployment\"\n        }\n      },\n      \"summary\": {\n        \"CRITICAL\": 1,\n        \"HIGH\": 1,\n        \"LOW\": 0,\n        \"MEDIUM\": 1,\n        \"TOTAL\": 3\n      },\n      \"violatedPolicies\": [\n        {\n          \"name\": \"Log4Shell: log4j Remote Code Execution vulnerability\",\n          \"severity\": \"CRITICAL\",\n          \"description\": \"Alert on deployments with images containing the Log4Shell vulnerabilities (CVE-2021-44228 and CVE-2021-45046). There are flaws in the Java logging library Apache Log4j in versions from 2.0-beta9 to 2.15.0, excluding 2.12.2.\",\n          \"violation\": [\n            \"log4j-core version 2.14.1 contains CVE-2021-44228 (CRITICAL), fixed in 2.17.1\",\n            \"log4j-core version 2.14.1 contains CVE-2021-45046 (CRITICAL), fixed in 2.17.1\"\n          ],\n          \"remediation\": \"Update the log4j libary to version 2.16.0 (for Java 8 or later), 2.12.2 (for Java 7) or later. If not possible to upgrade, then remove the JndiLookup class from the classpath: zip -q -d log4j-core-*.jar org/apache/logging/log4j/core/lookup/JndiLookup.class\",\n          \"failingCheck\": false\n        },\n        {\n          \"name\": \"Fixable Severity at least Important\",\n          \"severity\": \"HIGH\",\n          \"description\": \"Alert on deployments with fixable vulnerabilities with a Severity Rating at least Important\",\n          \"violation\": [\n            \"log4j-core version 2.14.1 contains CVE-2021-44228 (CRITICAL), fixed in 2.17.1\",\n            \"log4j-core version 2.14.1 contains CVE-2021-45046 (CRITICAL), fixed in 2.17.1\"\n          ],\n          \"remediation\": \"Use your package manager to update to a fixed version in future builds or speak with your security team to mitigate the vulnerabilities.\",\n          \"failingCheck\": false\n        },\n        {\n          \"name\": \"Container with privilege escalation allowed\",\n          \"severity\": \"MEDIUM\",\n          \"description\": \"Alerts if a deployment has containers with allowPrivilegeEscalation set to true in its security context.\",\n          \"violation\": [\n            \"payment-api: Container with privilege escalation allowed\"\n          ],\n          \"remediation\": \"Verify that privileged escalation is required and cannot be provided with a subset of other controls. Disable privilege escalation by setting allowPrivilegeEscalation to false.\",\n          \"failingCheck\": false\n        }\n      ]\n    }\n  ],\n  \"summary\": {\n    \"CRITICAL\": 1,\n    \"HIGH\": 1,\n    \"LOW\": 0,\n    \"MEDIUM\": 1,\n    \"TOTAL\": 3\n  }\n}",
+      "seconds": 0.113
+    },
+    {
+      "command": "roxctl image scan --image no-such-image --output json",
+      "output": "ERROR:\tsimulation: no authored image scan for no-such-image; see rhacs/images/catalog.json",
+      "seconds": 0.113
+    },
+    {
+      "command": "roxctl image check --image registry.example.test/payments:v1.8.2 --output json > blocked.json",
+      "output": "ERROR:\tchecking image failed: failed policies found: 1 policies violated that are failing the check",
+      "seconds": 0.114
+    },
+    {
+      "command": "jq '.summary.TOTAL' blocked.json",
+      "output": "2",
+      "seconds": 0.113
+    },
+    {
+      "command": "roxctl image scan -i registry.example.test/payments:v1.8.2 -o table | less",
+      "output": "Scan results for image: registry.example.test/payments:v1.8.2\n(TOTAL-COMPONENTS: 1, TOTAL-VULNERABILITIES: 2, LOW: 0, MODERATE: 0, IMPORTANT: 0, CRITICAL: 2)\n\n+------------+---------+----------------+----------+------+-------------------------------------------------+---------------+----------+---------------+\n| COMPONENT  | VERSION |      CVE       | SEVERITY | CVSS |                      LINK                       | FIXED VERSION | ADVISORY | ADVISORY LINK |\n+------------+---------+----------------+----------+------+-------------------------------------------------+---------------+----------+---------------+\n| log4j-core | 2.14.1  | CVE-2021-44228 | CRITICAL |  10  | https://nvd.nist.gov/vuln/detail/CVE-2021-44228 |    2.17.1     |    -     |       -       |\n|            |         +----------------+----------+------+-------------------------------------------------+---------------+----------+---------------+\n|            |         | CVE-2021-45046 | CRITICAL |  9   | https://nvd.nist.gov/vuln/detail/CVE-2021-45046 |    2.17.1     |    -     |       -       |\n+------------+---------+----------------+----------+------+-------------------------------------------------+---------------+----------+---------------+\nWARN:\tA total of 2 unique vulnerabilities were found in 1 components",
+      "seconds": 0.111
+    },
+    {
+      "command": "oc login -u platform-admin -p training",
+      "output": "Logged into simulated OpenShift 4.22 as \"platform-admin\".",
+      "seconds": 0.113
+    },
+    {
+      "command": "oc create secret generic recovery --from-literal=token=training-v2 -n payments",
+      "output": "secret/recovery created",
+      "seconds": 0.052
+    },
+    {
+      "command": "oc get secret recovery -n payments -o jsonpath='{.data.token}' | base64 -d",
+      "output": "training-v2",
+      "seconds": 0.118
+    },
+    {
+      "command": "printf '%s' training-v2 | base64 -w0",
+      "output": "dHJhaW5pbmctdjI=",
+      "seconds": 0.121
+    },
+    {
+      "command": "oc create secret docker-registry private-registry --docker-server=registry.example.test --docker-username=release-bot --docker-password=training-registry-v2 -n payments",
+      "output": "secret/private-registry created",
+      "seconds": 0.048
+    },
+    {
+      "command": "oc get secret private-registry -n payments -o jsonpath='{.data.\\.dockerconfigjson}' | base64 -d | jq -r '.auths[\"registry.example.test\"].auth' | base64 -d",
+      "output": "release-bot:training-registry-v2",
+      "seconds": 0.12
+    },
+    {
+      "command": "printf '%s' training-registry-v1-revoked | podman login registry.example.test --username release-bot --password-stdin",
+      "output": "Error: authenticating creds for \"https://registry.example.test/v2/\": unauthorized: authentication required",
+      "seconds": 0.016
+    },
+    {
+      "command": "printf '%s' training-registry-v2 | podman login registry.example.test --username release-bot --password-stdin",
+      "output": "Login Succeeded",
+      "seconds": 0.015
+    },
+    {
+      "command": "skopeo inspect docker://registry.example.test/payments:v1.8.3 | jq -r '.Digest'",
+      "output": "sha256:93236ef303d53602bdd15823487a930e4366301acaf2b9a3132292476d063d38",
+      "seconds": 0.107
+    },
+    {
+      "command": "skopeo inspect --format '{{.Digest}}' docker://registry.example.test/private/payments:v1.8.3",
+      "output": "sha256:93236ef303d53602bdd15823487a930e4366301acaf2b9a3132292476d063d38",
+      "seconds": 0.117
+    },
+    {
+      "command": "podman push registry.example.test/private/payments:v1.8.3",
+      "output": "Getting image source signatures\nWriting manifest to image destination",
+      "seconds": 0.118
+    },
+    {
+      "command": "podman pull registry.example.test/private/payments:v1.8.3",
+      "output": "Trying to pull registry.example.test/private/payments:v1.8.3...\nGetting image source signatures\nWriting manifest to image destination\n93236ef303d53602bdd15823487a930e4366301acaf2b9a3132292476d063d38",
+      "seconds": 0.117
+    },
+    {
+      "command": "echo '{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"metadata\": {\"name\": \"private-payments\", \"namespace\": \"payments\"}, \"spec\": {\"replicas\": 1, \"selector\": {\"matchLabels\": {\"app\": \"private-payments\"}}, \"template\": {\"metadata\": {\"labels\": {\"app\": \"private-payments\"}}, \"spec\": {\"containers\": [{\"name\": \"app\", \"image\": \"registry.example.test/private/payments:v1.8.3\", \"securityContext\": {\"allowPrivilegeEscalation\": false, \"capabilities\": {\"drop\": [\"ALL\"]}, \"seccompProfile\": {\"type\": \"RuntimeDefault\"}}}]}}}}' > private.json",
+      "output": "",
+      "seconds": 0.019
+    },
+    {
+      "command": "oc apply -f private.json",
+      "output": "deployment.apps/private-payments created",
+      "seconds": 0.073
+    },
+    {
+      "command": "oc get pods -n payments",
+      "output": "NAME                     READY   STATUS             RESTARTS   AGE\nledger-86bbb-zyx12       1/1     Running            0          120m\npayment-api-7d9cd-ab12   1/1     Running            0          120m\npayment-api-7d9cd-cd34   1/1     Running            0          120m\nprivate-payments-sim-0   0/1     ImagePullBackOff   0          2s",
+      "seconds": 0.024
+    },
+    {
+      "command": "oc patch deployment private-payments -n payments --type=merge -p '{\"spec\":{\"template\":{\"spec\":{\"imagePullSecrets\":[{\"name\":\"private-registry\"}]}}}}'",
+      "output": "deployment.apps/private-payments patched",
+      "seconds": 0.061
+    },
+    {
+      "command": "oc rollout status deployment/private-payments -n payments",
+      "output": "deployment \"private-payments\" successfully rolled out",
+      "seconds": 0.023
+    },
+    {
+      "command": "game export",
+      "output": "Downloaded roadshow-progress.json. Keep it to restore progress in another browser.",
+      "seconds": 0.023
+    },
+    {
+      "command": "game save",
+      "output": "Progress saved locally.",
+      "seconds": 0.025
+    },
+    {
+      "command": "roxctl sbom scan --file payment.spdx.json --output json",
+      "output": "{\n  \"result\": {\n    \"summary\": {\n      \"CRITICAL\": 2,\n      \"IMPORTANT\": 0,\n      \"LOW\": 0,\n      \"MODERATE\": 0,\n      \"TOTAL-COMPONENTS\": 1,\n      \"TOTAL-VULNERABILITIES\": 2\n    },\n    \"vulnerabilities\": [\n      {\n        \"cveId\": \"CVE-2021-44228\",\n        \"cveSeverity\": \"CRITICAL\",\n        \"cveCVSS\": 10,\n        \"cveInfo\": \"https://nvd.nist.gov/vuln/detail/CVE-2021-44228\",\n        \"advisoryId\": \"\",\n        \"advisoryInfo\": \"\",\n        \"componentName\": \"log4j-core\",\n        \"componentVersion\": \"2.14.1\",\n        \"componentFixedVersion\": \"2.17.1\"\n      },\n      {\n        \"cveId\": \"CVE-2021-45046\",\n        \"cveSeverity\": \"CRITICAL\",\n        \"cveCVSS\": 9,\n        \"cveInfo\": \"https://nvd.nist.gov/vuln/detail/CVE-2021-45046\",\n        \"advisoryId\": \"\",\n        \"advisoryInfo\": \"\",\n        \"componentName\": \"log4j-core\",\n        \"componentVersion\": \"2.14.1\",\n        \"componentFixedVersion\": \"2.17.1\"\n      }\n    ]\n  }\n}",
+      "seconds": 0.119
+    },
+    {
+      "command": "roxctl image scan -i registry.example.test/payments:v1.8.3 -o table",
+      "output": "Scan results for image: registry.example.test/payments:v1.8.3\n(TOTAL-COMPONENTS: 0, TOTAL-VULNERABILITIES: 0, LOW: 0, MODERATE: 0, IMPORTANT: 0, CRITICAL: 0)\n\n+-----------+---------+-----+----------+------+------+---------------+----------+---------------+\n| COMPONENT | VERSION | CVE | SEVERITY | CVSS | LINK | FIXED VERSION | ADVISORY | ADVISORY LINK |\n+-----------+---------+-----+----------+------+------+---------------+----------+---------------+",
+      "seconds": 0.109
+    },
+    {
+      "command": "oc get secret recovery -n payments -o jsonpath='{.data.token}' | base64 -d",
+      "output": "training-v2",
+      "seconds": 0.119
+    },
+    {
+      "command": "podman pull registry.example.test/private/payments:v1.8.3",
+      "output": "Trying to pull registry.example.test/private/payments:v1.8.3...\nGetting image source signatures\nWriting manifest to image destination\n93236ef303d53602bdd15823487a930e4366301acaf2b9a3132292476d063d38",
+      "seconds": 0.119
+    },
+    {
+      "command": "oc rollout status deployment/private-payments -n payments",
+      "output": "deployment \"private-payments\" successfully rolled out",
+      "seconds": 0.124
+    }
+  ],
+  "offline_resume": true,
+  "page_errors": [],
+  "failed_requests": []
+}

@@ -1,0 +1,33 @@
+{
+  "id": "sha256:b2a58f1246332c0bf53d407196cbf1ed180ff53836882a2848e415b9ef342d36",
+  "name": {
+    "registry": "registry.example.test",
+    "remote": "payments",
+    "tag": "v1.8.2",
+    "fullName": "registry.example.test/payments:v1.8.2"
+  },
+  "scan": {
+    "components": [
+      {
+        "name": "log4j-core",
+        "version": "2.14.1",
+        "vulns": [
+          {
+            "cve": "CVE-2021-44228",
+            "cvss": 10,
+            "link": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+            "fixedBy": "2.17.1",
+            "severity": "CRITICAL_VULNERABILITY_SEVERITY"
+          },
+          {
+            "cve": "CVE-2021-45046",
+            "cvss": 9,
+            "link": "https://nvd.nist.gov/vuln/detail/CVE-2021-45046",
+            "fixedBy": "2.17.1",
+            "severity": "CRITICAL_VULNERABILITY_SEVERITY"
+          }
+        ]
+      }
+    ]
+  }
+}

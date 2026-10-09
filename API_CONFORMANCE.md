@@ -131,3 +131,26 @@ Reference contracts: [API revisions and dry run](https://kubernetes.io/docs/refe
 [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902),
 [JSON Merge Patch](https://www.rfc-editor.org/rfc/rfc7396),
 [upstream NetworkPolicy defaults](https://github.com/kubernetes/kubernetes/blob/v1.35.2/pkg/apis/networking/v1/defaults.go).
+
+## Authored emulation acceptance (2026-10-09)
+
+The user clarified that offline, scenario-aware behavior is the target: authored
+applications, image contents and tool responses are acceptable, provided commands
+and controllers react consistently to shared state. Full live server parity is
+not the acceptance target. Earlier unimplemented live-cluster items above remain
+scope boundaries, not grounds for returning fake success.
+
+RHACS output is pinned to installed native roxctl 4.11.3 and upstream commit
+9947d9c2267c78595af7af197c4af8900008b269. The localhost oracle compares image scans,
+image policy checks, deployment checks, SPDX generation/scans, CSV/table/JSON,
+filters, compact output and failure status. The oracle supplies authored Central
+responses; it validates CLI formatting/exit status, not production Central's
+policy engine or an up-to-date vulnerability database. Receipts are under
+`artifacts/roxctl`. Reproduction and licenses: `tools/roxformat/UPSTREAM.md`.
+
+Verified for this milestone: 192 automated tests; 33/33 native roxctl stdout/exit
+comparisons; native OpenShift 4.22 docker-registry Secret data comparison; real
+browser Podman/Skopeo/RHACS/SPDX/base64/pager/pipe workflow with offline resume;
+and all 27 journey chapters including negative gates, final history recheck,
+offline restoration and export. Receipts: `artifacts/roxctl/native-comparison.json`,
+`secret-native-comparison.json`, `browser-receipt.json` and `campaign-receipt.json`.

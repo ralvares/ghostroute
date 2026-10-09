@@ -1,3 +1,4 @@
+import {base64Command} from "./base64.js";
 import { readVirtualFile } from "../simulation/filesystem.js";
 import { runQuery } from "./query-tools.js";
 
@@ -9,6 +10,7 @@ export interface ToolResult {
   pager?: "more" | "less";
 }
 export const textTools = [
+  "base64",
   "cat",
   "jq",
   "grep",
@@ -28,6 +30,7 @@ const lines = (input: string) =>
 const output = (rows: string[]) => (rows.length ? rows.join("\n") + "\n" : "");
 
 export const toolHelp: Record<string, string> = {
+  base64: "base64 [-d|--decode] [-w COLS|--wrap=COLS] [FILE]\nDecode Secret data: oc get secret NAME -o jsonpath='{.data.token}' | base64 -d",
   jq: "jq [OPTIONS] 'FILTER' [FILE ...]\nReal jq 1.8.2 in WebAssembly. Reads JSON/JSONL files or piped input.\n-r raw strings; -c compact; -s slurp; -e status; -n null input; -R raw input; --arg NAME VALUE; --argjson NAME JSON.\nExample: jq 'select(.verb == \"patch\") | {user: .user.username, request: .requestObject}' audit/kube-apiserver.log",
   grep: "grep [-iInvFcE] [-e PATTERN] PATTERN [FILE ...]\nFilter lines; -i ignore case, -n line numbers, -v invert, -F literal, -c count.\nBasic/extended regular expressions supported. Shell recursion and Perl expressions are not implemented.",
   head: "head [-n COUNT] [FILE ...] · first 10 lines by default",
@@ -164,6 +167,7 @@ export async function textCommand(
     const result = await runQuery("jq", input, query, flags);
     return { ...result, error: result.exitCode !== 0 };
   }
+  if (tool === "base64") return base64Command(args, stdin);
   if (tool === "echo") {
     const noNewline = args[0] === "-n";
     if (args[0]?.startsWith("-") && !noNewline)

@@ -501,3 +501,62 @@ checks, dedicated browser resource queries and the complete campaign replay
 complement these fixture checks. Complete oc, admission, OpenShift controllers,
 OCI execution, webhooks, streaming/watch and live-cluster parity remain outside
 this implemented contract.
+
+### Offline Central, SPDX and registry credentials
+
+- `security/rhacs/images.ts` owns immutable authored image references, digests,
+  component/package identities and findings. Unknown image/package identities
+  fail explicitly. SPDX scanning matches actual package identity/version, not
+  the document's claimed image name. Repaired versions have distinct digests.
+- `security/rhacs/default-policies.ts` retains the complete upstream 4.11.3
+  default inventory. `policies.ts` owns BUILD/DEPLOY criterion evaluation and
+  policy summaries. Enabled unsupported criteria raise a limitation. Runtime
+  policies remain inventory; image/deployment checks do not claim to run them.
+  The Chapter 18 policy adds deployment hardening. `cluster.rhacs` stores policy
+  overrides, custom policies and the last 50 receipts, with save upgrade support.
+- `terminal/roxctl.ts` owns command/flag validation and output. Tables use the
+  upstream tablewriter version/configuration through the existing Go WASM worker.
+  JSON/CSV, severity filters, category filters and failure status stay independent
+  of the story UI. Global endpoint/credential flags refer to the fictional local
+  Central context; they never establish network connections.
+- `campaign/models.ts` evaluates PipelineRun images with `pipelineGate`, the same
+  BUILD policy function used by interactive image checks. Status retains scan,
+  policy check, digest, exit code and skipped signing. Attestation data cannot
+  override a policy failure or a digest mismatch. Signing is authored behavior.
+- `security/registry.ts` owns the authored revocation authority. The Chapter 09
+  leaked token cannot authenticate. `cluster.registry` persists fictional bastion
+  logins and push/pull receipts. `terminal/podman.ts` implements catalog-backed
+  login/logout/push/pull. Container/build/process commands remain explicit limits.
+- Kubelet pull credentials come from dockerconfigjson `imagePullSecrets` on the
+  Pod or ServiceAccount. They never reuse bastion Podman login. The shared Pod
+  runtime projects revoked/missing credentials as ImagePullBackOff. Updating the
+  Deployment pull Secret reference creates new Pods through the existing API.
+- `terminal/base64.ts` provides text encode/decode, wrap, file/pipe input. Secrets
+  keep standard base64 `data` through existing API normalization and printers.
+  `oc create secret docker-registry` uses the same API path as other Secret writes.
+- `filesystem.ts` exposes catalog, SPDX fixtures, active policies, receipts and
+  fictional container authentication configuration. Authority/catalog snapshots are read-only;
+  output files and editable workload manifests remain part of the local save.
+
+Checks: native CLI output comparison, unit checks for correlated CVE criteria,
+revoked credentials, digest binding and save upgrades; real browser inputs for
+WASM/table/jq/pagers, Secret decoding, image-pull recovery, and offline reload;
+the continuous 27-chapter browser journey also exercises the new Chapter 09 and
+18 paths. See `artifacts/roxctl` for receipts and screenshots.
+
+Image-content digests: `digest-material.ts` defines the canonical immutable payload;
+`image-digests.ts` is generated with Node crypto SHA-256 by
+`tools/roxctl-conformance/hash-images.mjs` after TypeScript compilation. Tests
+recompute each hash. CVEs and scan timestamps do not alter image identity. Old
+owned-image placeholder digests in scenario resources/files upgrade on import
+without resetting the player's investigation. These are authored artifact hashes,
+not a claim that an OCI image was built or obtained from a registry.
+
+`terminal/skopeo.ts` reads the same immutable catalog and registry authority for
+inspect/config/list-tags. JSON, template output and authentication do not mutate
+pull state. Bastion auth is shared with Podman; kubelet Secret authority stays
+separate. Non-authored images and unimplemented transports/operations fail.
+
+Offline fetches ignore Vary for cached static build assets under the application
+origin/scope. Preview/CDN `Vary: Origin` otherwise makes CORS script/style reloads
+miss their installed responses. No authenticated API responses are cached.

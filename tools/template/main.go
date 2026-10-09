@@ -8,10 +8,20 @@ import (
 	"syscall/js"
 	"text/template"
 
+	roxformat "ghostroute-roxformat"
 	"k8s.io/client-go/util/jsonpath"
 )
 
 func main() {
+	js.Global().Set("renderRoxTable", js.FuncOf(func(this js.Value, args []js.Value) any {
+		output, err := roxformat.Render([]byte(args[0].String()))
+		reply := map[string]string{"output": output}
+		if err != nil {
+			reply = map[string]string{"error": fmt.Sprint(err)}
+		}
+		encoded, _ := json.Marshal(reply)
+		return string(encoded)
+	}))
 	js.Global().Set("renderGoTemplate", js.FuncOf(func(this js.Value, args []js.Value) any {
 		reply := map[string]string{}
 		var data any

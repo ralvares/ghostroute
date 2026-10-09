@@ -1,0 +1,36 @@
+{
+  "result": {
+    "summary": {
+      "CRITICAL": 2,
+      "IMPORTANT": 0,
+      "LOW": 0,
+      "MODERATE": 0,
+      "TOTAL-COMPONENTS": 1,
+      "TOTAL-VULNERABILITIES": 2
+    },
+    "vulnerabilities": [
+      {
+        "cveId": "CVE-2021-44228",
+        "cveSeverity": "CRITICAL",
+        "cveCVSS": 10,
+        "cveInfo": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+        "advisoryId": "",
+        "advisoryInfo": "",
+        "componentName": "log4j-core",
+        "componentVersion": "2.14.1",
+        "componentFixedVersion": "2.17.1"
+      },
+      {
+        "cveId": "CVE-2021-45046",
+        "cveSeverity": "CRITICAL",
+        "cveCVSS": 9,
+        "cveInfo": "https://nvd.nist.gov/vuln/detail/CVE-2021-45046",
+        "advisoryId": "",
+        "advisoryInfo": "",
+        "componentName": "log4j-core",
+        "componentVersion": "2.14.1",
+        "componentFixedVersion": "2.17.1"
+      }
+    ]
+  }
+}

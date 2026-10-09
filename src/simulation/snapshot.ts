@@ -1,3 +1,5 @@
+import {getImage} from "../security/rhacs/images.js";
+import {validCentral} from "../security/rhacs/types.js";
 import { projectIncident } from "./incident-controller.js";
 import { buildIncidentResources } from "./incident-resources.js";
 import { normalizeSecret } from "./secrets.js";
@@ -65,7 +67,11 @@ export function decodeProgress(text: string): SimulationState {
     !saved.data
   )
     throw new Error("Unsupported progress file. Expected game save version 1.");
-  if (saved.data.cluster) saved.data.cluster.incidentStored ??= false;
+  if (saved.data.cluster) {
+    saved.data.cluster.incidentStored ??= false;
+    saved.data.cluster.rhacs ??= makeState().cluster.rhacs;
+    saved.data.cluster.registry ??= makeState().cluster.registry;
+  }
   saved.data.incidentNetwork ??= {dns:true,ledger:true,external:true};
   if (saved.data.deployment) saved.data.deployment.desiredReplicas ??= 2;
   saved.data.story ??= { inventory: [], discoveries: [] };
@@ -170,6 +176,20 @@ export function decodeProgress(text: string): SimulationState {
       throw new Error("Progress file contains invalid simulation data.");
     object[key] = new Set(object[key]);
   }
+  // Upgrade only the previous authored owned-image identity, preserving player files and progress.
+  const oldOwnedDigest="sha256:"+"a".repeat(64);
+  const ownedRef="registry.example.test/owned:arbitrary-uid";
+  const ownedDigest=getImage(ownedRef).digest;
+  for(const resource of saved.data.cluster.resources??[]){
+    const pod=resource.spec?.template?.spec??resource.spec;
+    for(const container of pod?.containers??[])if(container.image===ownedRef+"@"+oldOwnedDigest)container.image=ownedRef+"@"+ownedDigest;
+    if(resource.kind==="ConfigMap" && resource.metadata.name==="attestation" && resource.data?.issuer==="training-release" && resource.data.digest===oldOwnedDigest)resource.data.digest=ownedDigest;
+    if(resource.kind==="PipelineRun" && resource.spec?.pipelineRef?.name==="secure-release"){
+      const ref=resource.spec.params?.find((p:any)=>p.name==="image")?.value;
+      if(!ref||ref===ownedRef)for(const param of resource.spec.params??[])if(param.name==="digest"&&param.value===oldOwnedDigest)param.value=ownedDigest;
+    }
+  }
+  for(const [key,text]of Object.entries(saved.data.cluster.files??{}))if(typeof text==="string" && (text.includes(ownedRef)||text.includes("training-release")))saved.data.cluster.files[key]=text.replaceAll(oldOwnedDigest,ownedDigest);
   const state = makeState();
   const keys = Object.keys(state).filter((key) => !derived.has(key));
   if (
@@ -235,6 +255,9 @@ export function decodeProgress(text: string): SimulationState {
     !isScene(data.world.scene) ||
     !data.world.visited.every(isScene) ||
     data.cluster.version !== "4.22" ||
+    !validCentral(data.cluster.rhacs) ||
+    !Object.values(data.cluster.registry.sessions).every(s=>s && typeof s.username === "string" && typeof s.token === "string") ||
+    ![...data.cluster.registry.pulled,...data.cluster.registry.pushed].every(s=>typeof s === "string") ||
     !["operator", "platform-admin"].includes(data.cluster.user) ||
     [...data.evidence].some((item) => !clues.has(item)) ||
     [...data.policies].some(

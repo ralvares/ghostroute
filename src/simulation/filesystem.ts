@@ -1,3 +1,5 @@
+import {encodeSecret} from "./secrets.js";
+import {rhacsFiles} from "../security/rhacs/files.js";
 import { S } from "./state.js";
 import { labFiles } from "./lab-files.js";
 import { policyFiles } from "./resources.js";
@@ -41,9 +43,11 @@ export function workspacePath(path: string) {
 function allFiles(): Record<string, string> {
   return {
     ...documents,
+    ...rhacsFiles(),
     ...labFiles,
     ...policyFiles,
     ...S.cluster.files,
+    ".config/containers/auth.json": JSON.stringify({auths:Object.fromEntries(Object.entries(S.cluster.registry.sessions).map(([host,s])=>[host,{auth:encodeSecret(s.username+":"+s.token)}]))},null,2)+"\n",
     "audit/kube-apiserver.log":
       S.cluster.audit.map((event) => JSON.stringify(event)).join("\n") + "\n",
   };
@@ -172,7 +176,8 @@ export function writeVirtualFile(path: string, content: string) {
   if (
     !key ||
     Object.hasOwn(policyFiles, key) ||
-    key === "audit/kube-apiserver.log"
+    key === "audit/kube-apiserver.log" ||
+    [".config/containers/auth.json","rhacs/images/catalog.json","rhacs/policies/active.json","rhacs/receipts.json"].includes(key)
   )
     throw new Error(`shell: ${path}: read-only scenario file or location`);
   if (directories().has(absolute))

@@ -13,13 +13,14 @@ declare global {
     asJson: boolean,
   ) => string;
   var renderGoTemplate: (template: string, json: string) => string;
+  var renderRoxTable: (json: string) => string;
 }
 let jq: Awaited<ReturnType<typeof loadJq>> | undefined;
 let templateReady = false;
 
 self.onmessage = async (
   event: MessageEvent<{
-    tool: "jq" | "template" | "jsonpath";
+    tool: "jq" | "template" | "jsonpath" | "rox-table";
     input: string;
     query: string;
     flags: string[];
@@ -58,7 +59,7 @@ self.onmessage = async (
         templateReady = true;
       }
       const result = JSON.parse(
-        tool === "jsonpath"
+        tool === "rox-table" ? globalThis.renderRoxTable(input) : tool === "jsonpath"
           ? globalThis.renderKubeJsonPath(
               query,
               input,

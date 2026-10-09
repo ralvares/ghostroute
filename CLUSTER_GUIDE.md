@@ -372,3 +372,94 @@ Its receipt records the installed client version (currently 4.20.6); the separat
 pinned printer oracle uses the 4.22 API/client dependencies. Neither test is a
 live OpenShift 4.22 cluster acceptance test, and this milestone does not establish
 100% cluster or CLI compatibility.
+
+## Image, SBOM and policy investigation
+
+At the bastion, `cat rhacs/README.md` opens the supply-chain guide. The authored
+catalog is `rhacs/images/catalog.json`. It includes payment releases v1.8.2
+(vulnerable), v1.8.3 (dependency repair), and v1.8.4, as well as the campaign's
+owned/vendor artifacts. Tags and digests identify immutable game contents. Digests are real SHA-256 hashes of canonical authored image-content records, not downloaded OCI image manifests. Scanner findings and scan timestamps are excluded from the hash; identical contents at the public/private fixture references share a digest.
+
+```
+roxctl image scan --image registry.example.test/payments:v1.8.2 --output table
+roxctl image check --image registry.example.test/payments:v1.8.2 --output json
+roxctl image sbom --image registry.example.test/payments:v1.8.2 > payment.spdx.json
+roxctl sbom scan --file payment.spdx.json --output json --fail
+roxctl image check --image registry.example.test/payments:v1.8.3
+roxctl deployment check --file rhacs/payments-v2.yaml --output json
+```
+
+The CLI targets roxctl 4.11.3; its SBOM scan supports SPDX 2.3 JSON. Table, CSV
+and JSON output are implemented, including compact JSON, severity/category
+filters, chosen/required headers and failure status. Image scan defaults to
+legacy image JSON when no output is selected; SBOM scan defaults to raw scan
+JSON. SARIF, JUnit, arbitrary package discovery and other roxctl subcommands are
+explicit limits. Unknown images or package versions cannot produce a clean scan.
+
+Default policies retain actual enabled/disabled and enforcement settings.
+Warnings do not fail a gate. Native deployment check interprets
+SCALE_TO_ZERO_ENFORCEMENT; image check interprets FAIL_BUILD_ENFORCEMENT. The
+Chapter 18 hardening policy includes deployment enforcement and checks
+privilege escalation/read-only root filesystem. Runtime/exposure assessment is
+not performed by these command paths. Custom criteria outside the implemented
+manifest/image scope fail explicitly if enabled.
+
+In Chapter 18, apply `~/rhacs/pipeline-v1.yaml` and inspect the PipelineRun's
+`.status.scanExitCode`, `.status.policyCheck` and `.status.steps`. The vulnerable
+artifact blocks signing. Apply `~/rhacs/attestation-v2.yaml` followed by
+`~/rhacs/pipeline-v2.yaml` to verify the repaired release and its new digest.
+Restore the chapter's original `attestation.yaml` for the original release
+handover. Both command and controller consume the same catalog and Central
+policy evaluator. The simulator does not execute a container build or real
+cryptographic signing. Findings/violation messages are authored teaching data;
+native output comparisons validate formatting and exit status against that data.
+
+## Encoded Secrets and revoked registry tokens
+
+Secret data can be decoded using real Linux bastion syntax. Secret reads still
+require RBAC permission (use the pre-provisioned platform-admin when appropriate).
+
+```
+oc get secret database -n rs-07 -o jsonpath='{.data.password}' | base64 -d
+printf '%s' training-v2 | base64 -w0
+oc get secret registry-leaked -n rs-09 -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d
+```
+
+Chapter 09's support archive leaked a fictional release token. Vale revoked it;
+renaming or re-encoding it never restores access. `credentials.txt` provides the
+replacement and the investigation sequence. Linux `base64` encode/decode, file
+input, wrapping, ignore-garbage and pipelines are supported for UTF-8 text.
+
+```
+printf '%s' training-registry-v2 | podman login registry.example.test --username release-bot --password-stdin
+podman push registry.example.test/private/payments:v1.8.3
+podman pull registry.example.test/private/payments:v1.8.3
+oc create secret docker-registry registry-current --docker-server=registry.example.test --docker-username=release-bot --docker-password=training-registry-v2 -n rs-09
+```
+
+Use either the last command or the supplied `registry-credentials.yaml` when
+the Secret does not already exist. Updating a pre-existing Secret uses apply
+or patch. `private-release.yaml` changes the Deployment's pull Secret reference,
+creating new Pods. A successful Podman login never updates kubelet credentials.
+Missing/revoked pull credentials produce ImagePullBackOff; the rebuilt template
+uses the replacement Secret. Login/push/pull are authored offline operations for
+catalog images; actual repositories, credentials and container engines are never
+contacted. Local sessions and recovered resources survive offline saves.
+
+### Podman and Skopeo at the bastion
+
+Use `podman login/logout/pull/push` for the authored registry. `skopeo inspect`
+returns JSON or `--format` Go templates; `--config` exposes the image User and
+labels. `skopeo list-tags docker://registry.example.test/payments` lists authored
+versions. Private inspection accepts `--creds USER:TOKEN`, `--authfile FILE`, or
+the bastion login. Inspecting an image does not pull it or change kubelet credentials.
+Authentication lives in `.config/containers/auth.json`. Kubernetes still uses the
+standard `kubernetes.io/dockerconfigjson` Secret and `oc create secret docker-registry`;
+these are API names, independent of the container engine.
+
+Only catalog images are available. No container engine runs on the host. Raw OCI
+manifests, actual layers, image builds and Skopeo copy/signing are explicit limits;
+image digests hash the authored content, not a real OCI manifest.
+
+Syntax references: [Podman login](https://docs.podman.io/en/stable/markdown/podman-login.1.html)
+and [Skopeo inspect](https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md).

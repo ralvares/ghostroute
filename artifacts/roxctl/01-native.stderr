@@ -1,0 +1,1 @@
+INFO:	Default image scan output currently uses deprecated legacy-json for backwards compatibility. Use --output=json to migrate to the new JSON output format. NOTE: it contains breaking changes in the format.

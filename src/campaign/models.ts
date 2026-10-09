@@ -1,3 +1,5 @@
+import {registryAuthorized, registryHost, leakedToken, privatePullFailure} from "../security/registry.js";
+import {pipelineGate} from "../security/rhacs/policies.js";
 import { networkPolicyDirection } from "../security/network-policy.js";
 import { normalizeSecret, secretValue } from "../simulation/secrets.js";
 import { podNetworkDomain } from "../simulation/pod-addresses.js";
@@ -457,7 +459,14 @@ export function reconcileFixtureControllers() {
     const digest = run.spec?.params?.find(
       (p: any) => p.name === "digest",
     )?.value;
+    let gate: ReturnType<typeof pipelineGate> | undefined;
+    let gateError: string | undefined;
+    try {
+      gate = pipelineGate(run.spec?.params?.find((p:any)=>p.name === "image")?.value ?? "registry.example.test/owned:arbitrary-uid");
+    } catch (error) { gateError = (error as Error).message; }
     const valid =
+      !!gate && gate.exitCode === 0 && gate.digest === digest &&
+      pipe?.spec?.tasks?.[1]?.runAfter?.includes("build") &&
       pipe?.spec?.tasks?.[2]?.runAfter?.includes("scan") &&
       pipe.spec.tasks[2].when?.[0]?.values?.includes("0") &&
       att?.data?.scanHigh === "0" &&
@@ -468,10 +477,17 @@ export function reconcileFixtureControllers() {
         {
           type: "Succeeded",
           status: valid ? "True" : "False",
-          reason: valid ? "RecordedGatePassed" : "RecordedGateFailed",
+          reason: valid ? "CentralPolicyGatePassed" : "CentralPolicyGateFailed",
         },
       ],
-      source: "recorded-fixture",
+      source: "authored-central",
+      image: gate?.image.ref,
+      digest: gate?.digest,
+      scan: gate?.scan,
+      policyCheck: gate?.policy,
+      scanExitCode: gate?.exitCode ?? 1,
+      gateError,
+      steps: [{name:"build",status:"Completed"},{name:"scan",status:gate && gate.exitCode === 0 ? "Completed" : "Failed"},{name:"sign",status:valid ? "Completed" : "Skipped"}],
       signed: !!valid,
     };
   }
@@ -631,6 +647,17 @@ export function evaluateProbe(
       detail =
         "Pinned artifact matches the recorded training catalog, not a live signature service.";
       break;
+    case "registry-credential-current": {
+      const deploy=get("Deployment","credential-app");
+      const pods=S.cluster.resources.filter(p=>p.kind === "Pod" && p.metadata.namespace===namespace && p.metadata.labels?.app === "credential-app");
+      passed=!!deploy && pods.length===1 && pods.every(p=>ready(p) && !privatePullFailure(p.spec?.containers?.[0]?.image??"",p));
+      detail="Replacement registry credential authenticates the private release; Podman login and kubelet pull Secrets are separate credentials.";
+      break;
+    }
+    case "registry-credential-revoked":
+      passed=!registryAuthorized(registryHost,"release-bot",leakedToken,"pull") && !registryAuthorized(registryHost,"release-bot",leakedToken,"push");
+      detail="The leaked token remains revoked for push and pull, independent of Secret names or cached Podman login.";
+      break;
     case "registry-denied":
       passed = !!registryPullFailure("untrusted.example.test/app:latest");
       detail =
@@ -770,9 +797,10 @@ export function evaluateProbe(
         !!pipe &&
         pipe.spec?.tasks?.[2]?.runAfter?.includes("scan") &&
         pipe.spec.tasks[2].when?.[0]?.values?.length === 1 &&
-        pipe.spec.tasks[2].when[0].values[0] === "0";
+        pipe.spec.tasks[2].when[0].values[0] === "0" &&
+        pipelineGate("registry.example.test/payments:v1.8.2").exitCode === 1;
       detail =
-        "Recorded high-count 1 does not satisfy the zero-high signing gate.";
+        "The authored vulnerable image fails the same Central BUILD policy check used by roxctl, blocking signing.";
       break;
     }
     case "csi-project":

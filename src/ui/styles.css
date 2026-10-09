@@ -2134,3 +2134,12 @@ button:disabled {
   border: 1px solid #81e8b4;
   font: inherit;
 }
+
+/* Read-only HUD text must not intercept clicks on cluster doorways beneath it. */
+.hudleft,
+.hudright {
+  pointer-events: none;
+}
+.hudright button {
+  pointer-events: auto;
+}

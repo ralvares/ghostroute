@@ -1,0 +1,4 @@
+WARN:	A total of 2 policies have been violated
+ERROR:	failed policies found: 1 policies violated that are failing the check
+ERROR:	Policy "Fixable Severity at least Important" - Possible remediation: "Use your package manager to update to a fixed version in future builds or speak with your security team to mitigate the vulnerabilities."
+ERROR:	checking image failed: failed policies found: 1 policies violated that are failing the check
