@@ -23,7 +23,7 @@ with sync_playwright() as p:
   if page.locator('#world').get_attribute('data-scene')=='district':walk(820,295)
  def shot(name):page.evaluate('flushPaint()');page.screenshot(path=str(out/(name+'.png')),full_page=True,animations='disabled')
  # Close the original case with real movement and inputs; collect the physical archive key as well.
- walk(210,340);walk(480,410);page.locator('#radioClose').click();walk(830,390);page.locator('#recordLead').click();page.locator('#detailDone').click()
+ walk(141,286);walk(480,410);page.locator('#radioClose').click();walk(830,390);page.locator('#recordLead').click();page.locator('#detailDone').click()
  open_bastion(page);command('oc logs deployment/payment-api -n payments','WARN telemetry');command('oc get deployment payment-api -n payments -o yaml','TELEMETRY_ENDPOINT');command('oc get networkpolicies -n payments','No resources found in payments namespace.')
  lobby();walk(895,465);page.locator('#radioClose').click();walk(380,230);walk(490,330);page.locator('#detailDone').click();page.keyboard.press('Space')
  open_bastion(page);command('case explain release-import','Read the audit');command('jq \'select(.verb == "patch" and .objectRef.name == "payment-api") | {user: .user.username, time: .requestReceivedTimestamp, request: .requestObject}\' audit/kube-apiserver.log','build-bot');command('cat case/release-job.json','import-support-config');command('cat case/permission-review.yaml','release-bot');command('case explain release-import','CAUSE VERIFIED');command('oc set env deployment/payment-api -n payments TELEMETRY_ENDPOINT-','deployment.apps/payment-api updated');command('oc apply -f policies/payments-egress.yaml','payment-egress created');command('oc rollout status deployment/payment-api -n payments','successfully rolled out');command('oc rsh -n payments deployment/payment-api','Connected');command('curl -I https://ledger.payments.svc.cluster.local:8443/health','200 OK');command('curl -I https://203.0.113.77','Expected negative test');expect(page.locator('#ending')).to_be_visible();expect(page.locator('.grade')).to_have_text('S');page.locator('#continueJourney').click();page.locator('#radioClose').click()
@@ -35,7 +35,7 @@ with sync_playwright() as p:
    close()
    if w['scene']=='soc':
     while page.locator('#world').get_attribute('data-scene')!='district':page.locator('#sceneBack').click()
-    walk(210,340);walk(480,410)
+    walk(141,286);walk(480,410)
    else:
     lobby()
     if w['scene']=='cluster':walk(895,465)
@@ -72,7 +72,7 @@ with sync_playwright() as p:
   if ch['id']=='05':
    command('oc login -u platform-admin -p training-admin-7f2b9a64c183','Logged in');command('oc adm policy add-scc-to-user rs-vendor -z vendor -n '+ch['namespace'],'added');command('oc login -u operator -p training','Logged in');command('oc rollout restart deployment/vendor -n '+ch['namespace'],'restarted')
   if ch['id']=='04':
-   page.locator('#closeTerm').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');open_bastion(page);command('case test diagnose','PASS ·');command('oc delete pod broken -n '+ch['namespace'],'deleted')
+   page.locator('#closeTerm').click();page.locator('#caseBtn').click();page.locator('[data-health-view=cluster]').click();expect(page.locator('#impactFlag')).to_be_visible();expect(page.locator('#healthSummary')).to_contain_text('DEGRADED');page.locator('[data-health-view=application]').click();shot('runtime-degraded');page.locator('#closeCase').click();open_bastion(page);command('case test diagnose','PASS ·');command('oc delete pod broken -n '+ch['namespace'],'deleted')
   if ch['id']=='18':
    command('roxctl image scan -i registry.example.test/payments:v1.8.2 -o json','CVE-2021-44228')
    command('roxctl image check -i registry.example.test/payments:v1.8.2 -o json','failed policies found')

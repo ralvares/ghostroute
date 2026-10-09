@@ -93,7 +93,12 @@ export function update(dt: number) {
     if (Math.abs(S.x - previous.x) > 0.01) S.facing = S.x > previous.x ? 1 : -1;
   }
   G.near = nearest();
-  $("nearby").hidden = !G.near || G.radioOpen || G.detailOpen || G.caseOpen;
+  $("nearby").hidden =
+    !G.near ||
+    G.near.kind === "portal" ||
+    G.radioOpen ||
+    G.detailOpen ||
+    G.caseOpen;
   $("terminalBtn").hidden = G.near?.id !== "ops";
   if (G.near) {
     $("nearbyText").textContent =

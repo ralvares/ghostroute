@@ -706,3 +706,28 @@ notebook. Shell startup writes no synthetic client banner. Scene-only color
 adjustments preserve live labels and evidence indicators. The desktop camera
 fits the whole room, with smaller actors whose feet keep their existing floor
 coordinates; mobile retains the following camera.
+
+## Supplied HUD design milestone — 2026-10-09
+
+`ui/hud-redesign.css` imports the retained stylesheet into a lower-priority
+CSS layer. The full-screen canvas, compact header/dock, alert card and modal
+case drawer implement the three supplied exports in `docs/design`. Icons are
+local Tabler 3.36.0 assets with their MIT license; fonts remain bundled offline.
+
+`ui/panels.ts` projects the five incident clues or the current chapter's actual
+witnesses/artifact/records. It preserves the full evidence and objective views.
+`game/controls.ts` owns drawer focus trapping, Escape/backdrop close and inert
+background controls. `ui/workbench.ts` shares the same `S.story.notes` between
+the drawer and bastion; health remains a projection of the common API store.
+`world/door-markers.ts` defines far/in-range/on-ring presentation and objective
+numbers. `world/label-layout.ts` owns collision-aware label placement, while
+`interaction-targets.ts` anchors input to the painted floor positions.
+`G.markerObjectives` is ephemeral presentation state; it grants no access.
+
+Tekton client ages and PipelineRun/TaskRun timestamps now share the persisted
+virtual clock. Read-only native human table comparisons normalize relative-age
+cells because the upstream CLI uses the host clock. JSON and log receipts keep
+exact bytes. No host-clock dependency is introduced into saved gameplay.
+
+Design/browser evidence and remaining cosmetic differences are recorded in
+`design-qa.md`. The original legacy HTML remains unchanged.

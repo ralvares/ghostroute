@@ -30,7 +30,7 @@ export const scenes: Record<
     title: "Security district",
     description: "Follow the ghost signal · RHACS Central and prod-east",
     art: "district",
-    spawn: { x: 520, y: 410 },
+    spawn: { x: 500, y: 410 },
   },
   soc: {
     title: "RHACS Central · security operations",

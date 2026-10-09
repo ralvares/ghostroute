@@ -2,7 +2,7 @@ import { reactionObjects, startMiraReaction } from "../world/reactions.js";
 import { $ } from "../ui/dom.js";
 import { closeRadio, radio } from "../characters/dialogue.js";
 import { G, C, keys } from "../game/runtime.js";
-import { showCase, closeDetail } from "../ui/panels.js";
+import { showCase, closeDetail, closeCaseFile } from "../ui/panels.js";
 import { toggleTrace, interact } from "../world/interactions.js";
 import { openTerminal, closeTerminal } from "../terminal/shell.js";
 import { S } from "../simulation/state.js";
@@ -26,10 +26,50 @@ let tabCycle: { last: string; values: string[]; index: number } | null = null;
 
 export function registerControls() {
   $("radioClose").addEventListener("click", closeRadio);
-  $("closeCase").addEventListener("click", () => {
-    G.caseOpen = false;
-    $("casepanel").hidden = true;
-    C.focus();
+  $("closeCase").addEventListener("click", closeCaseFile);
+  document
+    .getElementById("caseBackdrop")!
+    .addEventListener("click", closeCaseFile);
+  new MutationObserver(() => {
+    document.getElementById("caseBackdrop")!.hidden = $("casepanel").hidden;
+    $("caseBtn").setAttribute("aria-expanded", String(!$("casepanel").hidden));
+    for (const selector of [
+      ".top",
+      ".hudDock",
+      "#world",
+      "#casehud",
+      "#alertCard",
+    ]) {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (element) element.inert = !$("casepanel").hidden;
+    }
+  }).observe($("casepanel"), { attributes: true, attributeFilter: ["hidden"] });
+  $("casepanel").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCaseFile();
+    } else if (event.key === "Tab") {
+      const controls = [
+        ...$("casepanel").querySelectorAll<HTMLElement>(
+          'button:not([disabled]), textarea, summary, [tabindex="0"]',
+        ),
+      ].filter((el) => el.getClientRects().length);
+      const first = controls[0],
+        last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+  });
+  const compact = matchMedia("(max-width:640px)"),
+    alert = document.getElementById("alertCard") as HTMLDetailsElement;
+  alert.open = !compact.matches;
+  compact.addEventListener("change", () => {
+    alert.open = !compact.matches;
   });
   $("caseBtn").addEventListener("click", showCase);
   $("traceBtn").addEventListener("click", toggleTrace);
@@ -103,6 +143,7 @@ export function registerControls() {
       } else closeRadio();
       return;
     }
+    if (G.caseOpen) return;
     if (!S.started) return;
     if (e.key === "t" || e.key === "T" || e.key === "`") {
       e.preventDefault();

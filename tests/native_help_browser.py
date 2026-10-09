@@ -13,5 +13,5 @@ with sync_playwright() as p:
  # No help page was loaded while online.
  command('oc create secret generic --help','Create a secret');command('oc options','The following options can be passed to any command');command('roxctl image scan --help','roxctl image scan');command('tkn -n offline-reference pr logs --help','tkn pipelinerun logs');page.screenshot(path=str(out/'native-help-offline.png'))
  command('oc get secret sample -o jsonpath="{.data.token}" | base64 -d','training');assert not errors,errors
- receipt={'offlineColdReferences':['oc 4.22.0','roxctl 4.11.3','tkn 0.46.1'],'saveRestored':True,'browserErrors':errors};(out/'native-help-offline.json').write_text(json.dumps(receipt,indent=2)+'\n');browser.close()
+ receipt={'url':sys.argv[1],'offlineColdReferences':['oc 4.22.0','roxctl 4.11.3','tkn 0.46.1'],'saveRestored':True,'browserErrors':errors};(out/'native-help-offline.json').write_text(json.dumps(receipt,indent=2)+'\n');browser.close()
 print('PASS: cold offline native help for oc, roxctl and tkn; restored tenant and Secret')

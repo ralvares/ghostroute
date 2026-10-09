@@ -1,32 +1,325 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {mkdtempSync,mkdirSync,writeFileSync} from 'node:fs';import {tmpdir} from 'node:os';import {join,dirname} from 'node:path';import {execFileSync} from 'node:child_process';
-import {S,resetState,replaceState} from '../.test-build/src/simulation/state.js';import {clusterCommand} from '../.test-build/src/terminal/cluster-shell.js';import {chapters} from '../.test-build/src/campaign/catalog.js';import {applyResource,deleteResource} from '../.test-build/src/simulation/cluster-api.js';import {releaseRun} from '../.test-build/src/release/manifests.js';import {sourceFiles,seedRevision,seedTimestamp} from '../.test-build/src/release/source-fixture.js';import {missionAlert} from '../.test-build/src/simulation/mission-alerts.js';import {encodeProgress,decodeProgress} from '../.test-build/src/simulation/snapshot.js';
-const find=(kind,name,ns='rs-18')=>S.cluster.resources.find(r=>r.kind===kind&&r.metadata.name===name&&r.metadata.namespace===ns);
-function setup(){resetState();S.campaign.active=17;S.campaign.completed=Array.from({length:17},(_,i)=>i);S.done=true;S.cluster.user='platform-admin';applyResource({apiVersion:'v1',kind:'Namespace',metadata:{name:'rs-18'}});for(const [n,r] of Object.entries(chapters.find(c=>c.id==='18').files))if(n.endsWith('.yaml'))applyResource(r,'rs-18');}
-const command=async s=>{const r=await clusterCommand(s);assert.equal(r.error??false,false,JSON.stringify(r));return r;};
-async function clone(){await command('git clone https://git.example.test/payments/payment-api.git ~/projects/payment-api');await command('cd ~/projects/payment-api');}
-async function fix(){await command('cat ~/source/fixes/pom.xml > pom.xml');await command('git add pom.xml');await command("git commit -m 'Repair vulnerable dependency'");await command('git push origin main');}
-const manual=name=>applyResource(releaseRun(name),'rs-18');
-test('local edit, local commit and remote commit are distinct; manual retry fetches remote; push needs configured trigger',async()=>{
- setup();await clone();const history=structuredClone(find('PipelineRun','release').status);await command('cat ~/source/fixes/pom.xml > pom.xml');manual('local-edit');assert.equal(find('TaskRun','local-edit-scan').status.steps[0].terminated.exitCode,1);
- await command('git add pom.xml');await command("git commit -m 'Repair vulnerable dependency'");assert.notEqual(S.cluster.sourceRepository.head,S.cluster.sourceRepository.remoteHead);manual('local-commit');assert.equal(find('TaskRun','local-commit-scan').status.steps[0].terminated.exitCode,1);
- await command('git push origin main');const pushed=S.cluster.resources.filter(r=>r.kind==='PipelineRun').at(-1);assert.equal(pushed.status.conditions[0].status,'True');assert.equal(pushed.status.results.find(r=>r.name==='commit').value,S.cluster.sourceRepository.head);assert.match((await command('tkn pr logs --last -n rs-18')).stdout,/Pushing signature/);assert.deepEqual(find('PipelineRun','release').status,history);
- assert.equal(missionAlert().title,'PROMOTION PENDING');
- const count=S.cluster.resources.filter(r=>r.kind==='PipelineRun').length;await command('git push origin main');assert.equal(S.cluster.resources.filter(r=>r.kind==='PipelineRun').length,count);manual('manual-fixed');assert.equal(find('PipelineRun','manual-fixed').status.conditions[0].reason,'Succeeded');
- deleteResource('eventlisteners','release-push','rs-18');await command('echo changed > README.md');await command('git add README.md');await command("git commit -m 'Update documentation'");await command('git push origin main');assert.equal(S.cluster.resources.filter(r=>r.kind==='PipelineRun').length,count+1);
- replaceState(decodeProgress(encodeProgress(S)));assert.equal(S.cluster.sourceRepository.head,S.cluster.sourceRepository.remoteHead);assert.match((await command('tkn pr logs manual-fixed -n rs-18')).stdout,/Pushing signature/);
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
+  S,
+  resetState,
+  replaceState,
+} from "../.test-build/src/simulation/state.js";
+import { clusterCommand } from "../.test-build/src/terminal/cluster-shell.js";
+import { chapters } from "../.test-build/src/campaign/catalog.js";
+import {
+  applyResource,
+  deleteResource,
+} from "../.test-build/src/simulation/cluster-api.js";
+import { releaseRun } from "../.test-build/src/release/manifests.js";
+import {
+  sourceFiles,
+  seedRevision,
+  seedTimestamp,
+} from "../.test-build/src/release/source-fixture.js";
+import { missionAlert } from "../.test-build/src/simulation/mission-alerts.js";
+import {
+  encodeProgress,
+  decodeProgress,
+} from "../.test-build/src/simulation/snapshot.js";
+import {
+  advanceEmulatorTime,
+  emulatorTime,
+} from "../.test-build/src/simulation/clock.js";
+const find = (kind, name, ns = "rs-18") =>
+  S.cluster.resources.find(
+    (r) =>
+      r.kind === kind &&
+      r.metadata.name === name &&
+      r.metadata.namespace === ns,
+  );
+function setup() {
+  resetState();
+  S.campaign.active = 17;
+  S.campaign.completed = Array.from({ length: 17 }, (_, i) => i);
+  S.done = true;
+  S.cluster.user = "platform-admin";
+  applyResource({
+    apiVersion: "v1",
+    kind: "Namespace",
+    metadata: { name: "rs-18" },
+  });
+  for (const [n, r] of Object.entries(
+    chapters.find((c) => c.id === "18").files,
+  ))
+    if (n.endsWith(".yaml")) applyResource(r, "rs-18");
+}
+const command = async (s) => {
+  const r = await clusterCommand(s);
+  assert.equal(r.error ?? false, false, JSON.stringify(r));
+  return r;
+};
+async function clone() {
+  await command(
+    "git clone https://git.example.test/payments/payment-api.git ~/projects/payment-api",
+  );
+  await command("cd ~/projects/payment-api");
+}
+async function fix() {
+  await command("cat ~/source/fixes/pom.xml > pom.xml");
+  await command("git add pom.xml");
+  await command("git commit -m 'Repair vulnerable dependency'");
+  await command("git push origin main");
+}
+const manual = (name) => applyResource(releaseRun(name), "rs-18");
+test("new pipeline runs use the shared clock; elapsed ages advance and survive an offline restore without wall-clock drift", async () => {
+  setup();
+  advanceEmulatorTime(120000);
+  const before = emulatorTime();
+  manual("recent");
+  const run = find("PipelineRun", "recent");
+  assert.ok(Date.parse(run.status.startTime) >= before);
+  assert.ok(Date.parse(run.status.completionTime) <= emulatorTime());
+  const wallTime = Date.now;
+  Date.now = () => Date.UTC(2099, 0, 1);
+  try {
+    assert.match(
+      (await command("tkn pr describe recent -n rs-18")).stdout,
+      /\b\d+ seconds ago\b/,
+    );
+    const save = encodeProgress(S);
+    advanceEmulatorTime(120000);
+    assert.match(
+      (await command("tkn pr describe recent -n rs-18")).stdout,
+      /\b2 minutes ago\b/,
+    );
+    replaceState(decodeProgress(save));
+    assert.match(
+      (await command("tkn pr describe recent -n rs-18")).stdout,
+      /\b\d+ seconds ago\b/,
+    );
+  } finally {
+    Date.now = wallTime;
+  }
 });
-test('Git objects and the staged dependency diff match native Git, using only a temporary repo',async()=>{
- resetState();await clone();const path=mkdtempSync(join(tmpdir(),'ghostroute-git-')),git=(args,env={})=>execFileSync('git',['-C',path,...args],{encoding:'utf8',env:{...process.env,...env}});
- git(['init','-q','--initial-branch=main']);for(const [name,text]of Object.entries(sourceFiles)){const file=join(path,name);mkdirSync(dirname(file),{recursive:true});writeFileSync(file,text);}git(['add','.']);const identity={GIT_AUTHOR_NAME:'Kai',GIT_AUTHOR_EMAIL:'kai@training.example.test',GIT_COMMITTER_NAME:'Kai',GIT_COMMITTER_EMAIL:'kai@training.example.test',GIT_AUTHOR_DATE:`${seedTimestamp} +0000`,GIT_COMMITTER_DATE:`${seedTimestamp} +0000`};git(['-c','commit.gpgsign=false','commit','-qm','Release payment-api 1.8.2'],identity);assert.equal(git(['rev-parse','HEAD']).trim(),seedRevision);
- await command('cat ~/source/fixes/pom.xml > pom.xml');writeFileSync(join(path,'pom.xml'),S.cluster.files['projects/payment-api/pom.xml']);assert.equal((await command('git diff --name-only')).stdout,git(['diff','--name-only']));await command('git add pom.xml');git(['add','pom.xml']);assert.equal((await command('git status --short')).stdout,git(['status','--short']));await command("git commit -m 'Repair vulnerable dependency'");git(['-c','commit.gpgsign=false','commit','-qm','Repair vulnerable dependency'],{...identity,GIT_AUTHOR_DATE:`${seedTimestamp+60} +0000`,GIT_COMMITTER_DATE:`${seedTimestamp+60} +0000`});assert.equal(S.cluster.sourceRepository.head,git(['rev-parse','HEAD']).trim());
+test("local edit, local commit and remote commit are distinct; manual retry fetches remote; push needs configured trigger", async () => {
+  setup();
+  await clone();
+  const history = structuredClone(find("PipelineRun", "release").status);
+  await command("cat ~/source/fixes/pom.xml > pom.xml");
+  manual("local-edit");
+  assert.equal(
+    find("TaskRun", "local-edit-scan").status.steps[0].terminated.exitCode,
+    1,
+  );
+  await command("git add pom.xml");
+  await command("git commit -m 'Repair vulnerable dependency'");
+  assert.notEqual(
+    S.cluster.sourceRepository.head,
+    S.cluster.sourceRepository.remoteHead,
+  );
+  manual("local-commit");
+  assert.equal(
+    find("TaskRun", "local-commit-scan").status.steps[0].terminated.exitCode,
+    1,
+  );
+  await command("git push origin main");
+  const pushed = S.cluster.resources
+    .filter((r) => r.kind === "PipelineRun")
+    .at(-1);
+  assert.equal(pushed.status.conditions[0].status, "True");
+  assert.equal(
+    pushed.status.results.find((r) => r.name === "commit").value,
+    S.cluster.sourceRepository.head,
+  );
+  assert.match(
+    (await command("tkn pr logs --last -n rs-18")).stdout,
+    /Pushing signature/,
+  );
+  assert.deepEqual(find("PipelineRun", "release").status, history);
+  assert.equal(missionAlert().title, "PROMOTION PENDING");
+  const count = S.cluster.resources.filter(
+    (r) => r.kind === "PipelineRun",
+  ).length;
+  await command("git push origin main");
+  assert.equal(
+    S.cluster.resources.filter((r) => r.kind === "PipelineRun").length,
+    count,
+  );
+  manual("manual-fixed");
+  assert.equal(
+    find("PipelineRun", "manual-fixed").status.conditions[0].reason,
+    "Succeeded",
+  );
+  deleteResource("eventlisteners", "release-push", "rs-18");
+  await command("echo changed > README.md");
+  await command("git add README.md");
+  await command("git commit -m 'Update documentation'");
+  await command("git push origin main");
+  assert.equal(
+    S.cluster.resources.filter((r) => r.kind === "PipelineRun").length,
+    count + 1,
+  );
+  replaceState(decodeProgress(encodeProgress(S)));
+  assert.equal(
+    S.cluster.sourceRepository.head,
+    S.cluster.sourceRepository.remoteHead,
+  );
+  assert.match(
+    (await command("tkn pr logs manual-fixed -n rs-18")).stdout,
+    /Pushing signature/,
+  );
 });
-test('GitOps changes only pushed YAML; self-heal restores drift; disabling it preserves OutOfSync until manual sync',async()=>{
- setup();await clone();await fix();const live=()=>find('Deployment','payment-api','payments');assert.equal(live().spec.template.spec.containers[0].image,'registry.example.test/payments:v1.8.2');await command('cat ~/source/fixes/payment-api.yaml > deploy/payment-api.yaml');assert.equal(live().spec.template.spec.containers[0].image,'registry.example.test/payments:v1.8.2');await command('git add deploy/payment-api.yaml');await command("git commit -m 'Promote reviewed release'");assert.equal(live().spec.template.spec.containers[0].image,'registry.example.test/payments:v1.8.2');await command('git push origin main');assert.equal(live().spec.template.spec.containers[0].image,'registry.example.test/payments:v1.8.3');assert.equal(find('Application','payment-api','openshift-gitops').status.sync.status,'Synced');assert.equal(missionAlert(),undefined);
- const drift=structuredClone(live());drift.spec.replicas=3;applyResource(drift,'payments');assert.equal(live().spec.replicas,2);
- const app=structuredClone(find('Application','payment-api','openshift-gitops'));app.spec.syncPolicy.automated.selfHeal=false;applyResource(app,'openshift-gitops');const drift2=structuredClone(live());drift2.spec.replicas=3;applyResource(drift2,'payments');assert.equal(live().spec.replicas,3);assert.equal(find('Application','payment-api','openshift-gitops').status.sync.status,'OutOfSync');assert.equal(missionAlert().who,'MIRA');
- await command(`oc patch application payment-api -n openshift-gitops --type=merge -p '{"operation":{"sync":{"revision":"main","prune":true}}}'`);assert.equal(live().spec.replicas,2);assert.equal(find('Application','payment-api','openshift-gitops').status.health.status,'Healthy');
+test("Git objects and the staged dependency diff match native Git, using only a temporary repo", async () => {
+  resetState();
+  await clone();
+  const path = mkdtempSync(join(tmpdir(), "ghostroute-git-")),
+    git = (args, env = {}) =>
+      execFileSync("git", ["-C", path, ...args], {
+        encoding: "utf8",
+        env: { ...process.env, ...env },
+      });
+  git(["init", "-q", "--initial-branch=main"]);
+  for (const [name, text] of Object.entries(sourceFiles)) {
+    const file = join(path, name);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, text);
+  }
+  git(["add", "."]);
+  const identity = {
+    GIT_AUTHOR_NAME: "Kai",
+    GIT_AUTHOR_EMAIL: "kai@training.example.test",
+    GIT_COMMITTER_NAME: "Kai",
+    GIT_COMMITTER_EMAIL: "kai@training.example.test",
+    GIT_AUTHOR_DATE: `${seedTimestamp} +0000`,
+    GIT_COMMITTER_DATE: `${seedTimestamp} +0000`,
+  };
+  git(
+    [
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      "Release payment-api 1.8.2",
+    ],
+    identity,
+  );
+  assert.equal(git(["rev-parse", "HEAD"]).trim(), seedRevision);
+  await command("cat ~/source/fixes/pom.xml > pom.xml");
+  writeFileSync(
+    join(path, "pom.xml"),
+    S.cluster.files["projects/payment-api/pom.xml"],
+  );
+  assert.equal(
+    (await command("git diff --name-only")).stdout,
+    git(["diff", "--name-only"]),
+  );
+  await command("git add pom.xml");
+  git(["add", "pom.xml"]);
+  assert.equal(
+    (await command("git status --short")).stdout,
+    git(["status", "--short"]),
+  );
+  await command("git commit -m 'Repair vulnerable dependency'");
+  git(
+    [
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      "Repair vulnerable dependency",
+    ],
+    {
+      ...identity,
+      GIT_AUTHOR_DATE: `${seedTimestamp + 60} +0000`,
+      GIT_COMMITTER_DATE: `${seedTimestamp + 60} +0000`,
+    },
+  );
+  assert.equal(
+    S.cluster.sourceRepository.head,
+    git(["rev-parse", "HEAD"]).trim(),
+  );
 });
-test('AppProject denied sources/destinations and broken source paths cannot become Synced; CRD deletion survives save',()=>{
- setup();const app=structuredClone(find('Application','payment-api','openshift-gitops'));app.spec.destination.namespace='unapproved';applyResource(app,'openshift-gitops');assert.equal(find('Application','payment-api','openshift-gitops').status.sync.status,'Unknown');assert.match(find('Application','payment-api','openshift-gitops').status.conditions[0].message,/allowed destinations/);assert.equal(missionAlert().title,'GITOPS SYNC BLOCKED');
- deleteResource('customresourcedefinitions','applicationsets.argoproj.io');replaceState(decodeProgress(encodeProgress(S)));assert.ok(!S.cluster.resources.some(r=>r.metadata.name==='applicationsets.argoproj.io'));
+test("GitOps changes only pushed YAML; self-heal restores drift; disabling it preserves OutOfSync until manual sync", async () => {
+  setup();
+  await clone();
+  await fix();
+  const live = () => find("Deployment", "payment-api", "payments");
+  assert.equal(
+    live().spec.template.spec.containers[0].image,
+    "registry.example.test/payments:v1.8.2",
+  );
+  await command(
+    "cat ~/source/fixes/payment-api.yaml > deploy/payment-api.yaml",
+  );
+  assert.equal(
+    live().spec.template.spec.containers[0].image,
+    "registry.example.test/payments:v1.8.2",
+  );
+  await command("git add deploy/payment-api.yaml");
+  await command("git commit -m 'Promote reviewed release'");
+  assert.equal(
+    live().spec.template.spec.containers[0].image,
+    "registry.example.test/payments:v1.8.2",
+  );
+  await command("git push origin main");
+  assert.equal(
+    live().spec.template.spec.containers[0].image,
+    "registry.example.test/payments:v1.8.3",
+  );
+  assert.equal(
+    find("Application", "payment-api", "openshift-gitops").status.sync.status,
+    "Synced",
+  );
+  assert.equal(missionAlert(), undefined);
+  const drift = structuredClone(live());
+  drift.spec.replicas = 3;
+  applyResource(drift, "payments");
+  assert.equal(live().spec.replicas, 2);
+  const app = structuredClone(
+    find("Application", "payment-api", "openshift-gitops"),
+  );
+  app.spec.syncPolicy.automated.selfHeal = false;
+  applyResource(app, "openshift-gitops");
+  const drift2 = structuredClone(live());
+  drift2.spec.replicas = 3;
+  applyResource(drift2, "payments");
+  assert.equal(live().spec.replicas, 3);
+  assert.equal(
+    find("Application", "payment-api", "openshift-gitops").status.sync.status,
+    "OutOfSync",
+  );
+  assert.equal(missionAlert().who, "MIRA");
+  await command(
+    `oc patch application payment-api -n openshift-gitops --type=merge -p '{"operation":{"sync":{"revision":"main","prune":true}}}'`,
+  );
+  assert.equal(live().spec.replicas, 2);
+  assert.equal(
+    find("Application", "payment-api", "openshift-gitops").status.health.status,
+    "Healthy",
+  );
+});
+test("AppProject denied sources/destinations and broken source paths cannot become Synced; CRD deletion survives save", () => {
+  setup();
+  const app = structuredClone(
+    find("Application", "payment-api", "openshift-gitops"),
+  );
+  app.spec.destination.namespace = "unapproved";
+  applyResource(app, "openshift-gitops");
+  assert.equal(
+    find("Application", "payment-api", "openshift-gitops").status.sync.status,
+    "Unknown",
+  );
+  assert.match(
+    find("Application", "payment-api", "openshift-gitops").status.conditions[0]
+      .message,
+    /allowed destinations/,
+  );
+  assert.equal(missionAlert().title, "GITOPS SYNC BLOCKED");
+  deleteResource("customresourcedefinitions", "applicationsets.argoproj.io");
+  replaceState(decodeProgress(encodeProgress(S)));
+  assert.ok(
+    !S.cluster.resources.some(
+      (r) => r.metadata.name === "applicationsets.argoproj.io",
+    ),
+  );
 });

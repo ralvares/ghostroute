@@ -11,12 +11,17 @@ expected boundary. You have a bastion, a notebook, and a question that will
 follow you through the entire journey: **who changed the telemetry, how did it
 happen, and what will stop it happening again?**
 
-![Enter the cluster district and gather leads from its people.](docs/screenshots/cluster-district.png)
+![Enter the cluster district and gather leads from its people.](docs/screenshots/hud-exploring.jpg)
 
 The bastion keeps the standard client help and output. Trace Vision and the
-Case Board sit above the world; your notebook stays beside the larger console.
+Case file sit in the bottom dock. The case drawer brings evidence, notes and
+live health together; the same notebook stays beside the larger console.
 
-![Native OpenShift client help at the bastion.](docs/screenshots/bastion-native-help.png)
+![Meet Rhea in the operator hub: the room stays in view and the characters occupy the floor.](docs/screenshots/security-operations.png)
+
+![Native OpenShift client help at the bastion.](docs/screenshots/hud-bastion.jpg)
+
+![Evidence, persistent notes and application health in the case drawer.](docs/screenshots/hud-case-file.jpg)
 
 ## One investigation, one changing cluster
 

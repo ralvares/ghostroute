@@ -1,4 +1,7 @@
-import {initialApplicationNetwork,reconcileServices} from "../network/services.js";
+import {
+  initialApplicationNetwork,
+  reconcileServices,
+} from "../network/services.js";
 import type { ClueId } from "../security/evidence.js";
 import { evaluateFindings } from "../security/findings.js";
 import type { DomainEvent } from "./events.js";
@@ -25,7 +28,7 @@ export function makeState() {
       outageSeen: false,
       mira: { scene: "cluster" as SceneId, x: 895, y: 465 },
     },
-    x: 520,
+    x: 500,
     y: 410,
     facing: 1,
     step: 0,
@@ -55,7 +58,7 @@ export function makeState() {
       },
     ],
     policies: new Set<"default-deny-egress" | "payment-egress">(),
-    incidentNetwork: {dns: true, ledger: true, external: true},
+    incidentNetwork: { dns: true, ledger: true, external: true },
     get env() {
       return "TELEMETRY_ENDPOINT" in this.deployment.env;
     },
@@ -64,7 +67,9 @@ export function makeState() {
     },
     get policy(): "none" | "deny" | "allow" {
       return this.incidentNetwork.dns && this.incidentNetwork.ledger
-        ? this.incidentNetwork.external ? "none" : "allow"
+        ? this.incidentNetwork.external
+          ? "none"
+          : "allow"
         : "deny";
     },
     audit: [] as DomainEvent[],

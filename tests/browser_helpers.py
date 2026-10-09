@@ -16,7 +16,13 @@ def walk_to(page,x,y):
         canvas.focus();page.keyboard.down(key);page.evaluate('stepGame(30)');page.keyboard.up(key)
     else:raise AssertionError('Destination could not be reached within the world viewport')
     box=canvas.bounding_box()
-    canvas.click(position={'x':(x-view['x'])/view['width']*box['width'],'y':(y-view['y'])/view['height']*box['height']})
+    point={'x':box['x']+(x-view['x'])/view['width']*box['width'],'y':box['y']+(y-view['y'])/view['height']*box['height']}
+    # Painted labels are accessible destination buttons. Use the browser's
+    # normal hit testing when a label occupies the requested floor position,
+    # just as a player's click would; unrelated HUD panels must still fail.
+    hit=page.evaluate("p=>{const e=document.elementFromPoint(p.x,p.y);return {world:e?.id==='world'||Boolean(e?.closest('.worldTargets button')),label:e?.closest('.worldTargets button')?.getAttribute('aria-label')};}",point)
+    assert hit['world'],f"World destination ({x}, {y}) is covered by a HUD panel"
+    page.mouse.click(point['x'],point['y'])
     if page.evaluate("typeof window.stepGame === 'function'"):page.evaluate('stepGame(200)')
 
 def open_bastion(page):
@@ -27,7 +33,7 @@ def open_bastion(page):
     while scene not in ['district','soc']:
         page.locator('#sceneBack').click();scene=page.locator('#world').get_attribute('data-scene')
     if scene=='district':
-        walk_to(page,210,340);expect(page.locator('#world')).to_have_attribute('data-scene','soc')
+        walk_to(page,141,286);expect(page.locator('#world')).to_have_attribute('data-scene','soc')
     if page.locator('#world').get_attribute('data-reaction')=='running':
         if page.evaluate("typeof window.stepGame === 'function'"):page.evaluate('stepGame(180)')
         expect(page.locator('#world')).to_have_attribute('data-reaction','arrived')

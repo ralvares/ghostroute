@@ -173,7 +173,8 @@ and cold offline first-use native help for oc, roxctl and tkn.
 Native CLI references: 249 oc 4.22.0 pages, 75 roxctl 4.11.3 pages and 75
 tkn 0.46.1 pages. Tests compare all 399 pages and preserve their native output
 streams. Native command comparisons: 25 oc printers/generators, six tkn
-PipelineRun/TaskRun descriptions/logs and 33 roxctl image/deployment/policy/SPDX
+PipelineRun/TaskRun descriptions/logs (four byte-exact JSON/log results; two
+human descriptions normalize relative age and table padding) and 33 roxctl image/deployment/policy/SPDX
 stdout/exit cases. Each executable talks only to an isolated authored localhost
 API. These comparisons establish those client outputs, not universal server
 parity. Receipts: `artifacts/campaign/native-oc-tables.json`,
@@ -212,6 +213,31 @@ output, with fixture and capability boundaries documented here rather than a
 synthetic CLI help banner.
 
 The custom domain deployment now uses the configured GitHub Pages base path.
-A live browser at `https://gameplay.ralvares.com/` verified graphical startup,
-physical bastion access and `oc get pods -A` after the domain fix. The accepted
-refinement browser receipts are in `artifacts/ui-refinement/receipt.json`.
+Real browser checks at `https://gameplay.ralvares.com/` verified graphical
+startup, physical bastion access, `oc get pods -A`, exact native root help,
+notes and visible tools at all three viewport sizes. After saving a new project
+and Secret, an offline reload restored both; the first use of oc, roxctl and
+tkn help succeeded without fetching a help module from the network. The
+accepted refinement receipts are in `artifacts/ui-refinement/receipt.json`
+and `artifacts/campaign/native-help-offline.json`.
+
+The room screenshots include both the district and operator hub. Native
+browser hit testing exercises accessible clue labels at their painted
+positions; traversal does not force a canvas click through a label or HUD.
+
+## Supplied HUD design verification — 2026-10-09
+
+236 Node tests passed, including the deterministic Tekton clock and door marker
+boundaries. A subsequent focused world/label run passed 13 tests. Actual CUA
+browser play resolved Chapter 01 through audit correlation, cause explanation,
+telemetry removal, deny-all disruption, Mira's response, dependency restoration
+and positive/negative connectivity checks. Continuing reached Chapter 02 with
+shared notes and the correct six evidence slots. This is current HUD evidence;
+the earlier complete 27-chapter browser receipt remains a separate milestone.
+
+Desktop 1440×810, tablet 900×900 and phone 390×844 were inspected. Phone controls
+use 44px targets without horizontal overflow. Drawer notes survived reload;
+focus wrapping, Escape, both health tabs and physical bastion access were tested.
+Native oc help was exercised in the enlarged terminal, with no browser console
+errors observed. Source/implementation comparisons and captures are retained in
+`artifacts/hud-redesign` and explained in `design-qa.md`.

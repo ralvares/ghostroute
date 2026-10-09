@@ -1,3 +1,3 @@
 {
-  "stdout": "NAME      STARTED     DURATION   STATUS\nrelease   1 day ago   3s         Failed\n"
+  "stdout": "NAME      STARTED          DURATION   STATUS\nrelease   17 seconds ago   3s         Failed\n"
 }

@@ -1,0 +1,38 @@
+[
+  {
+    "command": "tkn pr list",
+    "nativeVersion": "0.46.1",
+    "comparison": "relative age cells and column padding normalized; all other cells exact",
+    "passed": true
+  },
+  {
+    "command": "tkn pr describe release -o json",
+    "nativeVersion": "0.46.1",
+    "comparison": "stdout byte-for-byte",
+    "passed": true
+  },
+  {
+    "command": "tkn pr describe release",
+    "nativeVersion": "0.46.1",
+    "comparison": "relative age cells and column padding normalized; all other cells exact",
+    "passed": true
+  },
+  {
+    "command": "tkn pr logs release",
+    "nativeVersion": "0.46.1",
+    "comparison": "stdout byte-for-byte",
+    "passed": true
+  },
+  {
+    "command": "tkn tr logs release-scan",
+    "nativeVersion": "0.46.1",
+    "comparison": "stdout byte-for-byte",
+    "passed": true
+  },
+  {
+    "command": "tkn tr describe release-scan -o json",
+    "nativeVersion": "0.46.1",
+    "comparison": "stdout byte-for-byte",
+    "passed": true
+  }
+]

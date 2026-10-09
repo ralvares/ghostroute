@@ -6,6 +6,7 @@ import { kubeRequest, apiBody } from "../simulation/kube-api.js";
 import type { Resource } from "../simulation/cluster-model.js";
 import type { ToolResult } from "./text-tools.js";
 import { printResourceJson } from "./json-printer.js";
+import { emulatorTime } from "../simulation/clock.js";
 export async function tknCommand(words: string[]): Promise<ToolResult> {
   const reference = await nativeReference(words);
   if (reference) return reference;
@@ -243,7 +244,7 @@ function duration(r: Resource) {
 }
 function ago(value: unknown) {
   if (!value) return "---";
-  const sec = Math.max(0, (Date.now() - Date.parse(String(value))) / 1000);
+  const sec = Math.max(0, (emulatorTime() - Date.parse(String(value))) / 1000);
   if (sec < 1) return "now";
   if (sec < 2) return "1 second ago";
   if (sec < 60) return Math.floor(sec) + " seconds ago";

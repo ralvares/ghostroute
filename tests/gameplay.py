@@ -48,7 +48,7 @@ def run(url, output):
             page.locator("#world").click(position={"x": (x-view["x"]) / view["width"] * box["width"], "y": (y-view["y"]) / view["height"] * box["height"]})
             page.evaluate("stepGame(180)")
         if rpg:
-            walk(210,340);walk(480,410);expect(page.locator("#radioName")).to_have_text("RHEA");page.locator("#radioClose").click();walk(160,535)
+            walk(141,286);walk(480,410);expect(page.locator("#radioName")).to_have_text("RHEA");page.locator("#radioClose").click();walk(160,535)
             walk(820,295)
             expect(page.locator("#sceneTitle")).to_contain_text("cluster lobby")
             walk(895,465);page.locator("#radioClose").click();walk(405,245)
@@ -67,7 +67,7 @@ def run(url, output):
         page.keyboard.press("Escape")
         receipts.append("WASD movement, Trace Vision, nearby interaction, modal escape")
         if rpg:
-            walk(160,535); walk(175,535); walk(210,340)
+            walk(160,535); walk(175,535); walk(141,286)
             expect(page.locator("#sceneTitle")).to_contain_text("security operations")
             walk(480,410)
         else: walk(291,470)
@@ -76,8 +76,9 @@ def run(url, output):
         if not rpg:
             walk(220,310);expect(page.locator("#detailsBody")).to_contain_text("203.0.113.77:443");page.locator("#detailDone").click()
         page.locator("#caseBtn").click()
-        expect(page.locator("#evidenceList")).to_contain_text("203.0.113.77:443")
-        page.locator("#closeCase").click()
+        page.get_by_role("button", name="Network baseline deviation: collected", exact=True).click()
+        expect(page.locator("#detailsBody")).to_contain_text("203.0.113.77:443")
+        page.locator("#detailDone").click()
         receipts.append("Click-to-walk, NPC dialogue, RHACS investigation and caseboard")
         open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         field = page.locator("#termInput")
@@ -140,7 +141,7 @@ def run(url, output):
         # Replay safely to confirm the top incident grade is still achievable.
         page.locator("#startBtn").click()
         page.locator("#radioClose").click()
-        if rpg: walk(210,340);walk(480,410);page.locator("#radioClose").click()
+        if rpg: walk(141,286);walk(480,410);page.locator("#radioClose").click()
         else: walk(220,310);page.locator("#detailDone").click()
         open_bastion(page) if rpg else page.locator("#terminalBtn").click()
         command("oc logs deployment/payment-api -n payments", "WARN telemetry")

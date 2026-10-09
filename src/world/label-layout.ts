@@ -11,6 +11,8 @@ export interface LabelRequest {
   height: number;
   compactHeight: number;
   compactWidth?: number;
+  preferredRise?: number;
+  compactOnly?: boolean;
 }
 export interface PlacedLabel extends Rect {
   object: WorldObject;
@@ -40,10 +42,13 @@ export function placeWorldLabels(
       o.y > viewport.y + viewport.height
     )
       continue;
-    for (const compact of [false, true]) {
+    for (const compact of request.compactOnly ? [true] : [false, true]) {
       const h = compact ? request.compactHeight : request.height,
         w = compact ? (request.compactWidth ?? request.width) : request.width;
       const positions = [
+        ...(request.preferredRise === undefined
+          ? []
+          : [[o.x - w / 2, o.y - request.preferredRise - h]]),
         [o.x - w / 2, o.y + 34],
         [o.x - w / 2, o.y + 86],
         [o.x + 65, o.y + 30],

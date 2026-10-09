@@ -12,9 +12,11 @@ with sync_playwright() as p:
   context=b.new_context(viewport={'width':width,'height':height});page=context.new_page();page.add_init_script(CLOCK);errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.goto(sys.argv[1]);page.locator('#startBtn').click();page.locator('#radioClose').click();page.evaluate('stepGame()')
   for id in ['traceBtn','caseBtn']:
    box=page.locator('#'+id).bounding_box();assert box and box['y']>=0 and box['y']+box['height']<height,(name,id,box)
-  page.locator('#caseNotes').fill('Lead: inspect the release job and the build-bot role.');page.locator('#caseBtn').click();expect(page.locator('#casepanel')).to_be_visible();page.locator('#closeCase').click()
-  page.locator('[data-health-view=cluster]').click();expect(page.locator('#healthMap')).to_have_attribute('data-view','cluster');expect(page.locator('#healthMap')).to_contain_text('control-01');page.locator('[data-health-view=application]').click()
-  page.evaluate('window.scrollTo(0,0)');page.screenshot(path=str(out/(name+'-world.png')),full_page=True)
+  page.locator('#caseBtn').click();expect(page.locator('#casepanel')).to_be_visible();page.locator('#caseNotes').fill('Lead: inspect the release job and the build-bot role.')
+  page.locator('[data-health-view=cluster]').click();expect(page.locator('#healthMap')).to_have_attribute('data-view','cluster');expect(page.locator('#healthMap')).to_contain_text('control-01');page.locator('[data-health-view=application]').click();page.locator('#closeCase').click()
+  page.wait_for_function("document.documentElement.dataset.progress === 'saved'",polling=50)
+  page.evaluate('flushPaint()');page.evaluate('window.scrollTo(0,0)');page.screenshot(path=str(out/(name+'-world.png')),full_page=True)
+  walk_to(page,141,286);expect(page.locator('#world')).to_have_attribute('data-scene','soc');page.evaluate('flushPaint()');page.screenshot(path=str(out/(name+'-operations.png')),full_page=True)
   open_bastion(page);expect(page.locator('#bastionNotes')).to_have_value('Lead: inspect the release job and the build-bot role.');expect(page.locator('#termOutput')).not_to_contain_text('OFFLINE');assert page.locator('#termOutput').inner_text()==''
   def command(text):
    page.locator('#termInput').fill(text);page.locator('#termInput').press('Enter');expect(page.locator('#termform')).to_have_attribute('aria-busy','false',timeout=15000);return '' if text == 'clear' else page.locator('.termline').last.inner_text()
@@ -24,6 +26,6 @@ with sync_playwright() as p:
   if name=='desktop':assert terminal['width']>=1050,terminal
   overflow=page.evaluate('document.documentElement.scrollWidth>innerWidth');assert not overflow,(name,'horizontal page overflow')
   assert not errors,errors
-  receipts.append({'viewport':name,'terminal':terminal,'consoleFont':page.locator('#termOutput').evaluate('e=>getComputedStyle(e).fontSize'),'nativeHelpExact':True,'visibleTools':True,'notesShared':True,'pageErrors':errors});context.close()
+  receipts.append({'url':sys.argv[1],'viewport':name,'terminal':terminal,'consoleFont':page.locator('#termOutput').evaluate('e=>getComputedStyle(e).fontSize'),'nativeHelpExact':True,'visibleTools':True,'notesShared':True,'pageErrors':errors});context.close()
  b.close()
 (out/'receipt.json').write_text(json.dumps(receipts,indent=2)+'\n');print('PASS: desktop/tablet/mobile world and terminal, visible tools, health toggle, shared notes, exact native oc help')

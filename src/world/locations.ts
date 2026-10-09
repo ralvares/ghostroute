@@ -15,6 +15,8 @@ export interface WorldObject {
   destination?: SceneId;
   namespace?: string;
   resourceName?: string;
+  /** Label offset above the entrance, in world units; the walk target stays on the floor. */
+  markerRise?: number;
 }
 const object = (
   id: string,
@@ -31,33 +33,33 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
     return [
       object(
         "soc-entry",
-        210,
-        340,
-        "RHACS CENTRAL",
-        "Enter security operations",
+        141,
+        286,
+        "RHACS Central",
+        "Security operations",
         "portal",
-        { destination: "soc" },
+        { destination: "soc", markerRise: 75 },
       ),
       object(
         "external-entry",
         1050,
         480,
-        "EXTERNAL NETWORK",
-        "Walk beyond the cluster perimeter",
+        "External network",
+        "Beyond the cluster perimeter",
         "portal",
-        { destination: "external" },
+        { destination: "external", markerRise: -45 },
       ),
       object(
         "cluster-entry",
-        820,
-        295,
+        790,
+        218,
         "prod-east",
         state.campaign.active
           ? "Continue in the same cluster · tenant " +
               chapters[state.campaign.active].namespace
-          : "Enter cluster building",
+          : "Cluster building",
         "portal",
-        { destination: "cluster", r: 70 },
+        { destination: "cluster", r: 70, markerRise: 103 },
       ),
     ];
   if (state.world.scene === "soc")
@@ -325,7 +327,8 @@ export function worldObjects(state: SimulationState = S): WorldObject[] {
   const labPods = state.cluster.resources.filter(
     (item) =>
       item.kind === "Pod" &&
-      item.metadata.annotations?.["ghostroute.training/component"] !== "controller" &&
+      item.metadata.annotations?.["ghostroute.training/component"] !==
+        "controller" &&
       item.spec?.nodeName === worker &&
       item.metadata.name !== payment?.name &&
       item.metadata.name !== "ledger-86bbb-zyx12",

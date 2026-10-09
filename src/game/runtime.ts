@@ -37,6 +37,7 @@ export const G = {
   toastTimer: 0,
   tabIndex: 0,
   histPointer: -1,
+  markerObjectives: {} as Record<string, { number: number; current: boolean }>,
   podShell: false,
   podShellTarget: null as {
     name: string;

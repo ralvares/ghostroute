@@ -9,53 +9,50 @@
   <body>
     <header class="top">
       <a class="brand" href="#map" aria-label="Current stage map"
-        ><img class="hatmark" src="%BASE_URL%art/hat.webp" alt="" />
-        <div>
-          <div class="bname"><span id="stageName">The Ghost Route</span></div>
-          <div class="bsub">AN OPENSHIFT SECURITY ADVENTURE</div>
-        </div></a
+        ><span class="bname" id="stageName">The Ghost Route</span
+        ><span class="bsub">OPENSHIFT 4.22</span></a
       >
-      <nav class="navigation" aria-label="Game navigation">
-        <button class="navtab selected" data-nav="map">Map</button
-        ><button class="navtab" data-nav="inventory">Inventory</button
-        ><button class="navtab" data-nav="journal">Journal</button>
-        <button class="navtab" data-nav="journey">Journey</button>
-      </nav>
+      <div class="sceneBar">
+        <div class="sceneName">
+          <img class="uiIcon" src="%BASE_URL%ui/map-pin.svg" alt="" />
+          <strong id="sceneTitle">Security district</strong
+          ><span id="sceneDescription"
+            >RHACS Central · cluster fleet investigation</span
+          >
+        </div>
+        <span class="zonePill"
+          ><img class="uiIcon" src="%BASE_URL%ui/train.svg" alt="" /><span
+            id="zoneBadge"
+            class="zoneBadge neutral"
+            >PUBLIC TRANSIT</span
+          ></span
+        ><button id="sceneBack" class="btnquiet compact" hidden>
+          Leave this room
+        </button>
+      </div>
+
       <div class="topright">
+        <div class="progress">
+          <b id="missionProgress">0%</b><span>Mission progress</span>
+        </div>
         <div class="episode">
           <b id="episodeLabel">CHAPTER 01 / 27</b
           ><span id="episodeTitle">The Ghost Route</span>
         </div>
-        <div class="progress">
-          <b id="missionProgress">0%</b><span>MISSION PROGRESS</span>
-        </div>
-        <button class="textbtn" id="restartTop" type="button">Restart</button>
+        <details class="gameMenu" id="gameMenu">
+          <summary aria-label="Game menu">
+            <img class="uiIcon" src="%BASE_URL%ui/menu-2.svg" alt="" />
+          </summary>
+          <div>
+            <button id="restartTop" class="btnquiet" type="button">
+              Restart journey
+            </button>
+          </div>
+        </details>
       </div>
     </header>
     <main class="page" id="map">
       <div class="frame" id="frame">
-        <div class="sceneBar">
-          <div>
-            <strong id="sceneTitle">Security district</strong
-            ><span id="sceneDescription"
-              >RHACS Central · cluster fleet investigation</span
-            >
-          </div>
-          <span id="zoneBadge" class="zoneBadge neutral">PUBLIC TRANSIT</span
-          ><button id="sceneBack" class="btnquiet compact" hidden>
-            Leave this room
-          </button>
-        </div>
-        <div class="investigationTools" aria-label="Investigation tools">
-          <div class="control">
-            <button class="actionbtn" id="traceBtn" type="button">
-              Trace Vision <kbd>SPACE</kbd></button
-            ><button class="actionbtn" id="caseBtn" type="button">
-              Case Board <span class="key" id="evidenceCount">0 / 5</span>
-            </button>
-          </div>
-          <span class="toolGuide">Explore · talk · collect evidence</span>
-        </div>
         <div
           id="changeNotice"
           class="changeNotice"
@@ -86,14 +83,18 @@
               <li>Verify customer service</li>
             </ol>
           </div>
-          <div class="overlay hudright">
-            <div class="eyebrow">ANOMALY DETECTED</div>
+          <details class="overlay hudright" id="alertCard" open>
+            <summary class="eyebrow">
+              <img
+                class="uiIcon"
+                src="%BASE_URL%ui/alert-triangle.svg"
+                alt=""
+              />
+              ANOMALY DETECTED
+            </summary>
             <p id="anomalyText">
               Unusual egress connection<br />from payment-api
             </p>
-            <button class="btnquiet compact" id="anomalyDetails" type="button">
-              View details
-            </button>
             <div class="serviceSummary">
               <div class="stat">
                 <div class="name">Customer service</div>
@@ -106,7 +107,10 @@
                 ><small id="exposureDetail">Unapproved egress path</small>
               </div>
             </div>
-          </div>
+            <button class="btnquiet" id="anomalyDetails" type="button">
+              View details
+            </button>
+          </details>
           <div class="overlay prompt" id="nearby" hidden>
             <kbd>E</kbd><span id="nearbyText">Interact</span
             ><button id="terminalBtn" class="btnquiet compact" hidden>
@@ -127,43 +131,6 @@
             role="status"
             aria-live="polite"
           ></div>
-        </div>
-        <div class="workbench">
-          <section class="notesDock" aria-label="Investigator notebook">
-            <div class="notesHeading">
-              <label for="caseNotes">Case notebook</label
-              ><span id="localStatus">Autosave on</span>
-            </div>
-            <textarea
-              id="caseNotes"
-              maxlength="50000"
-              placeholder="What changed? Who had access? Keep your evidence and next commands here…"
-            ></textarea>
-            <p>Your notes follow you to the bastion.</p>
-          </section>
-          <section class="intelDock" aria-label="Live investigation health">
-            <section
-              class="healthPanel"
-              aria-label="Live cluster and application health"
-            >
-              <div class="healthHeading">
-                <strong>Live health map</strong>
-                <div class="mapSwitch">
-                  <button
-                    class="selected"
-                    data-health-view="application"
-                    aria-pressed="true"
-                  >
-                    Application</button
-                  ><button data-health-view="cluster" aria-pressed="false">
-                    Cluster
-                  </button>
-                </div>
-              </div>
-              <div id="healthSummary" class="good"></div>
-              <div id="healthMap"></div>
-            </section>
-          </section>
         </div>
         <section
           class="sheet"
@@ -262,33 +229,126 @@
         >
           <div class="modal" id="detailsBody"></div>
         </section>
-        <section id="casepanel" hidden aria-label="Evidence case board">
+        <button
+          class="casefileBackdrop"
+          id="caseBackdrop"
+          tabindex="-1"
+          type="button"
+          aria-label="Close case file"
+          hidden
+        ></button>
+        <section
+          id="casepanel"
+          hidden
+          role="dialog"
+          aria-modal="true"
+          aria-label="Case file"
+        >
           <div class="panelhead">
-            <h2>Case Board</h2>
+            <div>
+              <div class="eyebrow" id="caseFileLabel">CASE 018</div>
+              <h2>Case file</h2>
+            </div>
             <button
               class="cross"
               id="closeCase"
               type="button"
-              aria-label="Close caseboard"
+              aria-label="Close case file"
             >
-              Close
+              <img class="uiIcon" src="%BASE_URL%ui/x.svg" alt="" />
             </button>
           </div>
-          <div class="panelmeta">INCIDENT 018 · RHACS NETWORK ANOMALY</div>
+          <div class="evidenceHeading">
+            <h3>Case board</h3>
+            <span id="caseEvidenceCount">0 / 5 evidence</span>
+          </div>
           <div id="evidenceList"></div>
-          <p class="hint">A deviation is a lead—not proof of compromise.</p>
+          <div class="workbench">
+            <section class="notesDock" aria-label="Investigator notebook">
+              <div class="notesHeading">
+                <label for="caseNotes">Case notebook</label
+                ><span id="localStatus">Autosave on</span>
+              </div>
+              <textarea
+                id="caseNotes"
+                maxlength="50000"
+                placeholder="What changed? Who had access? Keep your evidence and next commands here…"
+              ></textarea>
+              <p>Your notes follow you to the bastion.</p>
+            </section>
+            <section class="intelDock" aria-label="Live investigation health">
+              <section
+                class="healthPanel"
+                aria-label="Live cluster and application health"
+              >
+                <div class="healthHeading">
+                  <strong>Live health map</strong>
+                  <div class="mapSwitch">
+                    <button
+                      class="selected"
+                      data-health-view="application"
+                      aria-pressed="true"
+                    >
+                      Application</button
+                    ><button data-health-view="cluster" aria-pressed="false">
+                      Cluster
+                    </button>
+                  </div>
+                </div>
+                <div id="healthSummary" class="good"></div>
+                <div id="healthMap"></div>
+              </section>
+            </section>
+          </div>
+          <div id="caseContext"></div>
         </section>
         <section class="sheet" id="ending" hidden aria-label="Mission debrief">
           <div class="modal" id="endBody"></div>
         </section>
       </div>
-      <footer class="below">
-        <div class="tinyhelp">
-          <kbd>W A S D</kbd> move <span>·</span> <kbd>E</kbd> interact
-          <span>·</span> <kbd>T</kbd> use bastion nearby
+      <div class="hudDock">
+        <nav class="navigation" aria-label="Game navigation">
+          <button class="navtab selected" data-nav="map">
+            <img class="uiIcon" src="%BASE_URL%ui/map.svg" alt="" />Map
+          </button>
+          <button class="navtab" data-nav="inventory">
+            <img
+              class="uiIcon"
+              src="%BASE_URL%ui/briefcase.svg"
+              alt=""
+            />Inventory
+          </button>
+          <button class="navtab" data-nav="journal">
+            <img class="uiIcon" src="%BASE_URL%ui/book-2.svg" alt="" />Journal
+          </button>
+          <button class="navtab" data-nav="journey">
+            <img class="uiIcon" src="%BASE_URL%ui/route.svg" alt="" />Journey
+          </button>
+        </nav>
+        <footer class="below">
+          <div class="tinyhelp">
+            <span class="movementKeys"
+              ><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span
+            >
+            Move <kbd>E</kbd> Interact <kbd>T</kbd> Use bastion nearby
+          </div>
+        </footer>
+        <div class="investigationTools" aria-label="Investigation tools">
+          <button class="actionbtn" id="traceBtn" type="button">
+            <img class="uiIcon" src="%BASE_URL%ui/eye.svg" alt="" />Trace Vision
+            <kbd>SPACE</kbd></button
+          ><button
+            class="actionbtn"
+            id="caseBtn"
+            type="button"
+            aria-controls="casepanel"
+            aria-expanded="false"
+          >
+            <img class="uiIcon" src="%BASE_URL%ui/folder.svg" alt="" />Case file
+            <span class="key" id="evidenceCount">0 / 5</span>
+          </button>
         </div>
-        <p class="copyright">OPENSHIFT 4.22</p>
-      </footer>
+      </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

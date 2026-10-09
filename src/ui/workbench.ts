@@ -40,10 +40,15 @@ export function updateWorkbench() {
     return;
   }
   el("anomalyText").textContent = S.findings.baselineDeviation
-    ? "Unexpected payment-api egress. Ask Rhea what RHACS observed."
+    ? "Unexpected payment-api egress"
     : S.env
       ? "External connection blocked by policy."
       : "Unexpected exporter configuration removed.";
+  if (S.findings.baselineDeviation) {
+    const hint = document.createElement("span");
+    hint.textContent = "Ask Rhea what RHACS observed.";
+    el("anomalyText").append(hint);
+  }
   syncNotebook();
 }
 function updateLocalStatus() {
@@ -57,7 +62,7 @@ function updateLocalStatus() {
           : "Preparing offline files…";
   const saved =
     progressStatus.state === "saved"
-      ? "Notes + progress saved"
+      ? "Saved"
       : progressStatus.state === "saving"
         ? "Saving…"
         : progressStatus.state === "error"
@@ -109,7 +114,7 @@ export function registerWorkbench() {
       else
         openDetail(
           heading +
-            `<h3>Verified handovers</h3><ul>${S.campaign.reports.map((r) => `<li>Chapter ${chapters[r.chapter].id} · ${esc(chapters[r.chapter].title)} · ${esc(r.conclusion)}</li>`).join("") || "<li>No campaign reports yet.</li>"}</ul><p>Current chapter interviews: ${esc(S.campaign.interviews.join(", ") || "none")}. Retained records read: ${S.campaign.evidence.length}/3.</p><div class="eyebrow">DISCOVERY LOG</div><ul>${S.story.discoveries.map((id) => `<li>${esc(discoveryNames[id])}</li>`).join("") || "<li>No leads yet. Meet Rhea at RHACS Central.</li>"}</ul><p>Evidence: ${S.evidence.size}/5 · verification: ${S.checked.size}/3 · ${S.interruptions} service disruptions.</p><h3>Your notebook</h3><pre class="journal">${esc(S.story.notes || "Use the notebook below the map to record leads.")}</pre><h3>Bastion history</h3><pre class="journal">${esc(S.history.join("\n") || "No commands yet. Gather evidence, then use the bastion.")}</pre>`,
+            `<h3>Verified handovers</h3><ul>${S.campaign.reports.map((r) => `<li>Chapter ${chapters[r.chapter].id} · ${esc(chapters[r.chapter].title)} · ${esc(r.conclusion)}</li>`).join("") || "<li>No campaign reports yet.</li>"}</ul><p>Current chapter interviews: ${esc(S.campaign.interviews.join(", ") || "none")}. Retained records read: ${S.campaign.evidence.length}/3.</p><div class="eyebrow">DISCOVERY LOG</div><ul>${S.story.discoveries.map((id) => `<li>${esc(discoveryNames[id])}</li>`).join("") || "<li>No leads yet. Meet Rhea at RHACS Central.</li>"}</ul><p>Evidence: ${S.evidence.size}/5 · verification: ${S.checked.size}/3 · ${S.interruptions} service disruptions.</p><h3>Your notebook</h3><pre class="journal">${esc(S.story.notes || "Open Case file to record your leads in the notebook.")}</pre><h3>Bastion history</h3><pre class="journal">${esc(S.history.join("\n") || "No commands yet. Gather evidence, then use the bastion.")}</pre>`,
         );
     }),
   );

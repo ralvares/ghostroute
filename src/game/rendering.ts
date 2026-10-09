@@ -10,6 +10,7 @@ import { update } from "../game/movement.js";
 import { placeWorldLabels } from "../world/label-layout.js";
 import { syncInteractionTargets } from "../world/interaction-targets.js";
 import type { WorldObject } from "../world/locations.js";
+import { doorMarkerState } from "../world/door-markers.js";
 
 export function drawRounded(
   x: number,
@@ -96,7 +97,7 @@ function sprite(
 export function drawBackground(_t: number) {
   ctx.save();
   // Lift scene shadows while keeping bright signs and live evidence restrained.
-  ctx.filter = "brightness(1.22) saturate(0.7)";
+  ctx.filter = "brightness(0.88) saturate(1.02)";
   ctx.drawImage(artwork[scenes[S.world.scene].art], 0, 0, W, H);
   ctx.restore();
 }
@@ -266,15 +267,23 @@ export function drawFlows(t: number) {
 export function drawLabels(t: number) {
   const objects = worldObjects();
   const scale = Math.max(
-    1,
+    0.55,
     Math.min(2, C.width / Math.max(1, C.getBoundingClientRect().width)),
   );
-  const titleSize = 12 * scale,
-    subSize = 10 * scale;
+  const titleSize = 14 * scale,
+    subSize = 12 * scale;
   const requests = objects
     .map((o) => {
-      ctx.font = `600 ${titleSize}px Inter,system-ui`;
-      const titleWidth = ctx.measureText(o.label).width;
+      const objective = G.markerObjectives[o.id];
+      const state = doorMarkerState(
+        Math.hypot(S.x - o.x, S.y - o.y),
+        !!objective,
+      );
+      const onRing = o.kind === "portal" && state === "on-ring";
+      const badge = onRing || !!objective ? 28 * scale : 0;
+      ctx.font = `700 ${titleSize}px JetBrains Mono,monospace`;
+      const titleWidth =
+        ctx.measureText(onRing ? "Enter " + o.label : o.label).width + badge;
       ctx.font = `${subSize}px Inter,system-ui`;
       const subWidth = ctx.measureText(o.sub).width;
       return {
@@ -284,12 +293,14 @@ export function drawLabels(t: number) {
           Math.max(
             88 * scale,
             titleWidth + 24 * scale,
-            Math.min(250 * scale, subWidth + 24 * scale),
+            Math.min(250 * scale, subWidth + 24 * scale + badge),
           ),
         ),
-        height: 44 * scale,
-        compactHeight: 26 * scale,
+        height: 50 * scale,
+        compactHeight: 32 * scale,
         compactWidth: Math.max(72 * scale, titleWidth + 24 * scale),
+        preferredRise: o.kind === "portal" ? (o.markerRise ?? 75) : undefined,
+        compactOnly: o.kind === "portal" && state === "far",
       };
     })
     .sort(
@@ -337,31 +348,97 @@ export function drawLabels(t: number) {
   };
   for (const label of labels) {
     const { object: o, x, y, width, height, compact } = label;
+    const objective = G.markerObjectives[o.id];
+    const state = doorMarkerState(
+      Math.hypot(S.x - o.x, S.y - o.y),
+      !!objective,
+    );
+    const onRing = o.kind === "portal" && state === "on-ring";
+    const highlighted = onRing || objective?.current;
+    const color = highlighted ? "#4dd5fa" : "#e9edf5";
     const nearestX = Math.max(x + 8, Math.min(x + width - 8, o.x));
-    line(o.x, o.y + 25, nearestX, y, "#799aab80", 1);
+    const below = y > o.y;
+    if (o.kind === "portal") {
+      line(
+        nearestX,
+        below ? y : y + height,
+        nearestX,
+        below ? y - 17 * scale : y + height + 17 * scale,
+        color + "aa",
+        1,
+      );
+      ctx.beginPath();
+      ctx.arc(
+        nearestX,
+        below ? y - 17 * scale : y + height + 17 * scale,
+        3 * scale,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(o.x, o.y + 22, 32, 11, 0, 0, Math.PI * 2);
+      ctx.fillStyle = onRing ? "#4dd5fa22" : "#080d1622";
+      ctx.strokeStyle = highlighted ? "#4dd5fa" : "#e9edf580";
+      ctx.lineWidth = 1.25;
+      ctx.shadowColor = highlighted ? "#4dd5fa" : "transparent";
+      ctx.shadowBlur = highlighted ? 12 : 0;
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else line(o.x, o.y + 25, nearestX, y, "#799aab80", 1);
     drawRounded(
       x,
       y,
       width,
       height,
       5,
-      "#06121ff0",
-      G.near?.id === o.id ? "#a5d7ec" : "#40596e",
+      "#080d16f2",
+      highlighted ? "#4dd5fa" : "#e9edf560",
     );
-    const font = `600 ${titleSize}px Inter,system-ui`;
+    let textX = x + 10 * scale;
+    if (onRing || objective) {
+      const bx = x + 10 * scale,
+        by = y + (height - 22 * scale) / 2;
+      if (onRing)
+        drawRounded(bx, by, 22 * scale, 22 * scale, 4 * scale, "#4dd5fa");
+      else {
+        ctx.beginPath();
+        ctx.arc(bx + 11 * scale, by + 11 * scale, 11 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = highlighted ? "#4dd5fa" : "#080d16";
+        ctx.strokeStyle = highlighted ? "#4dd5fa" : "#e9edf580";
+        ctx.fill();
+        ctx.stroke();
+      }
+      drawText(
+        onRing ? "E" : String(objective.number),
+        bx + 11 * scale,
+        by + 15 * scale,
+        highlighted ? "#07111a" : "#e9edf5",
+        `700 ${12 * scale}px JetBrains Mono,monospace`,
+        "center",
+      );
+      textX += 30 * scale;
+    }
+    const font = `700 ${titleSize}px JetBrains Mono,monospace`;
     drawText(
-      fit(o.label, width - 20 * scale, font),
-      x + 10 * scale,
-      y + 17 * scale,
+      fit(
+        onRing ? "Enter " + o.label : o.label,
+        x + width - textX - 10 * scale,
+        font,
+      ),
+      textX,
+      y + (compact ? 21 : 20) * scale,
       "#eef6fb",
       font,
     );
     if (!compact) {
       const subFont = `${subSize}px Inter,system-ui`;
       drawText(
-        fit(o.sub, width - 20 * scale, subFont),
-        x + 10 * scale,
-        y + 34 * scale,
+        fit(o.sub, x + width - textX - 10 * scale, subFont),
+        textX,
+        y + 38 * scale,
         "#b6cbd8",
         subFont,
       );
@@ -369,7 +446,13 @@ export function drawLabels(t: number) {
   }
   C.dataset.visibleLabels = String(labels.length);
   syncInteractionTargets(labels);
-  if (G.near && !G.detailOpen && !G.radioOpen && !G.caseOpen) {
+  if (
+    G.near &&
+    G.near.kind !== "portal" &&
+    !G.detailOpen &&
+    !G.radioOpen &&
+    !G.caseOpen
+  ) {
     ctx.strokeStyle = "#a5d7ec";
     ctx.lineWidth = 1.4;
     ctx.setLineDash([6, 5]);
@@ -382,15 +465,14 @@ export function drawLabels(t: number) {
 
 export function draw(t: number) {
   G.frame++;
-  const narrow = window.innerWidth <= 520;
+  const narrow = window.innerWidth <= 1000;
   const bounds = C.getBoundingClientRect();
-  // Desktop shows the whole room; narrow screens keep the investigator-following camera.
-  const vw = narrow
-    ? 760
-    : Math.max(W, Math.round((H * bounds.width) / Math.max(1, bounds.height)));
-  const vh = narrow
-    ? H
-    : Math.round((vw * bounds.height) / Math.max(1, bounds.width));
+  // Fill the viewport without stretching the isometric perspective.
+  const vw = Math.max(
+    220,
+    Math.round((H * bounds.width) / Math.max(1, bounds.height)),
+  );
+  const vh = Math.round((vw * bounds.height) / Math.max(1, bounds.width));
   if (C.width !== vw) C.width = vw;
   if (C.height !== vh) C.height = vh;
   G.cameraX = narrow

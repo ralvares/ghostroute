@@ -1,7 +1,128 @@
 import assert from "node:assert/strict";
-import {createServer} from 'node:http';import {spawn} from 'node:child_process';import {writeFileSync,mkdirSync} from 'node:fs';import {S,resetState} from '../.test-build/src/simulation/state.js';import {chapters} from '../.test-build/src/campaign/catalog.js';import {applyResource} from '../.test-build/src/simulation/cluster-api.js';import {kubeRequest} from '../.test-build/src/simulation/kube-api.js';import {clusterCommand} from '../.test-build/src/terminal/cluster-shell.js';
-resetState();S.campaign.active=17;S.cluster.user='platform-admin';applyResource({apiVersion:'v1',kind:'Namespace',metadata:{name:'rs-18'}});for(const [n,r] of Object.entries(chapters.find(c=>c.id==='18').files))if(n.endsWith('.yaml'))applyResource(r,'rs-18');
-const server=createServer((req,res)=>{try{const r=kubeRequest({method:req.method,path:req.url,accept:req.headers.accept});res.writeHead(r.code,{'Content-Type':typeof r.body==='string'?'text/plain':'application/json'});res.end(typeof r.body==='string'?r.body:JSON.stringify(r.body));}catch(e){res.writeHead(500);res.end(e.message);}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const kube='/private/tmp/ghostroute-tkn/oracle-kubeconfig';writeFileSync(kube,`apiVersion: v1\nkind: Config\nclusters:\n- name: authored\n  cluster:\n    server: http://127.0.0.1:${server.address().port}\ncontexts:\n- name: authored\n  context:\n    cluster: authored\n    namespace: rs-18\n    user: offline\ncurrent-context: authored\nusers:\n- name: offline\n  user: {}\n`);
-const native=args=>new Promise((resolve,reject)=>{const p=spawn('/private/tmp/ghostroute-tkn/tkn',[...args,'-C','-k',kube]);let stdout='',stderr='';p.stdout.on('data',v=>stdout+=v);p.stderr.on('data',v=>stderr+=v);p.on('error',reject);p.on('exit',code=>resolve({stdout,stderr,code}));});mkdirSync('artifacts/tekton',{recursive:true});
-try{for(const args of [['pr','list'],['pr','describe','release','-o','json'],['pr','describe','release'],['pr','logs','release'],['tr','logs','release-scan'],['tr','describe','release-scan','-o','json']]){const r=await native([...args,'-n','rs-18']);const key=args.join('-');writeFileSync(`artifacts/tekton/${key}-native.json`,JSON.stringify(r,null,2));let sim;try{sim=await clusterCommand('tkn '+args.join(' ')+' -n rs-18');}catch(e){sim={error:e.message};}writeFileSync(`artifacts/tekton/${key}-simulated.json`,JSON.stringify(sim,null,2));assert.equal(r.code,0,r.stderr);assert.equal(sim.stdout,r.stdout,args.join(' '));console.log('MATCH: tkn '+args.join(' '));}}finally{server.close();}
+import { createServer } from "node:http";
+import { spawn } from "node:child_process";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { S, resetState } from "../.test-build/src/simulation/state.js";
+import { chapters } from "../.test-build/src/campaign/catalog.js";
+import { applyResource } from "../.test-build/src/simulation/cluster-api.js";
+import { kubeRequest } from "../.test-build/src/simulation/kube-api.js";
+import { clusterCommand } from "../.test-build/src/terminal/cluster-shell.js";
+resetState();
+S.campaign.active = 17;
+S.cluster.user = "platform-admin";
+applyResource({
+  apiVersion: "v1",
+  kind: "Namespace",
+  metadata: { name: "rs-18" },
+});
+for (const [n, r] of Object.entries(chapters.find((c) => c.id === "18").files))
+  if (n.endsWith(".yaml")) applyResource(r, "rs-18");
+const server = createServer((req, res) => {
+  try {
+    const r = kubeRequest({
+      method: req.method,
+      path: req.url,
+      accept: req.headers.accept,
+    });
+    res.writeHead(r.code, {
+      "Content-Type":
+        typeof r.body === "string" ? "text/plain" : "application/json",
+    });
+    res.end(typeof r.body === "string" ? r.body : JSON.stringify(r.body));
+  } catch (e) {
+    res.writeHead(500);
+    res.end(e.message);
+  }
+});
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const kube = "/private/tmp/ghostroute-tkn/oracle-kubeconfig";
+writeFileSync(
+  kube,
+  `apiVersion: v1\nkind: Config\nclusters:\n- name: authored\n  cluster:\n    server: http://127.0.0.1:${server.address().port}\ncontexts:\n- name: authored\n  context:\n    cluster: authored\n    namespace: rs-18\n    user: offline\ncurrent-context: authored\nusers:\n- name: offline\n  user: {}\n`,
+);
+const native = (args) =>
+  new Promise((resolve, reject) => {
+    const p = spawn("/private/tmp/ghostroute-tkn/tkn", [
+      ...args,
+      "-C",
+      "-k",
+      kube,
+    ]);
+    let stdout = "",
+      stderr = "";
+    p.stdout.on("data", (v) => (stdout += v));
+    p.stderr.on("data", (v) => (stderr += v));
+    p.on("error", reject);
+    p.on("exit", (code) => resolve({ stdout, stderr, code }));
+  });
+mkdirSync("artifacts/tekton", { recursive: true });
+// The native process reads the host clock; the saved game reads its virtual clock.
+// Normalize only relative age cells and their column padding in human views.
+// JSON timestamps, logs, duration, status, names and every other cell remain checked.
+const relativeAges = (text) =>
+  text
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(
+          /(?:\d+\s+)?(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?) ago/g,
+          "<relative-age>",
+        )
+        .split(/ {2,}/)
+        .join("  "),
+    )
+    .join("\n");
+const receipt = [];
+try {
+  for (const args of [
+    ["pr", "list"],
+    ["pr", "describe", "release", "-o", "json"],
+    ["pr", "describe", "release"],
+    ["pr", "logs", "release"],
+    ["tr", "logs", "release-scan"],
+    ["tr", "describe", "release-scan", "-o", "json"],
+  ]) {
+    const r = await native([...args, "-n", "rs-18"]);
+    const key = args.join("-");
+    writeFileSync(
+      `artifacts/tekton/${key}-native.json`,
+      JSON.stringify(r, null, 2),
+    );
+    let sim;
+    try {
+      sim = await clusterCommand("tkn " + args.join(" ") + " -n rs-18");
+    } catch (e) {
+      sim = { error: e.message };
+    }
+    writeFileSync(
+      `artifacts/tekton/${key}-simulated.json`,
+      JSON.stringify(sim, null, 2),
+    );
+    assert.equal(r.code, 0, r.stderr);
+    const human = key === "pr-list" || key === "pr-describe-release";
+    assert.equal(
+      human ? relativeAges(sim.stdout) : sim.stdout,
+      human ? relativeAges(r.stdout) : r.stdout,
+      args.join(" "),
+    );
+    receipt.push({
+      command: "tkn " + args.join(" "),
+      nativeVersion: "0.46.1",
+      comparison: human
+        ? "relative age cells and column padding normalized; all other cells exact"
+        : "stdout byte-for-byte",
+      passed: true,
+    });
+    console.log(
+      "MATCH: tkn " +
+        args.join(" ") +
+        (human ? " (clock-relative ages normalized)" : ""),
+    );
+  }
+} finally {
+  server.close();
+  writeFileSync(
+    "artifacts/tekton/receipt.json",
+    JSON.stringify(receipt, null, 2) + "\n",
+  );
+}

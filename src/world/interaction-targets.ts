@@ -2,6 +2,8 @@ import { C, G } from "../game/runtime.js";
 import { approachObject } from "../game/movement.js";
 import type { PlacedLabel } from "./label-layout.js";
 import type { WorldObject } from "./locations.js";
+import { S } from "../simulation/state.js";
+import { doorMarkerState } from "./door-markers.js";
 
 const layer = document.createElement("div");
 layer.className = "worldTargets";
@@ -41,6 +43,11 @@ export function syncInteractionTargets(labels: PlacedLabel[]) {
     target.object = label.object;
     const button = target.button;
     button.hidden = false;
+    button.dataset.markerState = doorMarkerState(
+      Math.hypot(S.x - label.object.x, S.y - label.object.y),
+      !!G.markerObjectives[id],
+    );
+    button.dataset.objective = String(G.markerObjectives[id]?.number ?? "");
     button.setAttribute(
       "aria-label",
       `${label.object.label}: ${label.object.sub}`,

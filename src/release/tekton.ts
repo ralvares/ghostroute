@@ -14,6 +14,7 @@ import {
 } from "./manifests.js";
 import { simulationEpoch } from "../simulation/resource-table.js";
 import { seedTimestamp } from "./source-fixture.js";
+import { advanceEmulatorTime, emulatorTime } from "../simulation/clock.js";
 
 const get = (kind: string, name: string, ns: string) =>
   S.cluster.resources.find(
@@ -66,7 +67,7 @@ export function reconcileTekton() {
       startTime: new Date(
         Math.max(
           Date.parse(run.metadata.creationTimestamp ?? "") || simulationEpoch,
-          simulationEpoch + S.audit.length * 1000,
+          emulatorTime(),
           ...S.cluster.resources
             .filter((r) => r.kind === "PipelineRun" && r.status?.completionTime)
             .map((r) => Date.parse(String(r.status!.completionTime)) + 1000),
@@ -358,6 +359,8 @@ export function reconcileTekton() {
       failure || "Tasks Completed: 4 (Failed: 0, Cancelled: 0), Skipped: 0",
     );
     status.completionTime = time();
+    // Recorded step durations advance the same clock used by API consumers.
+    advanceEmulatorTime(Math.max(0, clock - emulatorTime()));
     status.results = !failure
       ? [
           { name: "commit", type: "string", value: commit },

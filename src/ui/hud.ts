@@ -1,10 +1,71 @@
-import {updateMissionAlert} from "./mission-alert.js";
+import { updateMissionAlert } from "./mission-alert.js";
 import { projectHealth } from "../simulation/health.js";
 import { S } from "../simulation/state.js";
 import { $ } from "../ui/dom.js";
 import { updateHealthMap } from "./health-map.js";
 import { updateWorkbench } from "./workbench.js";
 import { currentChapter, campaignChecks } from "../campaign/engine.js";
+import { esc } from "./notifications.js";
+import { G } from "../game/runtime.js";
+
+function showSteps(text: string) {
+  const initial = !S.campaign.active && S.env && S.evidence.size < 2;
+  const steps =
+    initial && S.world.scene === "district"
+      ? [
+          {
+            text: "Meet Rhea for the RHACS incident report",
+            done: S.evidence.has("rhacs"),
+          },
+          {
+            text: "Ask Mira in the prod-east lobby for worker-room access",
+            done: S.story.inventory.includes("worker-pass"),
+          },
+        ]
+      : initial && S.world.scene === "soc"
+        ? [
+            {
+              text: "Talk to Rhea for the incident report",
+              done: S.evidence.has("rhacs"),
+            },
+            {
+              text: "Search the maintenance locker",
+              done: S.story.inventory.includes("maintenance-keycard"),
+            },
+          ]
+        : S.campaign.active
+          ? campaignChecks()
+              .filter((g) => !g.passed)
+              .slice(0, 2)
+              .map((g) => ({ text: g.label, done: false }))
+          : text
+              .split(/(?<=[.!?])\s+/)
+              .slice(0, 2)
+              .map((t) => ({ text: t, done: false }));
+  const active = steps.findIndex((s) => !s.done);
+  const targets =
+    S.world.scene === "district"
+      ? ["soc-entry", "cluster-entry"]
+      : S.world.scene === "soc"
+        ? ["rhea", "locker"]
+        : [];
+  G.markerObjectives =
+    initial && targets.length
+      ? Object.fromEntries(
+          targets.flatMap((id, i) =>
+            steps[i].done
+              ? []
+              : [[id, { number: i + 1, current: i === active }]],
+          ),
+        )
+      : {};
+  document.getElementById("missionSteps")!.innerHTML = steps
+    .map(
+      (step, i) =>
+        `<li class="${step.done ? "complete" : i === active ? "current" : ""}"><span class="stepNumber">${i + 1}</span><span>${esc(step.text)}</span></li>`,
+    )
+    .join("");
+}
 
 export function updateHUD() {
   const stage = currentChapter().title;
@@ -27,6 +88,7 @@ export function updateHUD() {
     $("exposure").className = missing.length ? "warn" : "good";
     $("exposureDetail").textContent =
       chapter.namespace + " · " + missing.length + " objectives remain";
+    showSteps($("objective").textContent ?? "");
     return;
   }
   let title, txt, phase;
@@ -100,11 +162,13 @@ export function updateHUD() {
   $("phase").textContent = phase;
   $("objectiveTitle").textContent = title;
   $("objective").textContent = txt;
+  showSteps(txt);
   const health = projectHealth(S);
   const bad = health.checkout === "DEGRADED";
   $("health").textContent = bad ? "DEGRADED" : "HEALTHY";
   $("health").className = bad ? "bad" : "good";
-  $("healthDetail").textContent = `${health.readyPods} / ${S.deployment.desiredReplicas} replicas ready · DNS ${health.dnsAllowed ? "allowed" : "blocked"} · ledger ${health.ledgerAllowed ? "allowed" : "blocked"}`;
+  $("healthDetail").textContent =
+    `${health.readyPods} / ${S.deployment.desiredReplicas} replicas ready · DNS ${health.dnsAllowed ? "allowed" : "blocked"} · ledger ${health.ledgerAllowed ? "allowed" : "blocked"}`;
   $("exposure").textContent =
     !health.externalAllowed && !bad
       ? "CONTAINED"
