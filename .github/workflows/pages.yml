@@ -28,10 +28,13 @@ jobs:
         run: npm ci
       - name: Verify resource and campaign models
         run: npm test
-      - name: Build static site
-        run: npm run build -- --base="/${GITHUB_REPOSITORY#*/}/"
       - name: Configure Pages
+        id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - name: Build static site
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: npm run build -- --base="${PAGES_BASE_PATH}/"
       - name: Upload static files
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
