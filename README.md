@@ -304,8 +304,26 @@ with E or nearby T to open the terminal. Notes travel with you. Use the Journey
 menu to review stages, and `case status` or `case hint` at the bastion for leads.
 Close the opening case and choose **Continue journey** at its debrief.
 
+Every chapter has a direct case question in **Case file**, with the exact
+record and field to inspect. Chapter 01 asks for the service account, release
+run and imported filename. Later cases ask for a concrete value such as an
+SCC name, quota, source IP or signing prerequisite. Use **Show hint** and,
+if needed, **Show answer**; incorrect answers can be retried without losing
+progress. Submit your answer after the displayed fixes and verification pass.
+The terminal conclusion commands remain available as an alternative.
+
+![Chapter 01 asks for specific names from the audit and release records.](docs/screenshots/direct-case-questions.jpg)
+
+![Later chapters name the exact evidence field and retain the required completion checks.](docs/screenshots/chapter-question-and-checks.jpg)
+
+[CASE_QUESTIONS.md](docs/CASE_QUESTIONS.md) lists the question and evidence source
+for every chapter. Character advice and `case hint` follow the actual remaining
+step; completed configuration and network fixes are acknowledged. Radio advice
+includes copyable commands, and witness notes retain their next action.
+
 Type `help` for commands. Read the current `campaign/XX/briefing.txt`, meet its
-witnesses, find its dossier, and complete both checks before `case conclude`.
+witnesses, find its dossier, and complete the displayed checks before submitting
+the case answer or using `case conclude`.
 Changes invalidate older checks, so verify the final state. Resources, reports
 and notes carry into the next stage.
 

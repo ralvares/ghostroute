@@ -22,9 +22,11 @@ import { switchPrompt } from "./terminal/shell.js";
 
 import { storyFiles } from "./missions/story.js";
 import clusterGuide from "../CLUSTER_GUIDE.md?raw";
+import caseQuestionGuide from "../docs/CASE_QUESTIONS.md?raw";
 import { registerDocuments } from "./simulation/filesystem.js";
 import { registerCampaignFiles } from "./campaign/engine.js";
 import { showCampaignEnding } from "./ui/campaign.js";
+import { updateOpeningBriefing } from "./ui/opening.js";
 registerCampaignFiles();
 registerDocuments({
   "README.md": `# prod-east bastion — investigator's desk
@@ -54,12 +56,15 @@ Useful places to look:
 TAB completes files and commands; Up/Down recalls history. Use cd, ls and cat to
 explore. Pipe long output to less (q quits, / searches). Notes save locally.
 case status shows what your current investigation still needs.
+Open Case file for the current case question, source fields and optional hints.
+Player question guide: cat docs/case-questions.md | less
 
 Cluster/API reference: cat docs/cluster-guide.md | less
 Optional practice manifests: cat lab.txt
 This desk connects to the same offline training cluster throughout the journey.
 `,
   "docs/cluster-guide.md": clusterGuide,
+  "docs/case-questions.md": caseQuestionGuide,
   ...storyFiles,
 });
 import { loadArtwork } from "./game/artwork.js";
@@ -81,6 +86,7 @@ if (S.started) {
   $("startBtn").textContent = "Resume the case →";
   $("evidenceCount").textContent = `${S.evidence.size} / 5`;
 }
+updateOpeningBriefing();
 if (S.campaign.active && S.campaign.completed.includes(S.campaign.active)) {
   $("opening").hidden = true;
   G.active = true;

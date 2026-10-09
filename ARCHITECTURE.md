@@ -1,5 +1,33 @@
 # ROADSHOW architecture and migration history
 
+## Direct case questions throughout the journey — 2026-10-09
+
+`missions/incident-guide.ts` owns Chapter 01's three concrete answers, source
+fields, per-answer feedback and state-derived next reading command.
+`ui/incident-investigation.ts` renders its checklist and answer form at the top
+of Case file. `missions/incident.ts` accepts either this form or the existing
+terminal conclusion through the same retained-evidence gate.
+
+`campaign/questions.ts` supplies a specific question, format, source field and
+progressive hint for every remaining chapter. Answers come directly from each
+chapter's manifest, so the answer key cannot drift from the shipped record.
+Briefings, `case status`, `case hint`, command plans and Case file expose the
+question. `ui/case-challenge.ts` owns retries, optional hint/answer disclosure
+and visible completion checks. Correct answers delegate to the existing
+closure gate and cannot bypass interviews, records, resource goals or fresh
+positive/negative proofs. Failed answers preserve simulation progress.
+Accepted answers persist in the existing incident flag or campaign report;
+UI closure schedules the same saved state as terminal completion. Older
+terminal conclusion commands remain available. Notebook paths use the
+registered `~/campaign/` files.
+
+`missions/guidance.ts` and `campaign/guidance.ts` derive the next actionable
+condition from the current state. HUD, character interviews, radio advice and
+`case hint` use these guides. Completed egress controls are acknowledged instead
+of prompting the player to reapply them. Remaining configuration, cause,
+rollout, permitted-path and blocked-path checks receive explicit actions.
+Radio commands can be copied; witness leads save their next step in the notebook.
+
 ## Offline API conformance foundation — 2026-10-09
 
 `simulation/incident-resources.ts` seeds the first case into the common store.
@@ -774,3 +802,7 @@ exact bytes. No host-clock dependency is introduced into saved gameplay.
 
 Design/browser evidence and remaining cosmetic differences are recorded in
 `design-qa.md`. The original legacy HTML remains unchanged.
+
+`ui/opening.ts` projects the saved chapter and next action into the resume
+briefing. Restart restores the original opening; importing a save updates the
+briefing to that save's chapter. No chapter state is changed by presentation.

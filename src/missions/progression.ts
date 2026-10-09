@@ -8,6 +8,7 @@ import { $ } from "../ui/dom.js";
 import { updateSceneHUD } from "../world/scenes.js";
 import { updateHUD } from "../ui/hud.js";
 import { attachJourneyButton } from "../ui/campaign.js";
+import { updateOpeningBriefing } from "../ui/opening.js";
 
 export function restart() {
   switchPrompt();
@@ -26,6 +27,7 @@ export function restart() {
   $("opening").hidden = false;
   G.active = false;
   $("startBtn").textContent = "Enter the district →";
+  updateOpeningBriefing();
   $("evidenceCount").textContent = "0 / 5";
   $("termOutput").innerHTML = "";
   updateSceneHUD();

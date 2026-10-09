@@ -47,7 +47,7 @@ test("chapter commands unlock with the interview and dossier rather than skippin
   state.campaign.interviews.push("kai");
   assert.ok(
     collectedCommands(state).some((l) =>
-      l.commands.includes("cat ~/cases/02/briefing.txt"),
+      l.commands.includes("cat ~/campaign/02/briefing.txt"),
     ),
   );
   assert.equal(
@@ -59,7 +59,7 @@ test("chapter commands unlock with the interview and dossier rather than skippin
     collectedCommands(state).some(
       (l) =>
         l.changes &&
-        l.commands.some((c) => c.startsWith("oc apply -f ~/cases/02/")),
+        l.commands.some((c) => c.startsWith("oc apply -f ~/campaign/02/")),
     ),
   );
 });

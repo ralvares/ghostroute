@@ -1494,3 +1494,232 @@ a:focus-visible {
   font: 600 13px/1.5 var(--sans);
   padding: 8px 0;
 }
+
+/* The case question is the first item in the notebook, with an explicit source. */
+#caseContext {
+  margin: 0 0 24px;
+  font: 400 13px/1.6 var(--sans);
+}
+.incidentInvestigation {
+  border-bottom: 1px solid var(--hud-border);
+  padding-bottom: 20px;
+}
+.investigationHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.incidentInvestigation h3 {
+  margin: 0;
+  color: #e9edf5;
+  font: 650 16px/1.4 var(--sans);
+}
+.investigationHeading > span {
+  flex-shrink: 0;
+  color: var(--hud-mint);
+  font-size: 12px;
+}
+.incidentInvestigation p {
+  margin: 10px 0;
+}
+.investigationSteps {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+}
+.investigationSteps > li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hud-border);
+}
+.investigationSteps .investigationMark {
+  color: #b1c3d7;
+  font-size: 16px;
+}
+.investigationSteps .reviewed .investigationMark {
+  color: var(--hud-mint);
+}
+#caseContext .investigationSteps details {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.investigationSteps summary {
+  color: #e9edf5;
+  cursor: pointer;
+  font: 600 13px/1.6 var(--sans);
+}
+.investigationStatus {
+  display: block;
+  font: 400 11px/1.5 var(--sans);
+  color: var(--hud-muted);
+}
+.next .investigationStatus {
+  color: var(--hud-cyan);
+}
+.investigationAction {
+  width: 100%;
+}
+.investigationFootnote {
+  color: var(--hud-muted);
+  font: 400 12px/1.5 var(--sans);
+}
+.incidentSolved {
+  color: #bde8d8;
+}
+.incidentQuestions {
+  border: 0;
+  margin: 16px 0;
+  padding: 0;
+  min-width: 0;
+}
+.incidentQuestions > legend {
+  font: 600 13px/1.5 var(--sans);
+  color: var(--hud-muted);
+}
+.incidentQuestion {
+  margin: 18px 0;
+}
+.incidentQuestion > label {
+  display: block;
+  color: #e9edf5;
+  font: 600 16px/1.5 var(--sans);
+}
+.incidentQuestionSource {
+  margin: 7px 0 12px;
+  font: 400 12px/1.6 var(--sans);
+  color: #bac9da;
+  overflow-wrap: anywhere;
+}
+.incidentQuestion input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border: 1px solid #637c94;
+  border-radius: 5px;
+  background: #101c29;
+  color: #e9edf5;
+  padding: 10px 12px;
+  font: 400 14px/1.5 var(--mono);
+}
+.incidentQuestion input:focus-visible {
+  outline: 2px solid var(--hud-cyan);
+  outline-offset: 3px;
+}
+.incidentQuestion input[aria-invalid="true"] {
+  border-color: #fda18a;
+}
+.incidentQuestionHelp {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+  margin-top: 9px;
+}
+.incidentQuestionHelp p {
+  flex: 1;
+  margin: 0;
+  color: #d1deee;
+  font: 400 12px/1.5 var(--sans);
+  overflow-wrap: anywhere;
+}
+.incidentQuestionHelp button {
+  flex-shrink: 0;
+  min-height: 36px;
+  color: #a4e7fa;
+  background: transparent;
+  border: 1px solid #4a8197;
+  border-radius: 4px;
+  padding: 6px 9px;
+  font: 600 12px/1.5 var(--sans);
+}
+.incidentExplanationFeedback {
+  white-space: pre-wrap;
+  color: #ffceaa;
+  font: 400 13px/1.6 var(--sans);
+}
+.incidentExplanationFeedback:empty {
+  display: none;
+}
+.incidentMissing {
+  padding: 12px;
+  border-left: 2px solid #ffceaa;
+  background: #182431;
+  font: 400 13px/1.6 var(--sans);
+}
+.campaignQuestionPrompt {
+  color: #e9edf5;
+  font: 600 15px/1.5 var(--sans);
+}
+.campaignCheckList {
+  padding: 16px 0;
+  border-top: 1px solid var(--hud-border);
+}
+.campaignCheckList > summary {
+  cursor: pointer;
+  font: 600 14px/1.5 var(--sans);
+  color: #d1edf5;
+}
+@media (max-width: 600px) {
+  .incidentQuestionHelp button {
+    min-height: 44px;
+  }
+}
+.radioContent {
+  min-width: 0;
+  max-height: min(45svh, 360px);
+  overflow-y: auto;
+}
+.witnessNext {
+  border-top: 1px solid var(--hud-border);
+  margin: 18px 0;
+  padding-top: 16px;
+}
+.witnessNext h3 {
+  color: #bfe8f5;
+  font: 600 16px/1.5 var(--sans);
+}
+/* Keep answer and hint on the same row so three short questions fit together. */
+.incidentQuestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  margin: 14px 0;
+}
+.incidentQuestion > label,
+.incidentQuestionSource,
+.incidentQuestion > .notebookCommand {
+  grid-column: 1 / -1;
+}
+.incidentQuestionSource {
+  margin: 0;
+}
+.incidentQuestion input {
+  grid-column: 1;
+  margin: 0;
+}
+.incidentQuestionHelp {
+  display: contents;
+}
+.incidentQuestionHelp button {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: center;
+  min-height: 44px;
+}
+.incidentQuestion:has(> .notebookCommand) .incidentQuestionHelp button {
+  grid-row: 4;
+}
+.incidentQuestionHelp p {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+.incidentQuestion:has(> .notebookCommand) .incidentQuestionHelp p {
+  grid-row: 5;
+}
+.incidentQuestionHelp p:empty {
+  display: none;
+}

@@ -120,6 +120,10 @@ export function registerControls() {
     )
       return;
     if (G.detailOpen) {
+      if (e.target instanceof HTMLElement && e.target.closest("form")) {
+        if (e.key === "Escape") { e.preventDefault(); closeDetail(); }
+        return;
+      }
       if (e.key === "Escape" || e.key === "Enter") {
         e.preventDefault();
         closeDetail();

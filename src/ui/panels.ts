@@ -11,12 +11,14 @@ import { showEnding } from "../missions/progression.js";
 import { esc } from "../ui/notifications.js";
 import { showCampaignCase } from "./campaign.js";
 import { campaignChecks, currentChapter } from "../campaign/engine.js";
+import { incidentInvestigationHTML, registerIncidentInvestigation } from "./incident-investigation.js";
+import { chapterQuestion } from "../campaign/questions.js";
 
-export function openDetail(html: string) {
+export function openDetail(html: string, footerHint = "This is evidence, not a one-click fix.") {
   G.detailOpen = true;
   $("detailsBody").innerHTML =
     html +
-    `<div class="modal-foot"><span class="hint">This is evidence, not a one-click fix.</span><button type="button" class="btnquiet" id="detailDone">Return to world ↵</button></div>`;
+    `<div class="modal-foot"><span class="hint">${esc(footerHint)}</span><button type="button" class="btnquiet" id="detailDone">Return to world ↵</button></div>`;
   $("details").hidden = false;
   $("detailDone").addEventListener("click", closeDetail);
 }
@@ -98,8 +100,9 @@ export function showCase() {
       );
     const context = document.getElementById("caseContext")!;
     context.innerHTML = S.campaign.active
-      ? `<button class="btnquiet caseContextButton" id="caseObjectives">Current objectives · ${campaignChecks().filter((g) => g.passed).length} / ${campaignChecks().length} complete</button>`
-      : `${S.evidence.size ? `<details><summary>Who changed it, and how?</summary><p>${S.incident.auditSeen ? "✓" : "○"} Build-bot audit request · ${S.incident.releaseSeen ? "✓" : "○"} Matching release run · ${S.incident.accessSeen ? "✓" : "○"} Permission review · ${S.incident.explained ? "✓ Cause explained" : "○ Cause not explained"}</p><p>At the bastion: <code>case hint</code>.</p></details>` : ""}${S.done ? '<button type="button" class="btnquiet" id="caseDebrief">Return to debrief</button>' : ""}`;
+      ? `<section class="incidentInvestigation"><h3>Your case question</h3><p class="campaignQuestionPrompt">${esc(chapterQuestion(chapter).question)}</p><p>Read <code>${esc(chapterQuestion(chapter).command.slice(4))}</code>, field <code>${esc(chapterQuestion(chapter).field)}</code>.</p><button type="button" class="btnquiet caseContextButton" id="caseObjectives">View checks and answer · ${campaignChecks().filter((g) => g.passed).length} / ${campaignChecks().length} complete</button><p class="investigationFootnote">Hints and retries are available. Finish your fixes and verification before submitting.</p></section>`
+      : `${incidentInvestigationHTML()}${S.done ? '<button type="button" class="btnquiet" id="caseDebrief">Return to debrief</button>' : ""}`;
+    if (!S.campaign.active) registerIncidentInvestigation();
     document.getElementById("caseDebrief")?.addEventListener("click", () => {
       closeCaseFile();
       showEnding();

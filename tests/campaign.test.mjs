@@ -11,6 +11,7 @@ import {
   campaignChecks,
   runCampaignProbe,
   concludeCampaign,
+  concludeCampaignAnswer,
   observeCampaignCommand,
 } from "../.test-build/src/campaign/engine.js";
 import {
@@ -26,6 +27,7 @@ import {
   decodeProgress,
 } from "../.test-build/src/simulation/snapshot.js";
 import { flow, resource } from "../.test-build/src/campaign/models.js";
+import { chapterQuestion } from "../.test-build/src/campaign/questions.js";
 import {
   removeTelemetry,
   applyPolicy,
@@ -117,7 +119,7 @@ test("27 chapters can be completed in order through the real resource/admission 
       [],
       ch.id,
     );
-    concludeCampaign(ch.conclusion);
+    concludeCampaignAnswer(chapterQuestion(ch).answer);
   }
   assert.equal(S.campaign.finished, true);
   assert.match(

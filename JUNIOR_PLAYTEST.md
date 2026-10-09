@@ -138,3 +138,28 @@ Primary references used to check the specific boundaries:
 [Kubernetes audit](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/),
 [Tekton Pipeline API](https://tekton.dev/docs/pipelines/pipeline-api/),
 [External Secrets Vault authentication](https://external-secrets.io/latest/provider/hashicorp-vault/).
+
+## Direct case questions and actionable dialogue — 2026-10-09
+
+- All 27 chapters have a direct question, a named evidence field and optional
+  hints or answer disclosure. Later answers are read from the shipped manifests.
+- Browser play completed Chapter 01 by reading logs/config, applying the intended
+  egress policy, removing the telemetry setting, reading the three cause records,
+  submitting the answers, and proving rollout, ledger HTTP 200 and external
+  timeout. Fixing before answering did not require a reset.
+- An incorrect caller preserved the two correct answers. Hints and answer
+  disclosure worked. Rhea acknowledged completed configuration/network changes
+  and requested the actual remaining case answers.
+- Browser play checked Chapter 02's image question and source, incorrect-answer
+  retry, and its nine visible completion checks. A correct answer did not bypass
+  those checks. Reload resumed Chapter 02's own story and next action. Radio Copy
+  copied the displayed command without executing it.
+- The isolated release candidate passed 250 tests. Its ordered engine journey
+  closes Chapters 02–27 through the factual-answer route. This run did not
+  manually replay all 27 chapters in the browser.
+- Fresh screenshots: `docs/screenshots/direct-case-questions.jpg` and
+  `docs/screenshots/chapter-question-and-checks.jpg`. The full question/source
+  index is `docs/CASE_QUESTIONS.md`, also readable from the bastion with
+  `cat docs/case-questions.md | less`.
+- These changes improve guidance and closure UX; they do not expand native
+  command or controller coverage.

@@ -1,4 +1,8 @@
 import { explainIncident } from "../missions/incident.js";
+import { incidentHint } from "../missions/incident-guide.js";
+import { chapterQuestion } from "../campaign/questions.js";
+import { campaignNextAction } from "../campaign/guidance.js";
+import { incidentNextAction } from "../missions/guidance.js";
 import { S } from "../simulation/state.js";
 import { showEnding } from "../missions/progression.js";
 import {
@@ -21,12 +25,16 @@ export function campaignCommand(raw: string) {
       if (S.done && !S.campaign.active) showEnding();
     } else if (words[1] === "hint") {
       if (!S.campaign.active) {
-        print(
-          "First explain the change: cat audit/kube-apiserver.log; cat case/release-job.json; cat case/permission-review.yaml. Correlate the auditID and import-support-config step. Then case explain release-import. Preserve checkout and verify containment.",
-        );
+        const next = incidentNextAction(S);
+        print("Next: " + next.title + "\n" + next.detail + (next.commands.length ? "\n" + next.commands.join("\n") : ""));
+        print(incidentHint(S.incident));
         return true;
       }
       const ch = currentChapter();
+      const next = campaignNextAction();
+      print("Next: " + next.title + "\n" + next.detail + (next.commands.length ? "\n" + next.commands.join("\n") : ""));
+      const question = chapterQuestion(ch);
+      print("Case question: " + question.question + "\nRead: " + question.command + "\nField: " + question.field + "\nAnswer in Case file after completing the resource and verification checks. Use Show hint if you need help.");
       print(
         "Read " +
           chapterRoot() +
@@ -62,7 +70,7 @@ export function campaignCommand(raw: string) {
     } else if (words[1] === "next") continueJourney();
     else
       printError(
-        "Use case status, case hint, case test <id>, case conclude <finding>, case next.",
+        "Use case status, case hint, case explain <finding>, case test <id>, case conclude <finding>, case next.",
       );
   } catch (error) {
     printError((error as Error).message);

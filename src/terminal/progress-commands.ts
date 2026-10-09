@@ -11,6 +11,7 @@ import { showEnding } from "../missions/progression.js";
 import { closeRadio } from "../characters/dialogue.js";
 import { closeDetail } from "../ui/panels.js";
 import { showCampaignEnding } from "../ui/campaign.js";
+import { updateOpeningBriefing } from "../ui/opening.js";
 
 export async function progressCommand(raw: string) {
   if (!raw.startsWith("game ")) return false;
@@ -66,6 +67,7 @@ export async function progressCommand(raw: string) {
         G.active = false;
         $("termOutput").textContent = "";
         $("opening").hidden = false;
+        updateOpeningBriefing();
         $("startBtn").textContent = S.started
           ? "Resume the case →"
           : "Enter the cluster →";

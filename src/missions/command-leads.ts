@@ -1,6 +1,8 @@
 import type { SimulationState } from "../simulation/state.js";
 import { chapters } from "../campaign/catalog.js";
 import { incidentRecords } from "./incident-records.js";
+import { chapterQuestion } from "../campaign/questions.js";
+import { incidentNextAction } from "./guidance.js";
 
 export interface CommandLead {
   source: string;
@@ -13,7 +15,7 @@ export function collectedCommands(state: SimulationState): CommandLead[] {
   const leads: CommandLead[] = [];
   if (state.campaign.active) {
     const chapter = chapters[state.campaign.active],
-      root = `~/cases/${chapter.id}/`,
+      root = `~/campaign/${chapter.id}/`,
       ns = chapter.namespace;
     if (
       state.campaign.interviews.length ||
@@ -130,10 +132,19 @@ export function collectedCommands(state: SimulationState): CommandLead[] {
           "case status",
         ],
       });
+      leads.push({
+        source: "Case question",
+        purpose: chapterQuestion(chapter).question + " Read field " + chapterQuestion(chapter).field + ", then answer in Case file. Hints are available.",
+        commands: [chapterQuestion(chapter).command],
+      });
     }
     return leads.filter((l) => l.commands.length);
   }
   const found = (id: string) => state.story.discoveries.includes(id);
+  if (state.evidence.size || state.story.discoveries.length) {
+    const next = incidentNextAction(state);
+    if (next.commands.length) leads.push({ source: "Next case step: " + next.title, purpose: next.detail, commands: next.commands });
+  }
   if (state.evidence.size || !state.env || state.policy !== "none")
     leads.push({
       source: "Rhea · retained incident records",

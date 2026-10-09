@@ -1,4 +1,5 @@
 import {runtimePanel,bindRuntimePanel} from "../ui/rhacs-runtime.js";
+import { incidentNextAction } from "../missions/guidance.js";
 import {centralPolicies} from "../security/rhacs/policies.js";
 import { discover } from "./story.js";
 import { scheduleSave } from "../simulation/persistence.js";
@@ -201,13 +202,11 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
   }
   if (o.id === "rhea") {
     addClue("rhacs");
+    const next = incidentNextAction(S);
     radio(
       "RHEA",
-      !S.evidence.has("logs")
-        ? "RHACS observed payment-api → 203.0.113.77:443, outside its learned baseline. That is a lead, not proof of compromise. Take my incident report to Mira in the prod-east lobby for worker-room access. Kai handled the release; Vale keeps the audit trail. The bastion is beside me. The maintenance keycard is in the locker."
-        : S.env
-          ? "The logs and config are connected. A setting was changed. Don't forget to verify both the bad path and the good path after remediation."
-          : "You stopped the application's suspicious behavior. Now ensure the cluster enforces the intended boundary.",
+      "RHACS observed payment-api → 203.0.113.77:443 outside its baseline. " + next.title + (next.title.endsWith("?") ? " " : ". ") + next.detail,
+      next.commands,
     );
     return;
   }
@@ -229,14 +228,8 @@ cat policies/payments-egress.yaml</pre><p>Watch the live health map when you app
       );
       return;
     }
-    radio(
-      "MIRA",
-      S.policy === "deny"
-        ? "Default-deny was too broad by itself. Open the policy files in your simulated home directory: compare deny-all.yaml with payments-egress.yaml."
-        : S.policy === "allow"
-          ? "A fix is only useful if it preserves service. Open a Pod shell and curl both the ledger and the untrusted address."
-          : "The payments namespace spans both worker rooms. Kai is in Operations: ask what changed in the release. His handover is also on the worker-01 desk. Vale keeps the archive audit trail; your maintenance keycard opens its door. At the bastion, correlate the release records with the API patch before deciding what happened.",
-    );
+    const next = incidentNextAction(S);
+    radio("MIRA", next.title + (next.title.endsWith("?") ? " " : ". ") + next.detail, next.commands);
     return;
   }
 }

@@ -7,6 +7,9 @@ import { updateWorkbench } from "./workbench.js";
 import { currentChapter, campaignChecks } from "../campaign/engine.js";
 import { esc } from "./notifications.js";
 import { G } from "../game/runtime.js";
+import { missingIncidentEvidence } from "../missions/incident-guide.js";
+import { incidentNextAction } from "../missions/guidance.js";
+import { campaignNextAction } from "../campaign/guidance.js";
 
 function showSteps(text: string) {
   const initial = !S.campaign.active && S.env && S.evidence.size < 2;
@@ -81,9 +84,7 @@ export function updateHUD() {
     $("objectiveTitle").textContent = chapter.title;
     $("objective").textContent = S.campaign.finished
       ? "All 27 cases are closed. Your verified handover, controls and notes remain in prod-east."
-      : (missing[0]?.label ??
-        "Conclude the case at the bastion: case conclude " +
-          chapter.conclusion);
+      : campaignNextAction().detail;
     $("exposure").textContent = missing.length ? "UNVERIFIED" : "VERIFIED";
     $("exposure").className = missing.length ? "warn" : "good";
     $("exposureDetail").textContent =
@@ -95,8 +96,10 @@ export function updateHUD() {
   if (!S.incident.explained && S.evidence.size >= 3) {
     phase = "CASE 018 · EXPLAIN THE CHANGE";
     title = "Who changed the telemetry?";
-    txt =
-      "Correlate the build-bot audit request, case/release-job.json and case/permission-review.yaml. Explain the mechanism before closing the incident.";
+    const missing = missingIncidentEvidence(S.incident);
+    txt = missing.length
+      ? `${missing[0].title}: ${missing[0].command}. Case file explains what to look for and keeps a copy of the command.`
+      : "All three records reviewed. Open Case file and choose Answer case questions: who patched it, which release, and which imported file?";
   } else if (S.done) {
     phase = "CASE 018 · RESOLVED";
     title = "Route secured. District restored.";
@@ -158,6 +161,11 @@ export function updateHUD() {
       txt =
         "Ask Kai why the owned application needs root. Take his build notes back to the bastion for the SCC lab.";
     }
+  }
+  if (!S.done && (S.evidence.size >= 2 || !S.env || S.policy !== "none")) {
+    const next = incidentNextAction(S);
+    title = next.title;
+    txt = next.detail + (next.commands.length ? " At the bastion: " + next.commands[0] : "");
   }
   $("phase").textContent = phase;
   $("objectiveTitle").textContent = title;

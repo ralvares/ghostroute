@@ -16,6 +16,7 @@ import {
 } from "./models.js";
 import { tokenize } from "../terminal/lexer.js";
 import type { Chapter, Witness } from "./types.js";
+import { chapterQuestion, checkChapterAnswer } from "./questions.js";
 
 export const currentChapter = () => chapters[S.campaign.active];
 export const chapterRoot = (ch = currentChapter()) => "campaign/" + ch.id + "/";
@@ -40,6 +41,9 @@ export function registerCampaignFiles() {
           " · " +
           chapters[Number(ch.id) - 2].outcome,
         "TENANT: " + ch.namespace,
+        "CASE QUESTION: " + chapterQuestion(ch).question,
+        "ANSWER SOURCE: " + chapterQuestion(ch).file + " · field " + chapterQuestion(ch).field,
+        "Answer in Case file. Hints and retries are available; your fixes and verification are still required.",
         "Meet: " +
           ch.witnesses
             .map((w) => w.who.toUpperCase() + " in " + w.scene)
@@ -309,6 +313,12 @@ export function concludeCampaign(conclusion: string) {
   S.campaign.finished = S.campaign.active === chapters.length - 1;
   return ch;
 }
+export function concludeCampaignAnswer(answer: string) {
+  const ch = currentChapter(),
+    result = checkChapterAnswer(ch, answer);
+  if (!result.correct) throw new Error(result.feedback);
+  return concludeCampaign(ch.conclusion);
+}
 export function campaignStatus() {
   const ch = currentChapter();
   if (!S.campaign.active)
@@ -334,7 +344,10 @@ export function campaignStatus() {
     campaignChecks()
       .map((g) => (g.passed ? "[✓] " : "[ ] ") + g.label)
       .join("\n") +
-    "\nConclusion: case conclude " +
+    "\nCase question: " + chapterQuestion(ch).question +
+    "\nRead: " + chapterQuestion(ch).command + " · field " + chapterQuestion(ch).field +
+    "\nAnswer in Case file when the checks above pass. Hints and retries are available." +
+    "\nTerminal alternative: case conclude " +
     ch.conclusion
   );
 }

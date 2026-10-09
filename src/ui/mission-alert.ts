@@ -2,6 +2,9 @@ import { missionAlert } from "../simulation/mission-alerts.js";
 import { radio } from "../characters/dialogue.js";
 import { closeTerminal } from "../terminal/shell.js";
 import { esc } from "./notifications.js";
+import { S } from "../simulation/state.js";
+import { incidentNextAction } from "../missions/guidance.js";
+import { campaignNextAction } from "../campaign/guidance.js";
 let signature = "";
 export function updateMissionAlert() {
   let panel = document.getElementById("missionAlert");
@@ -36,6 +39,7 @@ export function updateMissionAlert() {
   panel.innerHTML = `<strong>${esc(issue.title)}</strong><p>${esc(issue.cause)}</p><p class="missionNext">${esc(issue.next)}</p><button type="button">Hear ${esc(issue.who[0] + issue.who.slice(1).toLowerCase())}'s advice</button>`;
   panel.querySelector("button")!.addEventListener("click", () => {
     closeTerminal();
-    radio(issue.who, issue.cause + " " + issue.next);
+    const next = S.campaign.active ? campaignNextAction() : incidentNextAction(S);
+    radio(issue.who, issue.cause + " " + issue.next + " Your next case step: " + next.title + ". " + next.detail, next.commands);
   });
 }

@@ -22,7 +22,7 @@ export function updateCommandNotebook() {
   }
 }
 export function registerCommandNotebook() {
-  for (const id of ["caseCommands", "bastionCommands", "detailsBody"])
+  for (const id of ["caseCommands", "bastionCommands", "caseContext", "detailsBody"])
     document.getElementById(id)?.addEventListener("click", async (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
         "[data-copy-command]",

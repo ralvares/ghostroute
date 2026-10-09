@@ -15,6 +15,8 @@ import { updateSceneHUD } from "../world/scenes.js";
 import { esc, toast } from "./notifications.js";
 import { projectHealth } from "../simulation/health.js";
 import { scheduleSave } from "../simulation/persistence.js";
+import { campaignChallengeHTML, registerCampaignChallenge } from "./case-challenge.js";
+import { campaignNextAction } from "../campaign/guidance.js";
 
 export function continueJourney() {
   try {
@@ -180,36 +182,8 @@ export function showJourney() {
 }
 export function showCampaignCase() {
   closeTerminal();
-  const ch = currentChapter();
-  openDetail(
-    '<div class="eyebrow">CHAPTER ' +
-      ch.id +
-      " / " +
-      chapters.length +
-      " · " +
-      esc(ch.namespace) +
-      "</div><h2>" +
-      esc(ch.title) +
-      "</h2><p>" +
-      esc(ch.hook) +
-      '</p><ul class="chapterChecks">' +
-      campaignChecks()
-        .map(
-          (g) =>
-            '<li class="' +
-            (g.passed ? "good" : "") +
-            '">' +
-            (g.passed ? "✓ " : "○ ") +
-            esc(g.label) +
-            "</li>",
-        )
-        .join("") +
-      "</ul><p>At the bastion: <code>cat " +
-      chapterRoot() +
-      'briefing.txt</code></p><p class="caseRisk">' +
-      esc(ch.risk) +
-      "</p>",
-  );
+  openDetail(campaignChallengeHTML(), "Submit your answer after the displayed completion checks pass.");
+  registerCampaignChallenge();
 }
 export function campaignInterview(who: string) {
   if (!S.campaign.active) return false;
@@ -219,6 +193,7 @@ export function campaignInterview(who: string) {
   const here = w.scene === S.world.scene;
   if (here && !S.campaign.interviews.includes(w.who))
     S.campaign.interviews.push(w.who);
+  const next = campaignNextAction();
   openDetail(
     '<div class="eyebrow">INTERVIEW · ' +
       esc(who.toUpperCase()) +
@@ -238,10 +213,10 @@ export function campaignInterview(who: string) {
       (here
         ? "Interview recorded in the case."
         : "Meet me in " + esc(w.scene) + " to record this interview.") +
-      '</p><button class="btnquiet" id="campaignLead">Keep this lead in notebook</button>',
+      `</p><section class="witnessNext"><h3>Next: ${esc(next.title)}</h3><p>${esc(next.detail)}</p>${next.commands.map((command) => `<div class="notebookCommand"><code>${esc(command)}</code><button type="button" data-copy-command="${esc(command)}" aria-label="Copy command: ${esc(command)}">Copy</button></div>`).join("")}</section><button class="btnquiet" id="campaignLead">Keep this lead in notebook</button>`,
   );
   document.getElementById("campaignLead")!.addEventListener("click", () => {
-    const lead = who.toUpperCase() + " · " + w.text;
+    const lead = who.toUpperCase() + " · " + w.text + "\nNext: " + next.title + ". " + next.detail + (next.commands.length ? "\n" + next.commands.join("\n") : "");
     if (!S.story.notes.includes(lead)) S.story.notes += "\n\n" + lead;
     updateHUD();
     scheduleSave();
@@ -323,6 +298,7 @@ export function showCampaignContext(who: string) {
       ch.title +
       "; do not substitute an older incident’s evidence.",
   };
+  const next = campaignNextAction();
   openDetail(
     '<div class="eyebrow">' +
       esc(who.toUpperCase()) +
@@ -332,6 +308,6 @@ export function showCampaignContext(who: string) {
       esc(ch.district) +
       ". Current tenant: " +
       esc(ch.namespace) +
-      ".</p>",
+      `.</p><section class="witnessNext"><h3>Next: ${esc(next.title)}</h3><p>${esc(next.detail)}</p>${next.commands.map((command) => `<div class="notebookCommand"><code>${esc(command)}</code><button type="button" data-copy-command="${esc(command)}" aria-label="Copy command: ${esc(command)}">Copy</button></div>`).join("")}</section>`,
   );
 }

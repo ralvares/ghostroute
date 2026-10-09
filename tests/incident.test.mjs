@@ -30,7 +30,7 @@ test("first incident needs linked audit, delivery record and permission evidence
     incidentFiles["case/permission-review.yaml"],
     false,
   );
-  assert.throws(() => explainIncident("release-import"), /Read the audit/);
+  assert.throws(() => explainIncident("release-import"), /permission review/);
   observeIncidentCommand(
     "cat case/permission-review.yaml",
     incidentFiles["case/permission-review.yaml"],
