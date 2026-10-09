@@ -201,7 +201,7 @@ function podCells(pod: Resource, now: number): unknown[] {
     reason,
     `${restarts}${restarts && last ? ` (${age(last, now)} ago)` : ""}`,
     age(pod.metadata.creationTimestamp, now),
-    status.podIPs?.[0]?.ip || "<none>",
+    status.podIP || status.podIPs?.[0]?.ip || "<none>",
     spec.nodeName || "<none>",
     status.nominatedNodeName || "<none>",
     gates.length ? `${gateReady}/${gates.length}` : "<none>",

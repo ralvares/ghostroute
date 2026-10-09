@@ -47,6 +47,12 @@ export function collectEvidence(id: ClueId) {
 
 export function testConnection(destination: "ledger" | "external" | "dns") {
   const allowed = S.pods.some(p => p.ready) && S.incidentNetwork[destination];
+  recordConnectionResult(destination, allowed);
+  return allowed;
+}
+
+/** Credit actual diagnostic results, including single-command exec as well as rsh. */
+export function recordConnectionResult(destination: "ledger" | "external" | "dns", allowed: boolean) {
   const check =
     destination === "ledger"
       ? "positive"
@@ -59,7 +65,6 @@ export function testConnection(destination: "ledger" | "external" | "dns") {
     else S.checked.delete(check);
   }
   record("connectivity.tested", { destination, allowed });
-  return allowed;
 }
 
 export function verifyRollout() {

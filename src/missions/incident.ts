@@ -1,13 +1,14 @@
 import { S } from "../simulation/state.js";
 import { resolvePath, HOME } from "../simulation/filesystem.js";
 import { tokenize } from "../terminal/lexer.js";
+import { reviewedIncidentRecords } from "./incident-records.js";
 
 export function observeIncidentCommand(
   raw: string,
   output: string,
   successful: boolean,
 ) {
-  if (!successful) return;
+  if (!successful) return [];
   const tokens = tokenize(raw),
     values = tokens.map((t) => t.value);
   if (
@@ -45,6 +46,7 @@ export function observeIncidentCommand(
     output.includes("patch")
   )
     S.incident.accessSeen = true;
+  return reviewedIncidentRecords(raw, output, S.cluster.cwd);
 }
 export function explainIncident(finding: string) {
   if (

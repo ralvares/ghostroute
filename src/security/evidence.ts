@@ -13,19 +13,19 @@ export const clues = {
   },
   trace: {
     name: "Trace to payment-api",
-    text: "The unapproved connection originates from payment-api Pods on both workers—not from the internal ledger service.",
+    text: "The retained trace places the unapproved connection at payment-api Pods on both workers. The source was not the internal ledger service.",
   },
   logs: {
     name: "Application log anomaly",
-    text: "The container logs record a telemetry POST to the unapproved endpoint. The request payload and intent are not established by these logs.",
+    text: "The preserved container logs record a telemetry POST to the unapproved endpoint. The request payload and intent are not established by these logs.",
   },
   env: {
     name: "Deployment configuration",
-    text: "The payment-api Deployment sets TELEMETRY_ENDPOINT=https://203.0.113.77/upload. That value is an unexpected application configuration change.",
+    text: "Before remediation, the payment-api Deployment set TELEMETRY_ENDPOINT=https://203.0.113.77/upload. The snapshot preserves the unexpected application configuration change.",
   },
   policy: {
     name: "Missing egress boundary",
-    text: "No egress NetworkPolicy selects payment-api. Without egress isolation, an accidental or malicious connection can reach external addresses.",
+    text: "At the start of the incident, no egress NetworkPolicy selected payment-api. Without egress isolation, an accidental or malicious connection could reach external addresses.",
   },
 };
 

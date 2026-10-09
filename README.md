@@ -203,13 +203,15 @@ shapes, not a live Collector capture.
 
 Your [auditing demo](https://github.com/ralvares/security-demos/tree/6954a942a4d1a19b172f510e10e5838fa7ede6ad/use_cases/auditing)
 contributes a separate historical reference archive and a TypeScript adaptation
-of its custom timemachine plugin. It does not execute Python or Bash. The 34
+of its custom timemachine plugin. It does not execute Python or Bash. The 40
 selected original events preserve their timestamps, identities and source IPs;
 they are not presented as events from prod-east.
 
 ```sh
 cat forensics/README.md
 oc timemachine --auditlog-file ~/forensics/reference-audit.log get deployments -n frontend --time 2025-12-10T06:31:00Z -o json
+oc timemachine --auditlog-file ~/forensics/reference-audit.log get pods -n frontend -o wide
+oc timemachine --auditlog-file ~/forensics/reference-audit.log get services -n frontend -o wide
 cat forensics/reference-audit.log | jq 'select(.user.username == "system:serviceaccount:payments:visa-processor") | {time: .requestReceivedTimestamp, sourceIPs, verb, objectRef}'
 ```
 
@@ -217,6 +219,18 @@ Real installations need the custom plugin installed. Current port scope:
 retained-object snapshots, explicit time zones, successful writes, direct
 object history, selectors and JSON/YAML/table output. Recursive ownership
 lineage and full upstream history formatting remain outside this adapter.
+Wide output uses the same resource tables as `oc get`: Deployments show their
+containers, images and selectors; Pod IPs and Service ClusterIPs belong to
+their respective resource tables. Pod addresses retained in OVN annotations
+are recovered for the historical table without rewriting the source records.
+
+You can fix the opening incident before collecting every clue. Rhea's five
+original observations remain in **Case file** and `~/case/incident-018/` at the
+bastion. Reviewing a retained record collects evidence without reapplying the
+old configuration or removing your policies. The board distinguishes current
+remediation from evidence review, and the debrief lets you return to the case
+without restarting. Notes now include copyable commands from collected leads;
+your handwritten notes stay intact and both survive local save/resume.
 
 ## The 27 stages
 

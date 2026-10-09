@@ -11,8 +11,13 @@ import { progressStatus, scheduleSave } from "../simulation/persistence.js";
 import { currentChapter, campaignChecks } from "../campaign/engine.js";
 import { chapters } from "../campaign/catalog.js";
 import { showJourney } from "./campaign.js";
+import {
+  updateCommandNotebook,
+  registerCommandNotebook,
+} from "./notebook-commands.js";
 const el = (id: string) => document.getElementById(id)!;
 export function syncNotebook() {
+  updateCommandNotebook();
   for (const id of ["caseNotes", "bastionNotes"]) {
     const field = el(id) as HTMLTextAreaElement;
     if (field.value !== S.story.notes) field.value = S.story.notes;
@@ -39,6 +44,7 @@ export function updateWorkbench() {
     syncNotebook();
     return;
   }
+  el("evidenceCount").textContent = `${S.evidence.size} / 5`;
   el("anomalyText").textContent = S.findings.baselineDeviation
     ? "Unexpected payment-api egress"
     : S.env
@@ -73,6 +79,7 @@ function updateLocalStatus() {
     offlineStatus.error || progressStatus.error || offline;
 }
 export function registerWorkbench() {
+  registerCommandNotebook();
   for (const id of ["caseNotes", "bastionNotes"])
     el(id).addEventListener("input", (event) => {
       S.story.notes = (event.target as HTMLTextAreaElement).value;

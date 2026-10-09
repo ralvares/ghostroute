@@ -292,13 +292,13 @@ export function drawLabels(t: number) {
           280 * scale,
           Math.max(
             88 * scale,
-            titleWidth + 24 * scale,
-            Math.min(250 * scale, subWidth + 24 * scale + badge),
+            titleWidth + 30 * scale,
+            Math.min(250 * scale, subWidth + 30 * scale + badge),
           ),
         ),
         height: 50 * scale,
         compactHeight: 32 * scale,
-        compactWidth: Math.max(72 * scale, titleWidth + 24 * scale),
+        compactWidth: Math.max(72 * scale, titleWidth + 30 * scale),
         preferredRise: o.kind === "portal" ? (o.markerRise ?? 75) : undefined,
         compactOnly: o.kind === "portal" && state === "far",
       };
@@ -339,13 +339,6 @@ export function drawLabels(t: number) {
     { x: G.cameraX, y: G.cameraY, width: C.width, height: C.height },
     blockers,
   );
-  const fit = (text: string, width: number, font: string) => {
-    ctx.font = font;
-    if (ctx.measureText(text).width <= width) return text;
-    while (text.length && ctx.measureText(text + "…").width > width)
-      text = text.slice(0, -1);
-    return text + "…";
-  };
   for (const label of labels) {
     const { object: o, x, y, width, height, compact } = label;
     const objective = G.markerObjectives[o.id];
@@ -388,61 +381,6 @@ export function drawLabels(t: number) {
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else line(o.x, o.y + 25, nearestX, y, "#799aab80", 1);
-    drawRounded(
-      x,
-      y,
-      width,
-      height,
-      5,
-      "#080d16f2",
-      highlighted ? "#4dd5fa" : "#e9edf560",
-    );
-    let textX = x + 10 * scale;
-    if (onRing || objective) {
-      const bx = x + 10 * scale,
-        by = y + (height - 22 * scale) / 2;
-      if (onRing)
-        drawRounded(bx, by, 22 * scale, 22 * scale, 4 * scale, "#4dd5fa");
-      else {
-        ctx.beginPath();
-        ctx.arc(bx + 11 * scale, by + 11 * scale, 11 * scale, 0, Math.PI * 2);
-        ctx.fillStyle = highlighted ? "#4dd5fa" : "#080d16";
-        ctx.strokeStyle = highlighted ? "#4dd5fa" : "#e9edf580";
-        ctx.fill();
-        ctx.stroke();
-      }
-      drawText(
-        onRing ? "E" : String(objective.number),
-        bx + 11 * scale,
-        by + 15 * scale,
-        highlighted ? "#07111a" : "#e9edf5",
-        `700 ${12 * scale}px JetBrains Mono,monospace`,
-        "center",
-      );
-      textX += 30 * scale;
-    }
-    const font = `700 ${titleSize}px JetBrains Mono,monospace`;
-    drawText(
-      fit(
-        onRing ? "Enter " + o.label : o.label,
-        x + width - textX - 10 * scale,
-        font,
-      ),
-      textX,
-      y + (compact ? 21 : 20) * scale,
-      "#eef6fb",
-      font,
-    );
-    if (!compact) {
-      const subFont = `${subSize}px Inter,system-ui`;
-      drawText(
-        fit(o.sub, x + width - textX - 10 * scale, subFont),
-        textX,
-        y + 38 * scale,
-        "#b6cbd8",
-        subFont,
-      );
-    }
   }
   C.dataset.visibleLabels = String(labels.length);
   syncInteractionTargets(labels);

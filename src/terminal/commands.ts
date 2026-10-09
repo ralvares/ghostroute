@@ -47,13 +47,14 @@ export async function exec(cmd: string) {
       !last.classList.contains("error") &&
       !last.classList.contains("command"),
   );
-  observeIncidentCommand(
+  const reviewed = observeIncidentCommand(
     cmd,
     last?.textContent ?? "",
     !!last &&
       !last.classList.contains("error") &&
       !last.classList.contains("command"),
   );
+  for (const id of reviewed) addClue(id);
   updateHUD();
   maybeWin();
 }
@@ -135,9 +136,12 @@ async function executeCommand(cmd: string) {
           )
             addClue("env");
           if (
+            ["get", "describe"].includes(words[1]) &&
             words.some((word) =>
               ["networkpolicies", "networkpolicy", "netpol"].includes(word),
-            )
+            ) &&
+            (handled.stdout.startsWith("No resources found") ||
+              /["']?items["']?:\s*\[\s*\]/.test(handled.stdout))
           )
             addClue("policy");
         }
@@ -476,10 +480,13 @@ export function podCmd(raw: string) {
   if (
     target?.namespace !== "payments" ||
     pod.metadata.labels?.app !== "payment-api" ||
-    !!target?.container && target.container !== pod.spec?.containers?.[0].name
+    (!!target?.container && target.container !== pod.spec?.containers?.[0].name)
   ) {
     const command = tokenize(txt).map((t) => t.value);
-    const output = executePodFixture(pod, { command, container: target?.container });
+    const output = executePodFixture(pod, {
+      command,
+      container: target?.container,
+    });
     if (output.exitCode !== 127 && !output.stderr?.startsWith("simulation:"))
       observeProcess(pod, command, target?.container);
     if (!S.cluster.resources.includes(pod)) {

@@ -6,6 +6,7 @@ import { rhacsFiles } from "../security/rhacs/files.js";
 import { S } from "./state.js";
 import { labFiles } from "./lab-files.js";
 import { policyFiles } from "./resources.js";
+import { incidentRecordFiles } from "../missions/incident-records.js";
 
 export const HOME = "/home/operator";
 const documents: Record<string, string> = {
@@ -61,6 +62,7 @@ function allFiles(): Record<string, string> {
     ...labFiles,
     ...policyFiles,
     ...S.cluster.files,
+    ...incidentRecordFiles,
     ".config/containers/auth.json":
       JSON.stringify(
         {
@@ -218,6 +220,7 @@ export function writeVirtualFile(path: string, content: string) {
   if (
     !key ||
     Object.hasOwn(policyFiles, key) ||
+    Object.hasOwn(incidentRecordFiles, key) ||
     key === "audit/kube-apiserver.log" ||
     key === "gitops/controller.log" ||
     key.startsWith("source/") ||

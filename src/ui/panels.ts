@@ -2,7 +2,12 @@ import { G, C } from "../game/runtime.js";
 import { $ } from "../ui/dom.js";
 import { S } from "../simulation/state.js";
 import type { ClueId } from "../security/evidence.js";
-import { clues } from "../security/evidence.js";
+import { clues, addClue } from "../security/evidence.js";
+import {
+  incidentRecords,
+  incidentRecordStatus,
+} from "../missions/incident-records.js";
+import { showEnding } from "../missions/progression.js";
 import { esc } from "../ui/notifications.js";
 import { showCampaignCase } from "./campaign.js";
 import { campaignChecks, currentChapter } from "../campaign/engine.js";
@@ -31,6 +36,8 @@ export function showCase() {
       ? "CHAPTER " + currentChapter().id
       : "CASE 018";
     const chapter = currentChapter();
+    document.getElementById("retainedEvidenceHelp")!.hidden =
+      !!S.campaign.active;
     const fieldRecords = [
       ...chapter.witnesses.map((w) => ({
         name: "Interview " + w.who.toUpperCase(),
@@ -58,7 +65,7 @@ export function showCase() {
       : Object.entries(clues)
           .map(
             ([k, v]) =>
-              `<button type="button" class="evidenceSlot ${S.evidence.has(k as ClueId) ? "collected" : ""}" data-clue="${k}" aria-label="${esc(v.name)}: ${S.evidence.has(k as ClueId) ? "collected" : "not discovered"}" title="${esc(v.name)}">${S.evidence.has(k as ClueId) ? `<img class="uiIcon" src="${import.meta.env.BASE_URL}ui/folder.svg" alt="" />` : ""}</button>`,
+              `<button type="button" class="evidenceSlot ${S.evidence.has(k as ClueId) ? "collected" : "retained"}" data-clue="${k}" aria-label="${esc(v.name)}: ${S.evidence.has(k as ClueId) ? "reviewed" : "review retained record"}" title="${esc(v.name)} · ${S.evidence.has(k as ClueId) ? "reviewed" : "record available"}"><img class="uiIcon" src="${import.meta.env.BASE_URL}ui/folder.svg" alt="" /><span class="evidenceReviewMark">${S.evidence.has(k as ClueId) ? "✓" : "+"}</span></button>`,
           )
           .join("");
     $("evidenceList")
@@ -66,11 +73,19 @@ export function showCase() {
       .forEach((button) =>
         button.addEventListener("click", () => {
           const key = button.dataset.clue as ClueId,
-            clue = clues[key];
+            clue = clues[key],
+            record = incidentRecords[key];
           closeCaseFile();
           openDetail(
-            `<div class="eyebrow">CASE EVIDENCE</div><h2>${esc(clue.name)}</h2><p>${S.evidence.has(key) ? esc(clue.text) : "Not discovered yet — explore or investigate with oc."}</p><p>A deviation is a lead, not proof of compromise.</p>`,
+            `<div class="eyebrow">CASE 018 · RETAINED EVIDENCE</div><h2>${esc(clue.name)}</h2><p class="recordState">${esc(incidentRecordStatus(S, key))} · ${S.evidence.has(key) ? "Evidence reviewed" : "Evidence available for review"}</p><p>${esc(clue.text)}</p><p class="recordSource">${esc(record.source)} · captured ${esc(record.capturedAt)}. This record describes the incident before remediation.</p><pre class="incidentRecord" tabindex="0" aria-label="Retained ${esc(clue.name)}">${esc(record.content)}</pre><div class="notebookCommand"><code>cat ~/${esc(record.path)}</code><button type="button" data-copy-command="cat ~/${esc(record.path)}" aria-label="Copy command: cat ~/${esc(record.path)}">Copy</button></div><p>A deviation is a lead, not proof of compromise. Fixing the cluster does not erase the case records.</p>${S.evidence.has(key) ? "" : '<button type="button" class="btnquiet" id="reviewIncidentRecord">Mark evidence reviewed</button>'}`,
           );
+          document
+            .getElementById("reviewIncidentRecord")
+            ?.addEventListener("click", () => {
+              closeDetail();
+              addClue(key);
+              if (!G.endOpen) showCase();
+            });
         }),
       );
     $("evidenceList")
@@ -84,9 +99,11 @@ export function showCase() {
     const context = document.getElementById("caseContext")!;
     context.innerHTML = S.campaign.active
       ? `<button class="btnquiet caseContextButton" id="caseObjectives">Current objectives · ${campaignChecks().filter((g) => g.passed).length} / ${campaignChecks().length} complete</button>`
-      : S.evidence.size
-        ? `<details><summary>Who changed it, and how?</summary><p>${S.incident.auditSeen ? "✓" : "○"} Build-bot audit request · ${S.incident.releaseSeen ? "✓" : "○"} Matching release run · ${S.incident.accessSeen ? "✓" : "○"} Permission review · ${S.incident.explained ? "✓ Cause explained" : "○ Cause not explained"}</p><p>At the bastion: <code>case hint</code>.</p></details>`
-        : "";
+      : `${S.evidence.size ? `<details><summary>Who changed it, and how?</summary><p>${S.incident.auditSeen ? "✓" : "○"} Build-bot audit request · ${S.incident.releaseSeen ? "✓" : "○"} Matching release run · ${S.incident.accessSeen ? "✓" : "○"} Permission review · ${S.incident.explained ? "✓ Cause explained" : "○ Cause not explained"}</p><p>At the bastion: <code>case hint</code>.</p></details>` : ""}${S.done ? '<button type="button" class="btnquiet" id="caseDebrief">Return to debrief</button>' : ""}`;
+    document.getElementById("caseDebrief")?.addEventListener("click", () => {
+      closeCaseFile();
+      showEnding();
+    });
     document.getElementById("caseObjectives")?.addEventListener("click", () => {
       closeCaseFile();
       showCampaignCase();

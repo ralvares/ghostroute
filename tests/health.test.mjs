@@ -7,6 +7,7 @@ import {
 } from "../.test-build/src/simulation/state.js";
 import { applyPolicy } from "../.test-build/src/simulation/operations.js";
 import { projectHealth } from "../.test-build/src/simulation/health.js";
+import { synchronizeClusterMetadata } from "../.test-build/src/simulation/cluster-api.js";
 import {
   discover,
   canEnterWorker,
@@ -18,6 +19,7 @@ import {
 } from "../.test-build/src/simulation/snapshot.js";
 test("default-deny degrades checkout without inventing Pod/node failures; policy union restores dependencies", () => {
   resetState();
+  synchronizeClusterMetadata();
   applyPolicy("default-deny-egress");
   const impact = projectHealth(S);
   assert.equal(impact.checkout, "DEGRADED");
@@ -27,11 +29,15 @@ test("default-deny degrades checkout without inventing Pod/node failures; policy
   assert.equal(impact.externalAllowed, false);
   assert.ok(impact.nodes.every((node) => node.ready));
   assert.equal(
-    impact.nodes.find((node) => node.name === "worker-01").pods.filter(p => p.namespace === "payments").length,
+    impact.nodes
+      .find((node) => node.name === "worker-01")
+      .pods.filter((p) => p.namespace === "payments").length,
     1,
   );
   assert.equal(
-    impact.nodes.find((node) => node.name === "worker-02").pods.filter(p => p.namespace === "payments").length,
+    impact.nodes
+      .find((node) => node.name === "worker-02")
+      .pods.filter((p) => p.namespace === "payments").length,
     2,
   );
   applyPolicy("payment-egress");
@@ -40,6 +46,29 @@ test("default-deny degrades checkout without inventing Pod/node failures; policy
   assert.equal(restored.dnsAllowed, true);
   assert.equal(restored.ledgerAllowed, true);
   assert.equal(restored.externalAllowed, false);
+});
+test("health requires an admitted Route, the targeted Service, and matching ready backends", () => {
+  resetState();
+  synchronizeClusterMetadata();
+  const route = S.cluster.resources.find(
+    (r) => r.kind === "Route" && r.metadata.name === "payment-api",
+  );
+  const service = S.cluster.resources.find(
+    (r) => r.kind === "Service" && r.metadata.name === "payment-api",
+  );
+  assert.equal(projectHealth(S).ingressAllowed, true);
+  service.spec.selector = { app: "does-not-exist" };
+  assert.equal(projectHealth(S).ingressAllowed, false);
+  assert.equal(
+    projectHealth(S).readyPods,
+    2,
+    "selector mismatch is a traffic failure, not a Pod failure",
+  );
+  service.spec.selector = { app: "payment-api" };
+  route.status.ingress[0].conditions[0].status = "False";
+  assert.equal(projectHealth(S).ingressAllowed, false);
+  route.status.ingress[0].conditions[0].status = "True";
+  assert.equal(projectHealth(S).ingressAllowed, true);
 });
 test("archive key unlocks story access only; discoveries and key survive checkpoints and older saves", () => {
   const state = makeState();

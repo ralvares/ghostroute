@@ -1,4 +1,5 @@
 import {matchesLabels} from "../security/network-policy.js";
+import { shellPod } from "./pod-target.js";
 import {advanceEmulatorTime} from "../simulation/clock.js";
 import {reconcileFixtureControllers} from "../simulation/engine.js";
 import {durationMs} from "../security/external-secrets.js";
@@ -141,7 +142,7 @@ async function oc(words: string[], raw: string): Promise<Result | null> {
     rejectFlags(flags, ["-n", "--namespace", "-c", "--container", "--as"]);
     if (args.length !== 1) throw new Error("error: exec requires one Pod");
     const namespace = flag("-n") ?? flag("--namespace") ?? S.cluster.namespace;
-    const name = args[0].replace(/^pods?\//, "");
+    const name = shellPod(args[0], namespace, flag("--as")).metadata.name;
     return apiBody(
       kubeRequest({
         method: "POST",

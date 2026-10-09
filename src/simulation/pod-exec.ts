@@ -7,6 +7,7 @@ import { coreResources } from "./cluster-api.js";
 import { S } from "./state.js";
 import type { Resource } from "./cluster-model.js";
 import { flow } from "../simulation/engine.js";
+import { recordConnectionResult } from "./operations.js";
 
 export interface PodExecOptions {
   command: string[];
@@ -113,20 +114,31 @@ export function executePodFixture(
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     return failure("error: invalid destination port", 2);
   const namespace=pod.metadata.namespace!;
+  const paymentSource = namespace === "payments" && pod.metadata.labels?.app === "payment-api";
+  const external = host === "203.0.113.77";
+  const observed = (destination: "ledger" | "external", allowed: boolean, response: PodExecResult) => {
+    if (paymentSource) recordConnectionResult(destination, allowed);
+    return response;
+  };
   let backend: {pod:Resource;port:number}|undefined;
   const service=S.cluster.resources.find(r=>r.kind==='Service'&&(r.spec?.clusterIP===host||[r.metadata.name+(r.metadata.namespace===namespace?'':'.'+r.metadata.namespace),r.metadata.name+'.'+r.metadata.namespace,r.metadata.name+'.'+r.metadata.namespace+'.svc',r.metadata.name+'.'+r.metadata.namespace+'.svc.cluster.local'].includes(host)));
   if(service) {
     if(!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
       const dns:Resource={apiVersion:'v1',kind:'Pod',metadata:{name:'dns-endpoint',namespace:'openshift-dns',labels:{'dns.operator.openshift.io/daemonset-dns':'default'}}};
-      if(networkPolicyDirection(S.cluster.resources,pod,dns,'egress',53,'UDP')===false)return failure('curl: (6) Could not resolve host: '+host,6);
+      if(networkPolicyDirection(S.cluster.resources,pod,dns,'egress',53,'UDP')===false) {
+        const response = failure('curl: (6) Could not resolve host: '+host,6);
+        return service.metadata.namespace === "payments" && service.metadata.name === "ledger" ? observed("ledger", false, response) : response;
+      }
     }
     if(service.spec?.type==='ExternalName')return failure('simulation: ExternalName DNS recursion is not implemented',2);
     const servicePort=service.spec?.ports?.find((p:any)=>p.port===port&&(p.protocol??'TCP')==='TCP');
     backend=servicePort?serviceBackends(service,S.cluster.resources,servicePort).find(b=>podNetworkDomain(b.pod)===podNetworkDomain(pod)):undefined;
-    if(!backend)return failure(curl?`curl: (7) Failed to connect to ${host} port ${port}`:`nc: connect to ${host} port ${port} failed: Connection refused`,curl?7:1);
+    if(!backend) {
+      const response = failure(curl?`curl: (7) Failed to connect to ${host} port ${port}`:`nc: connect to ${host} port ${port} failed: Connection refused`,curl?7:1);
+      return service.metadata.namespace === "payments" && service.metadata.name === "ledger" ? observed("ledger", false, response) : response;
+    }
     port=backend.port;
   }
-  const external = host === "203.0.113.77";
   if (!external && !service && !/^\d+\.\d+\.\d+\.\d+$/.test(host))
     return failure(
       "simulation: these tenant diagnostics use Pod IPs from oc get pods -o wide; service DNS resolution is not implemented here",
@@ -156,13 +168,17 @@ export function executePodFixture(
       external,
       port,
     )
-  )
-    return failure(
+  ) {
+    const response = failure(
       curl
         ? `curl: (28) Failed to connect to ${host} port ${port}: Connection timed out`
         : `nc: connect to ${host} port ${port} failed: Connection timed out`,
       curl ? 28 : 1,
     );
+    if (external && port === 443) return observed("external", false, response);
+    if (target?.metadata.namespace === "payments" && target.metadata.labels?.app === "ledger" && port === 8443) return observed("ledger", false, response);
+    return response;
+  }
   const targetContainer = target?.spec?.containers?.[0];
   const listenPort = Number(
     targetContainer?.env?.find((e) => e.name === "APP_PORT")?.value ??
@@ -175,10 +191,13 @@ export function executePodFixture(
         : `nc: connect to ${host} port ${port} failed: Connection refused`,
       curl ? 7 : 1,
     );
-  return {
+  const response: PodExecResult = {
     stdout: curl
       ? `HTTP/1.1 ${external ? "202 Accepted" : "200 OK"}\ncontent-type: application/json\n${head ? "" : '\n{"status":"healthy"}\n'}`
       : `Connection to ${host} ${port} port [tcp/*] succeeded!\n`,
     exitCode: 0,
   };
+  if (external && port === 443) return observed("external", true, response);
+  if (target?.metadata.namespace === "payments" && target.metadata.labels?.app === "ledger" && port === 8443) return observed("ledger", true, response);
+  return response;
 }

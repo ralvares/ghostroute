@@ -128,7 +128,7 @@ export function updateHUD() {
     phase = "CASE 018 · EXPLAIN THE INCIDENT";
     title = "Fix deployed. Can you prove what happened?";
     txt =
-      "Complete the investigation: collect RHACS/trace evidence and at least three independent clues.";
+      "Review the retained records in Case file or cat ~/case/incident-018/README.md at the bastion. Original evidence remains available after remediation.";
   } else {
     phase = "CASE 018 · PROVE IT";
     title = "Can customers still pay?";

@@ -1,4 +1,4 @@
-import {requestProject} from "../.test-build/src/simulation/project-request.js";
+import { requestProject } from "../.test-build/src/simulation/project-request.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -80,7 +80,8 @@ test("retained payment Deployment selector matches its template and Pods carry t
 test("incident policy apply accepts matching namespace and rejects a mismatched explicit target", async () => {
   resetState();
   assert.equal(
-    (await clusterCommand("oc apply -f policies/deny-all.yaml -n payments")).stdout,
+    (await clusterCommand("oc apply -f policies/deny-all.yaml -n payments"))
+      .stdout,
     "networkpolicy.networking.k8s.io/default-deny-egress created\n",
   );
   await assert.rejects(
@@ -325,8 +326,15 @@ test("replacement payment Pods expose their rollout birth time while the Deploym
     replaced.metadata.creationTimestamp,
     before.metadata.creationTimestamp,
   );
-  assert.ok(Date.parse(replaced.metadata.creationTimestamp) <= Date.parse(event.at));
-  assert.equal(replaced.metadata.creationTimestamp, S.cluster.resources.find(r=>r.kind==="Pod"&&r.metadata.name===replaced.metadata.name).metadata.creationTimestamp);
+  assert.ok(
+    Date.parse(replaced.metadata.creationTimestamp) <= Date.parse(event.at),
+  );
+  assert.equal(
+    replaced.metadata.creationTimestamp,
+    S.cluster.resources.find(
+      (r) => r.kind === "Pod" && r.metadata.name === replaced.metadata.name,
+    ).metadata.creationTimestamp,
+  );
   assert.equal(
     replaced.status.containerStatuses[0].state.running.startedAt,
     replaced.metadata.creationTimestamp,
@@ -339,7 +347,11 @@ test("replacement payment Pods expose their rollout birth time while the Deploym
 });
 test("ordinary Pod exec uses the same ingress/egress policies and preserves API authorization", async () => {
   resetState();
-  requestProject({apiVersion:"project.openshift.io/v1",kind:"ProjectRequest",metadata:{name:"exec-demo"}});
+  requestProject({
+    apiVersion: "project.openshift.io/v1",
+    kind: "ProjectRequest",
+    metadata: { name: "exec-demo" },
+  });
   for (const name of ["client", "server", "stranger"])
     applyApiResource(materialize(workload(name), "exec-demo"), "exec-demo");
   const ip = readApiResources("pods", "exec-demo", "server")[0].status.podIP;
@@ -427,6 +439,33 @@ test("ordinary Pod exec uses the same ingress/egress policies and preserves API 
     /cannot impersonate/,
   );
   S.cluster.user = "platform-admin";
+  await assert.rejects(
+    clusterCommand(`oc exec client -n exec-demo --as=case-reader -- id`),
+    /cannot get resource "pods"/,
+  );
+  applyApiResource(
+    {
+      apiVersion: "rbac.authorization.k8s.io/v1",
+      kind: "Role",
+      metadata: { name: "pod-reader", namespace: "exec-demo" },
+      rules: [{ apiGroups: [""], resources: ["pods"], verbs: ["get", "list"] }],
+    },
+    "exec-demo",
+  );
+  applyApiResource(
+    {
+      apiVersion: "rbac.authorization.k8s.io/v1",
+      kind: "RoleBinding",
+      metadata: { name: "pod-reader", namespace: "exec-demo" },
+      roleRef: {
+        apiGroup: "rbac.authorization.k8s.io",
+        kind: "Role",
+        name: "pod-reader",
+      },
+      subjects: [{ kind: "User", name: "case-reader" }],
+    },
+    "exec-demo",
+  );
   await assert.rejects(
     clusterCommand(`oc exec client -n exec-demo --as=case-reader -- id`),
     /cannot create resource "pods\/exec"/,
@@ -581,7 +620,7 @@ test("Secret writes consume stringData, API reads return base64 data, and runnin
 
 test("primary UDN namespaces wait for network provisioning and overlapping domain IPs stay distinct", async () => {
   resetState();
-  S.cluster.user="platform-admin";
+  S.cluster.user = "platform-admin";
   for (const ns of ["tenant-a", "tenant-b"])
     applyApiResource(
       {
@@ -595,8 +634,11 @@ test("primary UDN namespaces wait for network provisioning and overlapping domai
       "default",
     );
   applyApiResource(materialize(workload("client"), "tenant-a"), "tenant-a");
-  assert.equal(readApiResources("pods","tenant-a","client")[0].status.phase,"Pending");
-  S.cluster.user="platform-admin";
+  assert.equal(
+    readApiResources("pods", "tenant-a", "client")[0].status.phase,
+    "Pending",
+  );
+  S.cluster.user = "platform-admin";
   for (const ns of ["tenant-a", "tenant-b"])
     applyApiResource(
       {
@@ -610,7 +652,7 @@ test("primary UDN namespaces wait for network provisioning and overlapping domai
       },
       ns,
     );
-  assert.ok(readApiResources("pods","tenant-a","client")[0].status.podIP);
+  assert.ok(readApiResources("pods", "tenant-a", "client")[0].status.podIP);
   await clusterCommand("oc delete pod client -n tenant-a");
   for (const [ns, name] of [
     ["tenant-a", "client"],

@@ -641,6 +641,49 @@ remain distinct from live prod-east audit and runtime evidence. The port support
 snapshots and direct history; recursive lineage and full upstream formatting
 remain pending. Explicit time zones preserve deterministic replay.
 
+Historical `get` uses `simulation/resource-table.ts` and the native table
+printer shared by the main CLI. Its 40 retained source events include the
+original Pod/OVN observations. The adapter recovers OVN IPs only for table
+cells, leaving archived JSON/YAML untouched. Deployment tables never invent
+Pod or Service addresses. Reference records never populate live resources.
+
+## Retained incident evidence and notebook commands
+
+`missions/incident-records.ts` owns the five immutable opening observations,
+their source/capture times and virtual-file paths. These authored case records
+are available independently of current Deployment configuration, policy state,
+and saved review membership. `simulation/filesystem.ts` exposes and protects
+them under `~/case/incident-018/`, including for older saves; it overlays the
+immutable records after player files so saved overrides cannot replace them.
+They are separate from live API resources and are never applied during review.
+
+`missions/incident.ts` recognizes successful file reads whose output contains
+the relevant evidence. `terminal/commands.ts` records that review through the
+existing `evidence.collected` event. `ui/panels.ts` presents the same retained
+record and an explicit review action; current issue state and saved review
+state have separate labels. Remediation itself never grants review credit.
+The debrief can reopen Case file without resetting or reopening the incident.
+
+`terminal/pod-target.ts` resolves Pod and Deployment exec targets through the
+same authorized API reads. `simulation/pod-exec.ts` records actual diagnostic
+results via `operations.recordConnectionResult`, so positive/negative proof
+can come from single-command `oc exec` as well as the interactive `oc rsh`
+path. An unrelated command or connection failure is not negative proof of
+policy enforcement; only the recorded external policy timeout earns it.
+
+`missions/command-leads.ts` derives command groups from persisted discoveries,
+interviews and evidence. `ui/notebook-commands.ts` renders them in Case file and
+the bastion with Copy controls; copying never executes a command. Personal
+notes remain `story.notes`, shared by both textareas. Discovery-derived groups
+are recomputed after loading rather than stored as a second source of truth.
+
+`world/interaction-targets.ts` owns visible browser-rendered map labels. Canvas
+rendering retains anchored leader lines and ground rings. Labels use CSS pixel
+coordinates and DOM text, preserving readable type when the world is scaled.
+`ui/application-map.ts` renders connected Route, Service-selector, workload and
+dependency topology. `simulation/health.ts` projects ingress/backend health;
+Ready Pods alone do not prove an admitted Route or matching Service path.
+
 Pages uses configure-pages' base_path before building, allowing the configured
 custom domain to serve from `/`. `public/CNAME` retains gameplay.ralvares.com.
 HTTPS enforcement is enabled in repository Pages settings.

@@ -15,13 +15,13 @@ const targets = new Map<
   { button: HTMLButtonElement; object: WorldObject }
 >();
 
-/** Labels are controls at their painted position, even when layout moves them. */
+/** Browser text stays sharp at display density; its control is the visible label. */
 export function syncInteractionTargets(labels: PlacedLabel[]) {
   const shown = new Set(labels.map((label) => label.object.id));
   const bounds = C.getBoundingClientRect();
-  layer.hidden =
+  layer.hidden = !labels.length;
+  layer.inert =
     !document.getElementById("opening")!.hidden ||
-    !labels.length ||
     G.terminalOpen ||
     G.detailOpen ||
     G.endOpen ||
@@ -48,12 +48,46 @@ export function syncInteractionTargets(labels: PlacedLabel[]) {
       !!G.markerObjectives[id],
     );
     button.dataset.objective = String(G.markerObjectives[id]?.number ?? "");
+    const onRing =
+      label.object.kind === "portal" &&
+      button.dataset.markerState === "on-ring";
+    const objective = G.markerObjectives[id];
+    button.dataset.highlighted = String(onRing || !!objective?.current);
+    button.dataset.compact = String(label.compact);
+    const stamp = JSON.stringify([
+      label.object.label,
+      label.object.sub,
+      onRing,
+      objective?.number,
+      label.compact,
+    ]);
+    if (button.dataset.textStamp !== stamp) {
+      button.dataset.textStamp = stamp;
+      button.replaceChildren();
+      if (onRing || objective) {
+        const badge = document.createElement("span");
+        badge.className = "worldLabelBadge";
+        badge.textContent = onRing ? "E" : String(objective!.number);
+        button.append(badge);
+      }
+      const text = document.createElement("span");
+      text.className = "worldLabelText";
+      const title = document.createElement("strong");
+      title.textContent = (onRing ? "Enter " : "") + label.object.label;
+      text.append(title);
+      if (!label.compact) {
+        const subtitle = document.createElement("small");
+        subtitle.textContent = label.object.sub;
+        text.append(subtitle);
+      }
+      button.append(text);
+    }
     button.setAttribute(
       "aria-label",
       `${label.object.label}: ${label.object.sub}`,
     );
-    button.style.left = `${((label.x - G.cameraX) * bounds.width) / C.width}px`;
-    button.style.top = `${((label.y - G.cameraY) * bounds.height) / C.height}px`;
+    button.style.left = `${Math.round(((label.x - G.cameraX) * bounds.width) / C.width)}px`;
+    button.style.top = `${Math.round(((label.y - G.cameraY) * bounds.height) / C.height)}px`;
     button.style.width = `${(label.width * bounds.width) / C.width}px`;
     button.style.height = `${(label.height * bounds.height) / C.height}px`;
   }

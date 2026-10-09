@@ -1,12 +1,48 @@
 import type { SimulationState } from "./state.js";
+import { serviceBackends } from "../network/services.js";
 
 /** Policy reachability and Pod readiness are separate signals, not node failures. */
 export function projectHealth(state: SimulationState) {
-  const dependencyBlocked = !state.incidentNetwork.dns || !state.incidentNetwork.ledger;
+  const dependencyBlocked =
+    !state.incidentNetwork.dns || !state.incidentNetwork.ledger;
   const readyPods = state.pods.filter((pod) => pod.ready).length;
   const externalAllowed = state.incidentNetwork.external;
+  const route = state.cluster.resources.find(
+    (r) =>
+      r.kind === "Route" &&
+      r.metadata.namespace === "payments" &&
+      r.metadata.name === "payment-api",
+  );
+  const service = state.cluster.resources.find(
+    (r) =>
+      r.kind === "Service" &&
+      r.metadata.namespace === "payments" &&
+      r.metadata.name === route?.spec?.to?.name,
+  );
+  const port =
+    service?.spec?.ports?.find(
+      (p: any) =>
+        p.name === route?.spec?.port?.targetPort ||
+        p.port === route?.spec?.port?.targetPort,
+    ) ?? (!route?.spec?.port ? service?.spec?.ports?.[0] : undefined);
+  const ingressAllowed =
+    !!route &&
+    !!service &&
+    !!port &&
+    (route.status?.ingress as any[])?.some((i) =>
+      i.conditions?.some(
+        (c: any) => c.type === "Admitted" && c.status === "True",
+      ),
+    ) &&
+    serviceBackends(service, state.cluster.resources, port).length > 0;
   return {
-    checkout: dependencyBlocked || readyPods < Math.max(1,state.deployment.desiredReplicas) ? "DEGRADED" : "HEALTHY",
+    checkout:
+      dependencyBlocked ||
+      !ingressAllowed ||
+      readyPods < Math.max(1, state.deployment.desiredReplicas)
+        ? "DEGRADED"
+        : "HEALTHY",
+    ingressAllowed: !!ingressAllowed,
     readyPods,
     dnsAllowed: state.incidentNetwork.dns,
     ledgerAllowed: state.incidentNetwork.ledger,
@@ -45,7 +81,8 @@ export function projectHealth(state: SimulationState) {
                   (status: { ready: boolean }) => status.ready,
                 ),
             })),
-          ...(!state.cluster.incidentStored && node.metadata.name === "worker-02"
+          ...(!state.cluster.incidentStored &&
+          node.metadata.name === "worker-02"
             ? [{ name: "ledger", namespace: "payments", ready: true }]
             : []),
         ],

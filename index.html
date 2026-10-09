@@ -187,6 +187,10 @@
                 maxlength="50000"
                 placeholder="Evidence, commands to try, and questions for witnesses…"
               ></textarea>
+              <details class="collectedCommandSection" open>
+                <summary>Commands from collected leads</summary>
+                <div id="bastionCommands" class="commandNotebook"></div>
+              </details>
             </aside>
           </div>
         </section>
@@ -262,6 +266,10 @@
             <h3>Case board</h3>
             <span id="caseEvidenceCount">0 / 5 evidence</span>
           </div>
+          <p id="retainedEvidenceHelp" class="retainedEvidenceHint" hidden>
+            All five incident records remain available after fixes. Select a
+            folder to review its evidence.
+          </p>
           <div id="evidenceList"></div>
           <div class="workbench">
             <section class="notesDock" aria-label="Investigator notebook">
@@ -275,6 +283,10 @@
                 placeholder="What changed? Who had access? Keep your evidence and next commands here…"
               ></textarea>
               <p>Your notes follow you to the bastion.</p>
+              <details class="collectedCommandSection">
+                <summary>Commands from collected leads</summary>
+                <div id="caseCommands" class="commandNotebook"></div>
+              </details>
             </section>
             <section class="intelDock" aria-label="Live investigation health">
               <section
